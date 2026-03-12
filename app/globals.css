@@ -1,26 +1,196 @@
-@import "tailwindcss";
+/* ==============================
+   OPTIMUS MANAGER LAYOUT
+============================== */
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+.om-layout {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  background: #ffffff;
+  color: #111111;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.om-sidebar {
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  padding: 28px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.om-logo {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 8px 18px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.om-logo-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #111111;
+  flex-shrink: 0;
+}
+
+.om-logo h1 {
+  margin: 0;
+  font-size: 22px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.om-logo p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #666666;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.om-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.om-side-link {
+  height: 52px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+  border-radius: 16px;
+  text-align: left;
+  padding: 0 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #111111;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.om-side-link:hover {
+  background: #f6f6f6;
+  border-color: rgba(0, 0, 0, 0.16);
+}
+
+.om-side-link.active {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.om-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.om-topbar {
+  height: 86px;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: #ffffff;
+}
+
+.om-top-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.om-top-link {
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  color: #111111;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.om-top-link:hover {
+  background: #f5f5f5;
+}
+
+.om-top-link.active {
+  background: #111111;
+  color: #ffffff;
+  border-color: #111111;
+}
+
+.om-content {
+  padding: 28px;
+}
+
+.om-hero-card {
+  min-height: 260px;
+  border-radius: 28px;
+  background: linear-gradient(to bottom right, #ffffff, #f8f8f8);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  padding: 34px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.05),
+    0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.om-kicker {
+  display: inline-block;
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #666666;
+}
+
+.om-hero-card h2 {
+  margin: 0 0 12px;
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+}
+
+.om-hero-card p {
+  margin: 0;
+  max-width: 640px;
+  color: #555555;
+  font-size: 17px;
+  line-height: 1.7;
+}
+
+@media (max-width: 900px) {
+  .om-layout {
+    grid-template-columns: 1fr;
   }
-}
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  .om-sidebar {
+    border-right: none;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .om-topbar {
+    height: auto;
+    padding: 18px 16px;
+  }
+
+  .om-content {
+    padding: 16px;
+  }
+
+  .om-hero-card {
+    padding: 24px;
+    border-radius: 22px;
+  }
+
+  .om-hero-card h2 {
+    font-size: 30px;
+  }
 }

@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import './VetTab.css'
 import MedicinesTab from './MedicinesTab'
+import VaccinationsTab from './VaccinationsTab'
+import DewormingTab from './DewormingTab'
 
 type VetMenu =
   | 'Xray'
-  | 'Labo Results'
-  | 'Wim Vermeiren'
+  | 'Lab Results'
+  | 'Vet Visits'
   | 'Treatments'
   | 'Vaccinations'
+  | 'Deworming'
   | 'Mares'
   | 'Births'
   | 'Medicines'
@@ -19,18 +22,27 @@ const menuItems: {
   title: string
   text: string
 }[] = [
-  { key: 'Xray', title: 'Xray', text: 'Scans en beeldvorming' },
-  { key: 'Labo Results', title: 'Labo Results', text: 'Bloedanalyse en laboresultaten' },
-  { key: 'Wim Vermeiren', title: 'Wim Vermeiren', text: 'Bezoeken en opvolging' },
-  { key: 'Treatments', title: 'Treatments', text: 'Behandelingen en medicatie' },
-  { key: 'Vaccinations', title: 'Vaccinations', text: 'Vaccins en planning' },
-  { key: 'Medicines', title: 'Medicines', text: 'Geneesmiddelenregister' },
-  { key: 'Mares', title: 'Mares', text: 'Merrie opvolging' },
-  { key: 'Births', title: 'Births', text: 'Veulens en geboortes' },
+  { key: 'Xray', title: 'Xray', text: 'X-ray scans and imaging' },
+  { key: 'Lab Results', title: 'Lab Results', text: 'Blood tests and lab results' },
+  { key: 'Vet Visits', title: 'Vet Visits', text: 'Vet visits and follow-up' },
+  { key: 'Treatments', title: 'Treatments', text: 'Treatments and medication' },
+  { key: 'Vaccinations', title: 'Vaccinations', text: 'Vaccines and planning' },
+  { key: 'Deworming', title: 'Deworming', text: 'Deworming and schedule' },
+  { key: 'Medicines', title: 'Medicines', text: 'Medicine register' },
+  { key: 'Mares', title: 'Mares', text: 'Mare monitoring' },
+  { key: 'Births', title: 'Births', text: 'Foals and births' },
 ]
 
 export default function VetTab() {
   const [activeMenu, setActiveMenu] = useState<VetMenu | null>(null)
+
+  if (activeMenu === 'Vaccinations') {
+    return <VaccinationsTab onBack={() => setActiveMenu(null)} />
+  }
+
+  if (activeMenu === 'Deworming') {
+    return <DewormingTab onBack={() => setActiveMenu(null)} />
+  }
 
   if (activeMenu === 'Medicines') {
     return <MedicinesTab />
@@ -47,6 +59,7 @@ export default function VetTab() {
             key={item.key}
             className="vet-menu-card"
             onClick={() => setActiveMenu(item.key)}
+            type="button"
           >
             <span className="vet-menu-card-title">{item.title}</span>
             <span className="vet-menu-card-text">{item.text}</span>

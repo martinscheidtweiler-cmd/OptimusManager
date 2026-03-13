@@ -1,0 +1,289 @@
+.page {
+  min-height: 100%;
+  padding: 28px;
+  background: #f8f7f3;
+}
+
+.inner {
+  max-width: 1120px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.topbarLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.backButton,
+.primaryButton,
+.secondaryButton {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    opacity 0.2s ease,
+    transform 0.2s ease;
+}
+
+.backButton,
+.secondaryButton {
+  background: #ffffff;
+  color: #111111;
+  border: 1px solid rgba(17, 17, 17, 0.12);
+}
+
+.backButton:hover,
+.secondaryButton:hover {
+  background: #f6f5f1;
+}
+
+.primaryButton {
+  background: #111111;
+  color: #ffffff;
+  border: 1px solid #111111;
+}
+
+.primaryButton:hover {
+  opacity: 0.92;
+}
+
+.primaryButton:disabled,
+.secondaryButton:disabled,
+.backButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.heroCard {
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 24px;
+  padding: 22px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.04),
+    0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.kicker {
+  display: inline-block;
+  margin-bottom: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #7a7a7a;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display), serif;
+  font-size: 40px;
+  line-height: 0.95;
+  letter-spacing: -0.04em;
+  color: #111111;
+}
+
+.subtitle {
+  margin: 10px 0 0;
+  color: #666666;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.card {
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 22px;
+  padding: 18px;
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.04),
+    0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.fullWidth {
+  grid-column: 1 / -1;
+}
+
+.cardTitle {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #111111;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.fullField {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #666666;
+}
+
+.input,
+.select,
+.textarea {
+  width: 100%;
+  border: 1px solid rgba(17, 17, 17, 0.1);
+  border-radius: 14px;
+  background: #ffffff;
+  color: #111111;
+  font-size: 14px;
+  outline: none;
+  box-shadow:
+    0 6px 16px rgba(0, 0, 0, 0.03),
+    0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.input,
+.select {
+  height: 46px;
+  padding: 0 14px;
+}
+
+.textarea {
+  min-height: 150px;
+  padding: 14px;
+  resize: vertical;
+}
+
+.input:focus,
+.select:focus,
+.textarea:focus {
+  border-color: #111111;
+}
+
+.toggleGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.toggleCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid rgba(17, 17, 17, 0.08);
+  border-radius: 16px;
+  background: #faf9f6;
+  cursor: pointer;
+}
+
+.toggleCard input {
+  margin-top: 2px;
+}
+
+.toggleTitle {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #111111;
+}
+
+.toggleText {
+  display: block;
+  font-size: 13px;
+  color: #666666;
+  line-height: 1.4;
+}
+
+.inlineNote {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #777777;
+}
+
+.loading,
+.notFound {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+  color: #666666;
+  font-size: 14px;
+}
+
+@media (max-width: 900px) {
+  .page {
+    padding: 18px;
+  }
+
+  .title {
+    font-size: 32px;
+  }
+
+  .grid,
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .fullWidth,
+  .fullField {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar {
+    align-items: stretch;
+  }
+
+  .topbarLeft {
+    width: 100%;
+  }
+
+  .backButton,
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+  }
+
+  .heroCard,
+  .card {
+    padding: 16px;
+    border-radius: 18px;
+  }
+}

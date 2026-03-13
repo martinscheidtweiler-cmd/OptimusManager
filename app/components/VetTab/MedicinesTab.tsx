@@ -36,6 +36,7 @@ type StockRow = {
 type RegisterRow = {
   id: string
   entry_type: 'issuance' | 'usage'
+  stock_source: 'issuance' | 'begin_stock' | 'correction' | null
   medicine_id: string
   medicine_name: string
   active_substance: string | null
@@ -50,6 +51,48 @@ type RegisterRow = {
   horse_scope: 'selected' | 'all'
   horse_ids: string[]
   horse_names: string[]
+  notes: string | null
+  storage_location: string | null
+  created_at: string
+}
+
+type ExpiryWarningRow = {
+  id: string
+  medicine_id: string
+  medicine_name: string
+  active_substance: string | null
+  category: string | null
+  form: string | null
+  stock_source: 'issuance' | 'begin_stock' | 'correction' | null
+  issue_date: string
+  expiry_date: string | null
+  lot_number: string | null
+  issued_quantity: number
+  used_quantity: number
+  remaining_quantity: number
+  storage_location: string | null
+  notes: string | null
+  days_until_expiry: number
+  expiry_status: 'expired' | 'expiring_soon' | 'ok'
+}
+
+type BatchStockRow = {
+  id: string
+  medicine_id: string
+  medicine_name: string
+  active_substance: string | null
+  category: string | null
+  form: string | null
+  stock_source: 'issuance' | 'begin_stock' | 'correction' | null
+  issue_date: string
+  expiry_date: string | null
+  lot_number: string | null
+  issued_by: string | null
+  issued_by_other: string | null
+  issued_quantity: number
+  used_quantity: number
+  remaining_quantity: number
+  storage_location: string | null
   notes: string | null
   created_at: string
 }
@@ -84,6 +127,8 @@ const ISSUED_BY_OPTIONS = [
   'Other',
 ] as const
 
+type IssuanceMode = 'issuance' | 'begin_stock'
+
 export default function MedicinesTab() {
   const [loading, setLoading] = useState(true)
 
@@ -91,6 +136,8 @@ export default function MedicinesTab() {
   const [horses, setHorses] = useState<Horse[]>([])
   const [stockRows, setStockRows] = useState<StockRow[]>([])
   const [registerRows, setRegisterRows] = useState<RegisterRow[]>([])
+  const [expiryWarnings, setExpiryWarnings] = useState<ExpiryWarningRow[]>([])
+  const [batchRows, setBatchRows] = useState<BatchStockRow[]>([])
 
   const [search, setSearch] = useState('')
   const [horseSearchAdd, setHorseSearchAdd] = useState('')
@@ -99,6 +146,8 @@ export default function MedicinesTab() {
   const [showAddModal, setShowAddModal] = useState(false)
   const [showUsageModal, setShowUsageModal] = useState(false)
   const [showCreateMedicineInline, setShowCreateMedicineInline] = useState(false)
+
+  const [issuanceMode, setIssuanceMode] = useState<IssuanceMode>('issuance')
 
   const [medicineInlineForm, setMedicineInlineForm] = useState({
     name: '',
@@ -118,11 +167,13 @@ export default function MedicinesTab() {
     quantity: '1',
     horse_scope: 'selected' as 'selected' | 'all',
     selected_horse_ids: [] as string[],
+    storage_location: '',
     notes: '',
   })
 
   const [usageForm, setUsageForm] = useState({
     medicine_id: '',
+    issuance_id: '',
     usage_date: new Date().toISOString().slice(0, 10),
     quantity: '1',
     horse_scope: 'selected' as 'selected' | 'all',
@@ -133,7 +184,14 @@ export default function MedicinesTab() {
   async function loadData() {
     setLoading(true)
 
-    const [medicinesRes, horsesRes, stockRes, registerRes] = await Promise.all([
+    const [
+      medicinesRes,
+      horsesRes,
+      stockRes,
+      registerRes,
+      expiryRes,
+      batchRes,
+    ] = await Promise.all([
       supabase.from('medicines').select('*').order('name', { ascending: true }),
 
       supabase
@@ -149,12 +207,25 @@ export default function MedicinesTab() {
         .select('*')
         .order('entry_date', { ascending: false })
         .limit(300),
+
+      supabase
+        .from('medicine_expiry_warning_view')
+        .select('*')
+        .order('expiry_date', { ascending: true }),
+
+      supabase
+        .from('medicine_batch_stock_view')
+        .select('*')
+        .order('medicine_name', { ascending: true })
+        .order('expiry_date', { ascending: true }),
     ])
 
     if (!medicinesRes.error) setMedicines((medicinesRes.data as Medicine[]) || [])
     if (!horsesRes.error) setHorses((horsesRes.data as Horse[]) || [])
     if (!stockRes.error) setStockRows((stockRes.data as StockRow[]) || [])
     if (!registerRes.error) setRegisterRows((registerRes.data as RegisterRow[]) || [])
+    if (!expiryRes.error) setExpiryWarnings((expiryRes.data as ExpiryWarningRow[]) || [])
+    if (!batchRes.error) setBatchRows((batchRes.data as BatchStockRow[]) || [])
 
     setLoading(false)
   }
@@ -176,8 +247,16 @@ export default function MedicinesTab() {
             : row.issued_by || ''
           : ''
 
+      const sourceText =
+        row.stock_source === 'begin_stock'
+          ? 'start stock initial stock'
+          : row.stock_source === 'correction'
+            ? 'correction'
+            : 'delivery issuance'
+
       return [
         row.entry_type,
+        sourceText,
         row.medicine_name,
         row.active_substance,
         row.category,
@@ -188,6 +267,7 @@ export default function MedicinesTab() {
         giverText,
         horsesText,
         row.notes,
+        row.storage_location,
       ]
         .filter(Boolean)
         .join(' ')
@@ -208,9 +288,24 @@ export default function MedicinesTab() {
     return horses.filter((horse) => horse.name.toLowerCase().includes(q))
   }, [horses, horseSearchUsage])
 
+  const filteredUsageBatches = useMemo(() => {
+    if (!usageForm.medicine_id) return []
+
+    return batchRows.filter(
+      (row) =>
+        row.medicine_id === usageForm.medicine_id &&
+        Number(row.remaining_quantity) > 0
+    )
+  }, [batchRows, usageForm.medicine_id])
+
+  const selectedUsageBatch = useMemo(() => {
+    if (!usageForm.issuance_id) return null
+    return filteredUsageBatches.find((row) => row.id === usageForm.issuance_id) || null
+  }, [filteredUsageBatches, usageForm.issuance_id])
+
   async function createMedicineInline() {
     if (!medicineInlineForm.name.trim()) {
-      alert('Geef een naam van het geneesmiddel op.')
+      alert('Please enter a medicine name.')
       return
     }
 
@@ -243,12 +338,13 @@ export default function MedicinesTab() {
 
     setShowCreateMedicineInline(false)
     await loadData()
-    setIssuanceForm((p) => ({ ...p, medicine_id: created.id }))
+    setIssuanceForm((prev) => ({ ...prev, medicine_id: created.id }))
   }
 
   function toggleHorseInIssuance(horseId: string) {
     setIssuanceForm((prev) => {
       const exists = prev.selected_horse_ids.includes(horseId)
+
       return {
         ...prev,
         selected_horse_ids: exists
@@ -261,6 +357,7 @@ export default function MedicinesTab() {
   function toggleHorseInUsage(horseId: string) {
     setUsageForm((prev) => {
       const exists = prev.selected_horse_ids.includes(horseId)
+
       return {
         ...prev,
         selected_horse_ids: exists
@@ -273,7 +370,9 @@ export default function MedicinesTab() {
   function selectAllVisibleIssuanceHorses() {
     setIssuanceForm((prev) => ({
       ...prev,
-      selected_horse_ids: Array.from(new Set([...prev.selected_horse_ids, ...filteredHorsesAdd.map((h) => h.id)])),
+      selected_horse_ids: Array.from(
+        new Set([...prev.selected_horse_ids, ...filteredHorsesAdd.map((h) => h.id)])
+      ),
     }))
   }
 
@@ -287,7 +386,9 @@ export default function MedicinesTab() {
   function selectAllVisibleUsageHorses() {
     setUsageForm((prev) => ({
       ...prev,
-      selected_horse_ids: Array.from(new Set([...prev.selected_horse_ids, ...filteredHorsesUsage.map((h) => h.id)])),
+      selected_horse_ids: Array.from(
+        new Set([...prev.selected_horse_ids, ...filteredHorsesUsage.map((h) => h.id)])
+      ),
     }))
   }
 
@@ -301,16 +402,35 @@ export default function MedicinesTab() {
   async function handleAddIssuance(e: React.FormEvent) {
     e.preventDefault()
 
-    const selectedHorseIds =
-      issuanceForm.horse_scope === 'all' ? [] : issuanceForm.selected_horse_ids
-
-    if (issuanceForm.horse_scope === 'selected' && selectedHorseIds.length === 0) {
-      alert('Selecteer minstens 1 paard.')
+    if (!issuanceForm.medicine_id) {
+      alert('Please select a medicine.')
       return
     }
 
-    if (issuanceForm.issued_by === 'Other' && !issuanceForm.issued_by_other.trim()) {
-      alert('Vul de naam in bij Other.')
+    const quantityNumber = Number(issuanceForm.quantity)
+    if (!quantityNumber || quantityNumber <= 0) {
+      alert('Please enter a valid quantity.')
+      return
+    }
+
+    const selectedHorseIds =
+      issuanceForm.horse_scope === 'all' ? [] : issuanceForm.selected_horse_ids
+
+    if (
+      issuanceMode === 'issuance' &&
+      issuanceForm.horse_scope === 'selected' &&
+      selectedHorseIds.length === 0
+    ) {
+      alert('Please select at least 1 horse.')
+      return
+    }
+
+    if (
+      issuanceMode === 'issuance' &&
+      issuanceForm.issued_by === 'Other' &&
+      !issuanceForm.issued_by_other.trim()
+    ) {
+      alert('Please enter the name for Other.')
       return
     }
 
@@ -321,19 +441,35 @@ export default function MedicinesTab() {
             .filter((horse) => selectedHorseIds.includes(horse.id))
             .map((horse) => horse.name)
 
+    const startStockNote =
+      'Stock already present when the system started. Exact delivery date unknown.'
+
+    const finalNotes =
+      issuanceMode === 'begin_stock'
+        ? issuanceForm.notes.trim()
+          ? `${issuanceForm.notes.trim()} | ${startStockNote}`
+          : startStockNote
+        : issuanceForm.notes.trim() || null
+
     const { error } = await supabase.from('medicine_issuances').insert({
       medicine_id: issuanceForm.medicine_id,
       issue_date: issuanceForm.issue_date,
       expiry_date: issuanceForm.expiry_date || null,
       lot_number: issuanceForm.lot_number || null,
-      issued_by: issuanceForm.issued_by,
+      issued_by: issuanceMode === 'begin_stock' ? null : issuanceForm.issued_by,
       issued_by_other:
-        issuanceForm.issued_by === 'Other' ? issuanceForm.issued_by_other.trim() : null,
-      quantity: Number(issuanceForm.quantity),
+        issuanceMode === 'begin_stock'
+          ? null
+          : issuanceForm.issued_by === 'Other'
+            ? issuanceForm.issued_by_other.trim()
+            : null,
+      quantity: quantityNumber,
       horse_scope: issuanceForm.horse_scope,
       horse_ids: selectedHorseIds,
       horse_names: selectedHorseNames,
-      notes: issuanceForm.notes || null,
+      storage_location: issuanceForm.storage_location || null,
+      notes: finalNotes,
+      stock_source: issuanceMode,
     })
 
     if (error) {
@@ -351,10 +487,12 @@ export default function MedicinesTab() {
       quantity: '1',
       horse_scope: 'selected',
       selected_horse_ids: [],
+      storage_location: '',
       notes: '',
     })
 
     setHorseSearchAdd('')
+    setIssuanceMode('issuance')
     setShowAddModal(false)
     await loadData()
   }
@@ -362,11 +500,32 @@ export default function MedicinesTab() {
   async function handleAddUsage(e: React.FormEvent) {
     e.preventDefault()
 
+    if (!usageForm.medicine_id) {
+      alert('Please select a medicine.')
+      return
+    }
+
+    if (!usageForm.issuance_id) {
+      alert('Please select a batch.')
+      return
+    }
+
+    const quantityNumber = Number(usageForm.quantity)
+    if (!quantityNumber || quantityNumber <= 0) {
+      alert('Please enter a valid quantity.')
+      return
+    }
+
+    if (selectedUsageBatch && quantityNumber > Number(selectedUsageBatch.remaining_quantity)) {
+      alert(`Only ${selectedUsageBatch.remaining_quantity} left in this batch.`)
+      return
+    }
+
     const selectedHorseIds =
       usageForm.horse_scope === 'all' ? [] : usageForm.selected_horse_ids
 
     if (usageForm.horse_scope === 'selected' && selectedHorseIds.length === 0) {
-      alert('Selecteer minstens 1 paard.')
+      alert('Please select at least 1 horse.')
       return
     }
 
@@ -379,12 +538,13 @@ export default function MedicinesTab() {
 
     const { error } = await supabase.from('medicine_usage').insert({
       medicine_id: usageForm.medicine_id,
+      issuance_id: usageForm.issuance_id,
       usage_date: usageForm.usage_date,
-      quantity: Number(usageForm.quantity),
+      quantity: quantityNumber,
       horse_scope: usageForm.horse_scope,
       horse_ids: selectedHorseIds,
       horse_names: selectedHorseNames,
-      notes: usageForm.notes || null,
+      notes: usageForm.notes.trim() || null,
     })
 
     if (error) {
@@ -394,6 +554,7 @@ export default function MedicinesTab() {
 
     setUsageForm({
       medicine_id: '',
+      issuance_id: '',
       usage_date: new Date().toISOString().slice(0, 10),
       quantity: '1',
       horse_scope: 'selected',
@@ -408,8 +569,43 @@ export default function MedicinesTab() {
 
   function renderIssuedBy(row: RegisterRow) {
     if (row.entry_type !== 'issuance') return '—'
+    if (row.stock_source === 'begin_stock') return '—'
     if (row.issued_by === 'Other') return row.issued_by_other || 'Other'
     return row.issued_by || '—'
+  }
+
+  function getRegisterTypeLabel(row: RegisterRow) {
+    if (row.entry_type === 'usage') return 'Usage'
+    if (row.stock_source === 'begin_stock') return 'Start stock'
+    if (row.stock_source === 'correction') return 'Correction'
+    return 'Delivery'
+  }
+
+  function getRegisterTypeClass(row: RegisterRow) {
+    if (row.entry_type === 'usage') return 'med-badge med-badge-warning'
+    if (row.stock_source === 'begin_stock') return 'med-badge med-badge-gold'
+    if (row.stock_source === 'correction') return 'med-badge med-badge-soft'
+    return 'med-badge'
+  }
+
+  function closeAddModal() {
+    setShowAddModal(false)
+    setShowCreateMedicineInline(false)
+    setIssuanceMode('issuance')
+  }
+
+  function closeUsageModal() {
+    setShowUsageModal(false)
+    setUsageForm({
+      medicine_id: '',
+      issuance_id: '',
+      usage_date: new Date().toISOString().slice(0, 10),
+      quantity: '1',
+      horse_scope: 'selected',
+      selected_horse_ids: [],
+      notes: '',
+    })
+    setHorseSearchUsage('')
   }
 
   return (
@@ -419,8 +615,7 @@ export default function MedicinesTab() {
           <span className="med-kicker">Health Management</span>
           <h2 className="med-title">Medicines Register</h2>
           <p className="med-subtitle">
-            Registreer afgifte en verbruik van geneesmiddelen en koppel ze direct
-            aan actieve paarden uit de horses tabel.
+            Track medicine delivery, start stock, and usage for active horses.
           </p>
         </div>
 
@@ -428,7 +623,7 @@ export default function MedicinesTab() {
           <button
             className="med-action-icon med-action-plus"
             onClick={() => setShowAddModal(true)}
-            aria-label="Afgifte registreren"
+            aria-label="Register delivery or start stock"
           >
             +
           </button>
@@ -436,7 +631,7 @@ export default function MedicinesTab() {
           <button
             className="med-action-icon med-action-minus"
             onClick={() => setShowUsageModal(true)}
-            aria-label="Verbruik registreren"
+            aria-label="Register usage"
           >
             −
           </button>
@@ -450,7 +645,7 @@ export default function MedicinesTab() {
       <div className="med-toolbar">
         <input
           className="med-search"
-          placeholder="Zoek op middel, lotnummer, paard..."
+          placeholder="Search by medicine, lot number, horse..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -460,37 +655,58 @@ export default function MedicinesTab() {
         <div className="med-panel med-loading">Loading...</div>
       ) : (
         <>
-          <div className="med-summary-grid">
-            <div className="med-stat-card">
-              <span className="med-stat-label">Geneesmiddelen</span>
-              <strong>{medicines.length}</strong>
-            </div>
+          {expiryWarnings.length > 0 && (
+            <div className="med-panel med-warning-panel">
+              <div className="med-panel-header">
+                <h3>Expiry warning</h3>
+              </div>
 
-            <div className="med-stat-card">
-              <span className="med-stat-label">Actieve paarden</span>
-              <strong>{horses.length}</strong>
-            </div>
+              <div className="med-warning-list">
+                {expiryWarnings.map((row) => (
+                  <div key={row.id} className="med-warning-item">
+                    <div className="med-warning-main">
+                      <strong>{row.medicine_name}</strong>
+                      <span
+                        className={
+                          row.expiry_status === 'expired'
+                            ? 'med-expired'
+                            : 'med-expiring'
+                        }
+                      >
+                        {row.expiry_status === 'expired'
+                          ? 'Expired'
+                          : `${row.days_until_expiry} days left`}
+                      </span>
+                    </div>
 
-            <div className="med-stat-card">
-              <span className="med-stat-label">Registerlijnen</span>
-              <strong>{registerRows.length}</strong>
+                    <div className="med-warning-meta">
+                      Expiry date: {row.expiry_date || '—'}
+                      {row.lot_number ? ` · Lot: ${row.lot_number}` : ''}
+                      {row.storage_location ? ` · Location: ${row.storage_location}` : ''}
+                      {typeof row.remaining_quantity === 'number'
+                        ? ` · Remaining: ${row.remaining_quantity}`
+                        : ''}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           <div className="med-panel">
             <div className="med-panel-header">
-              <h3>Huidige stock</h3>
+              <h3>Current stock</h3>
             </div>
 
             <div className="med-table-wrap">
               <table className="med-table">
                 <thead>
                   <tr>
-                    <th>Geneesmiddel</th>
-                    <th>Uitgegeven</th>
-                    <th>Verbruikt</th>
+                    <th>Medicine</th>
+                    <th>Delivered</th>
+                    <th>Used</th>
                     <th>Stock</th>
-                    <th>Eerstvolgende vervaldatum</th>
+                    <th>Next expiry date</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -522,6 +738,14 @@ export default function MedicinesTab() {
                       <td>{row.next_expiry_date || '—'}</td>
                     </tr>
                   ))}
+
+                  {stockRows.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="med-empty">
+                        No stock lines found.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -537,32 +761,27 @@ export default function MedicinesTab() {
                 <thead>
                   <tr>
                     <th>Type</th>
-                    <th>Geneesmiddel</th>
-                    <th>Datum</th>
-                    <th>Vervaldatum</th>
-                    <th>Lotnummer</th>
-                    <th>Afgegeven door</th>
-                    <th>Aantal</th>
-                    <th>Paard(en)</th>
+                    <th>Medicine</th>
+                    <th>Date</th>
+                    <th>Expiry date</th>
+                    <th>Lot number</th>
+                    <th>Given by</th>
+                    <th>Quantity</th>
+                    <th>Horse(s)</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filteredRegister.map((row) => (
                     <tr key={`${row.entry_type}-${row.id}`}>
                       <td>
-                        <span
-                          className={
-                            row.entry_type === 'issuance'
-                              ? 'med-badge'
-                              : 'med-badge med-badge-warning'
-                          }
-                        >
-                          {row.entry_type === 'issuance' ? 'Afgifte' : 'Verbruik'}
+                        <span className={getRegisterTypeClass(row)}>
+                          {getRegisterTypeLabel(row)}
                         </span>
                       </td>
 
                       <td>
                         <div className="med-main">{row.medicine_name}</div>
+
                         {(row.active_substance || row.form || row.category) && (
                           <div className="med-muted">
                             {[row.active_substance, row.form, row.category]
@@ -570,7 +789,14 @@ export default function MedicinesTab() {
                               .join(' · ')}
                           </div>
                         )}
-                        {row.notes && <div className="med-muted med-note-inline">{row.notes}</div>}
+
+                        {row.storage_location && (
+                          <div className="med-muted">Location: {row.storage_location}</div>
+                        )}
+
+                        {row.notes && (
+                          <div className="med-muted med-note-inline">{row.notes}</div>
+                        )}
                       </td>
 
                       <td>{row.entry_date}</td>
@@ -580,10 +806,10 @@ export default function MedicinesTab() {
                       <td>{row.quantity}</td>
                       <td>
                         {row.horse_scope === 'all' ? (
-                          <span className="med-badge med-badge-warning">Alle paarden</span>
+                          <span className="med-badge med-badge-warning">All horses</span>
                         ) : (
                           <div className="med-horse-list">
-                            {row.horse_names.map((horse) => (
+                            {row.horse_names?.map((horse) => (
                               <span className="med-horse-chip" key={horse}>
                                 {horse}
                               </span>
@@ -597,7 +823,7 @@ export default function MedicinesTab() {
                   {filteredRegister.length === 0 && (
                     <tr>
                       <td colSpan={8} className="med-empty">
-                        Geen registerlijnen gevonden.
+                        No register lines found.
                       </td>
                     </tr>
                   )}
@@ -609,27 +835,63 @@ export default function MedicinesTab() {
       )}
 
       {showAddModal && (
-        <div className="med-modal-backdrop" onClick={() => setShowAddModal(false)}>
+        <div className="med-modal-backdrop" onClick={closeAddModal}>
           <div className="med-modal" onClick={(e) => e.stopPropagation()}>
             <div className="med-modal-header">
-              <h3>Afgifte registreren</h3>
-              <button className="med-close" onClick={() => setShowAddModal(false)}>
+              <h3>
+                {issuanceMode === 'begin_stock'
+                  ? 'Register start stock'
+                  : 'Register delivery'}
+              </h3>
+              <button className="med-close" onClick={closeAddModal}>
                 ×
               </button>
             </div>
 
             <form className="med-form" onSubmit={handleAddIssuance}>
               <div className="med-form-grid">
+                <div className="med-form-full">
+                  <span className="med-field-label">Type</span>
+                  <div className="med-scope-toggle">
+                    <button
+                      type="button"
+                      className={
+                        issuanceMode === 'issuance'
+                          ? 'med-scope-btn active'
+                          : 'med-scope-btn'
+                      }
+                      onClick={() => setIssuanceMode('issuance')}
+                    >
+                      + Delivery
+                    </button>
+
+                    <button
+                      type="button"
+                      className={
+                        issuanceMode === 'begin_stock'
+                          ? 'med-scope-btn active'
+                          : 'med-scope-btn'
+                      }
+                      onClick={() => setIssuanceMode('begin_stock')}
+                    >
+                      + Start stock
+                    </button>
+                  </div>
+                </div>
+
                 <label>
-                  <span>Geneesmiddel</span>
+                  <span>Medicine</span>
                   <select
                     required
                     value={issuanceForm.medicine_id}
                     onChange={(e) =>
-                      setIssuanceForm((p) => ({ ...p, medicine_id: e.target.value }))
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        medicine_id: e.target.value,
+                      }))
                     }
                   >
-                    <option value="">Selecteer geneesmiddel</option>
+                    <option value="">Select medicine</option>
                     {medicines.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
@@ -642,9 +904,9 @@ export default function MedicinesTab() {
                   <button
                     type="button"
                     className="med-btn med-btn-soft"
-                    onClick={() => setShowCreateMedicineInline((v) => !v)}
+                    onClick={() => setShowCreateMedicineInline((prev) => !prev)}
                   >
-                    {showCreateMedicineInline ? 'Sluit nieuw geneesmiddel' : 'Nieuw geneesmiddel'}
+                    {showCreateMedicineInline ? 'Close new medicine' : 'New medicine'}
                   </button>
                 </div>
 
@@ -652,22 +914,25 @@ export default function MedicinesTab() {
                   <div className="med-inline-create med-form-full">
                     <div className="med-inline-create-grid">
                       <label>
-                        <span>Naam</span>
+                        <span>Medicine name</span>
                         <input
                           value={medicineInlineForm.name}
                           onChange={(e) =>
-                            setMedicineInlineForm((p) => ({ ...p, name: e.target.value }))
+                            setMedicineInlineForm((prev) => ({
+                              ...prev,
+                              name: e.target.value,
+                            }))
                           }
                         />
                       </label>
 
                       <label>
-                        <span>Werkzame stof</span>
+                        <span>Active substance</span>
                         <input
                           value={medicineInlineForm.active_substance}
                           onChange={(e) =>
-                            setMedicineInlineForm((p) => ({
-                              ...p,
+                            setMedicineInlineForm((prev) => ({
+                              ...prev,
                               active_substance: e.target.value,
                             }))
                           }
@@ -675,14 +940,17 @@ export default function MedicinesTab() {
                       </label>
 
                       <label>
-                        <span>Categorie</span>
+                        <span>Category</span>
                         <select
                           value={medicineInlineForm.category}
                           onChange={(e) =>
-                            setMedicineInlineForm((p) => ({ ...p, category: e.target.value }))
+                            setMedicineInlineForm((prev) => ({
+                              ...prev,
+                              category: e.target.value,
+                            }))
                           }
                         >
-                          <option value="">Selecteer</option>
+                          <option value="">Select</option>
                           {CATEGORY_OPTIONS.map((item) => (
                             <option key={item} value={item}>
                               {item}
@@ -692,14 +960,17 @@ export default function MedicinesTab() {
                       </label>
 
                       <label>
-                        <span>Vorm</span>
+                        <span>Form</span>
                         <select
                           value={medicineInlineForm.form}
                           onChange={(e) =>
-                            setMedicineInlineForm((p) => ({ ...p, form: e.target.value }))
+                            setMedicineInlineForm((prev) => ({
+                              ...prev,
+                              form: e.target.value,
+                            }))
                           }
                         >
-                          <option value="">Selecteer</option>
+                          <option value="">Select</option>
                           {FORM_OPTIONS.map((item) => (
                             <option key={item} value={item}>
                               {item}
@@ -709,12 +980,15 @@ export default function MedicinesTab() {
                       </label>
 
                       <label className="med-form-full">
-                        <span>Notities</span>
+                        <span>Notes</span>
                         <textarea
                           rows={3}
                           value={medicineInlineForm.notes}
                           onChange={(e) =>
-                            setMedicineInlineForm((p) => ({ ...p, notes: e.target.value }))
+                            setMedicineInlineForm((prev) => ({
+                              ...prev,
+                              notes: e.target.value,
+                            }))
                           }
                         />
                       </label>
@@ -726,78 +1000,93 @@ export default function MedicinesTab() {
                         className="med-btn med-btn-gold"
                         onClick={createMedicineInline}
                       >
-                        Opslaan en kiezen
+                        Save and select
                       </button>
                     </div>
                   </div>
                 )}
 
                 <label>
-                  <span>Datum afgifte</span>
+                  <span>{issuanceMode === 'begin_stock' ? 'Date' : 'Delivery date'}</span>
                   <input
                     required
                     type="date"
                     value={issuanceForm.issue_date}
                     onChange={(e) =>
-                      setIssuanceForm((p) => ({ ...p, issue_date: e.target.value }))
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        issue_date: e.target.value,
+                      }))
                     }
                   />
                 </label>
 
                 <label>
-                  <span>Vervaldatum</span>
+                  <span>Expiry date</span>
                   <input
                     type="date"
                     value={issuanceForm.expiry_date}
                     onChange={(e) =>
-                      setIssuanceForm((p) => ({ ...p, expiry_date: e.target.value }))
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        expiry_date: e.target.value,
+                      }))
                     }
                   />
                 </label>
 
                 <label>
-                  <span>Lotnummer</span>
+                  <span>Lot number</span>
                   <input
                     value={issuanceForm.lot_number}
                     onChange={(e) =>
-                      setIssuanceForm((p) => ({ ...p, lot_number: e.target.value }))
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        lot_number: e.target.value,
+                      }))
                     }
+                    placeholder="Unknown"
                   />
                 </label>
 
-                <label>
-                  <span>Afgegeven door</span>
-                  <select
-                    value={issuanceForm.issued_by}
-                    onChange={(e) =>
-                      setIssuanceForm((p) => ({
-                        ...p,
-                        issued_by: e.target.value as (typeof ISSUED_BY_OPTIONS)[number],
-                      }))
-                    }
-                  >
-                    {ISSUED_BY_OPTIONS.map((item) => (
-                      <option key={item} value={item}>
-                        {item}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                {issuanceForm.issued_by === 'Other' && (
+                {issuanceMode === 'issuance' && (
                   <label>
-                    <span>Andere naam</span>
+                    <span>Given by</span>
+                    <select
+                      value={issuanceForm.issued_by}
+                      onChange={(e) =>
+                        setIssuanceForm((prev) => ({
+                          ...prev,
+                          issued_by: e.target.value as (typeof ISSUED_BY_OPTIONS)[number],
+                        }))
+                      }
+                    >
+                      {ISSUED_BY_OPTIONS.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
+
+                {issuanceMode === 'issuance' && issuanceForm.issued_by === 'Other' && (
+                  <label>
+                    <span>Other name</span>
                     <input
                       value={issuanceForm.issued_by_other}
                       onChange={(e) =>
-                        setIssuanceForm((p) => ({ ...p, issued_by_other: e.target.value }))
+                        setIssuanceForm((prev) => ({
+                          ...prev,
+                          issued_by_other: e.target.value,
+                        }))
                       }
                     />
                   </label>
                 )}
 
                 <label>
-                  <span>Aantal</span>
+                  <span>Quantity</span>
                   <input
                     required
                     type="number"
@@ -805,13 +1094,30 @@ export default function MedicinesTab() {
                     step="1"
                     value={issuanceForm.quantity}
                     onChange={(e) =>
-                      setIssuanceForm((p) => ({ ...p, quantity: e.target.value }))
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        quantity: e.target.value,
+                      }))
                     }
                   />
                 </label>
 
+                <label>
+                  <span>Storage location</span>
+                  <input
+                    value={issuanceForm.storage_location}
+                    onChange={(e) =>
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        storage_location: e.target.value,
+                      }))
+                    }
+                    placeholder="Cabinet / fridge / office"
+                  />
+                </label>
+
                 <div className="med-form-full">
-                  <span className="med-field-label">Voor welk paard</span>
+                  <span className="med-field-label">For which horse</span>
                   <div className="med-scope-toggle">
                     <button
                       type="button"
@@ -821,10 +1127,13 @@ export default function MedicinesTab() {
                           : 'med-scope-btn'
                       }
                       onClick={() =>
-                        setIssuanceForm((p) => ({ ...p, horse_scope: 'selected' }))
+                        setIssuanceForm((prev) => ({
+                          ...prev,
+                          horse_scope: 'selected',
+                        }))
                       }
                     >
-                      Geselecteerde paarden
+                      Selected horses
                     </button>
 
                     <button
@@ -835,14 +1144,14 @@ export default function MedicinesTab() {
                           : 'med-scope-btn'
                       }
                       onClick={() =>
-                        setIssuanceForm((p) => ({
-                          ...p,
+                        setIssuanceForm((prev) => ({
+                          ...prev,
                           horse_scope: 'all',
                           selected_horse_ids: [],
                         }))
                       }
                     >
-                      Alle paarden
+                      All horses
                     </button>
                   </div>
                 </div>
@@ -850,20 +1159,28 @@ export default function MedicinesTab() {
                 {issuanceForm.horse_scope === 'selected' && (
                   <div className="med-form-full">
                     <label>
-                      <span>Zoek paard</span>
+                      <span>Search horse</span>
                       <input
                         value={horseSearchAdd}
                         onChange={(e) => setHorseSearchAdd(e.target.value)}
-                        placeholder="Zoek op naam..."
+                        placeholder="Search by name..."
                       />
                     </label>
 
                     <div className="med-horse-picker-tools">
-                      <button type="button" className="med-btn med-btn-soft" onClick={selectAllVisibleIssuanceHorses}>
-                        Selecteer zichtbare
+                      <button
+                        type="button"
+                        className="med-btn med-btn-soft"
+                        onClick={selectAllVisibleIssuanceHorses}
+                      >
+                        Select visible
                       </button>
-                      <button type="button" className="med-btn med-btn-soft" onClick={clearIssuanceHorseSelection}>
-                        Wis selectie
+                      <button
+                        type="button"
+                        className="med-btn med-btn-soft"
+                        onClick={clearIssuanceHorseSelection}
+                      >
+                        Clear selection
                       </button>
                     </div>
 
@@ -890,23 +1207,31 @@ export default function MedicinesTab() {
                 )}
 
                 <label className="med-form-full">
-                  <span>Notities</span>
+                  <span>Notes</span>
                   <textarea
                     rows={3}
                     value={issuanceForm.notes}
                     onChange={(e) =>
-                      setIssuanceForm((p) => ({ ...p, notes: e.target.value }))
+                      setIssuanceForm((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
+                    placeholder={
+                      issuanceMode === 'begin_stock'
+                        ? 'Example: Stock already present when the system started'
+                        : ''
                     }
                   />
                 </label>
               </div>
 
               <div className="med-form-actions">
-                <button type="button" className="med-btn" onClick={() => setShowAddModal(false)}>
-                  Annuleer
+                <button type="button" className="med-btn" onClick={closeAddModal}>
+                  Cancel
                 </button>
                 <button type="submit" className="med-btn med-btn-gold">
-                  Opslaan
+                  Save
                 </button>
               </div>
             </form>
@@ -915,11 +1240,11 @@ export default function MedicinesTab() {
       )}
 
       {showUsageModal && (
-        <div className="med-modal-backdrop" onClick={() => setShowUsageModal(false)}>
+        <div className="med-modal-backdrop" onClick={closeUsageModal}>
           <div className="med-modal" onClick={(e) => e.stopPropagation()}>
             <div className="med-modal-header">
-              <h3>Verbruik registreren</h3>
-              <button className="med-close" onClick={() => setShowUsageModal(false)}>
+              <h3>Register usage</h3>
+              <button className="med-close" onClick={closeUsageModal}>
                 ×
               </button>
             </div>
@@ -927,15 +1252,19 @@ export default function MedicinesTab() {
             <form className="med-form" onSubmit={handleAddUsage}>
               <div className="med-form-grid">
                 <label>
-                  <span>Geneesmiddel</span>
+                  <span>Medicine</span>
                   <select
                     required
                     value={usageForm.medicine_id}
                     onChange={(e) =>
-                      setUsageForm((p) => ({ ...p, medicine_id: e.target.value }))
+                      setUsageForm((prev) => ({
+                        ...prev,
+                        medicine_id: e.target.value,
+                        issuance_id: '',
+                      }))
                     }
                   >
-                    <option value="">Selecteer geneesmiddel</option>
+                    <option value="">Select medicine</option>
                     {medicines.map((m) => (
                       <option key={m.id} value={m.id}>
                         {m.name}
@@ -945,19 +1274,65 @@ export default function MedicinesTab() {
                 </label>
 
                 <label>
-                  <span>Datum verbruik</span>
+                  <span>Batch / lot</span>
+                  <select
+                    required
+                    value={usageForm.issuance_id}
+                    onChange={(e) =>
+                      setUsageForm((prev) => ({
+                        ...prev,
+                        issuance_id: e.target.value,
+                      }))
+                    }
+                    disabled={!usageForm.medicine_id}
+                  >
+                    <option value="">
+                      {usageForm.medicine_id ? 'Select batch' : 'Select medicine first'}
+                    </option>
+
+                    {filteredUsageBatches.map((batch) => (
+                      <option key={batch.id} value={batch.id}>
+                        {batch.lot_number || 'No lot'}{' '}
+                        {batch.expiry_date ? `• exp ${batch.expiry_date}` : '• no expiry'}{' '}
+                        • {batch.remaining_quantity} left
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {selectedUsageBatch && (
+                  <div className="med-form-full">
+                    <div className="med-inline-create">
+                      <div className="med-main">{selectedUsageBatch.medicine_name}</div>
+                      <div className="med-muted">
+                        Lot: {selectedUsageBatch.lot_number || '—'} · Expiry:{' '}
+                        {selectedUsageBatch.expiry_date || '—'} · Remaining:{' '}
+                        {selectedUsageBatch.remaining_quantity}
+                        {selectedUsageBatch.storage_location
+                          ? ` · Location: ${selectedUsageBatch.storage_location}`
+                          : ''}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <label>
+                  <span>Usage date</span>
                   <input
                     required
                     type="date"
                     value={usageForm.usage_date}
                     onChange={(e) =>
-                      setUsageForm((p) => ({ ...p, usage_date: e.target.value }))
+                      setUsageForm((prev) => ({
+                        ...prev,
+                        usage_date: e.target.value,
+                      }))
                     }
                   />
                 </label>
 
                 <label>
-                  <span>Aantal</span>
+                  <span>Quantity</span>
                   <input
                     required
                     type="number"
@@ -965,13 +1340,16 @@ export default function MedicinesTab() {
                     step="1"
                     value={usageForm.quantity}
                     onChange={(e) =>
-                      setUsageForm((p) => ({ ...p, quantity: e.target.value }))
+                      setUsageForm((prev) => ({
+                        ...prev,
+                        quantity: e.target.value,
+                      }))
                     }
                   />
                 </label>
 
                 <div className="med-form-full">
-                  <span className="med-field-label">Voor welk paard</span>
+                  <span className="med-field-label">For which horse</span>
                   <div className="med-scope-toggle">
                     <button
                       type="button"
@@ -980,9 +1358,14 @@ export default function MedicinesTab() {
                           ? 'med-scope-btn active'
                           : 'med-scope-btn'
                       }
-                      onClick={() => setUsageForm((p) => ({ ...p, horse_scope: 'selected' }))}
+                      onClick={() =>
+                        setUsageForm((prev) => ({
+                          ...prev,
+                          horse_scope: 'selected',
+                        }))
+                      }
                     >
-                      Geselecteerde paarden
+                      Selected horses
                     </button>
 
                     <button
@@ -993,14 +1376,14 @@ export default function MedicinesTab() {
                           : 'med-scope-btn'
                       }
                       onClick={() =>
-                        setUsageForm((p) => ({
-                          ...p,
+                        setUsageForm((prev) => ({
+                          ...prev,
                           horse_scope: 'all',
                           selected_horse_ids: [],
                         }))
                       }
                     >
-                      Alle paarden
+                      All horses
                     </button>
                   </div>
                 </div>
@@ -1008,20 +1391,28 @@ export default function MedicinesTab() {
                 {usageForm.horse_scope === 'selected' && (
                   <div className="med-form-full">
                     <label>
-                      <span>Zoek paard</span>
+                      <span>Search horse</span>
                       <input
                         value={horseSearchUsage}
                         onChange={(e) => setHorseSearchUsage(e.target.value)}
-                        placeholder="Zoek op naam..."
+                        placeholder="Search by name..."
                       />
                     </label>
 
                     <div className="med-horse-picker-tools">
-                      <button type="button" className="med-btn med-btn-soft" onClick={selectAllVisibleUsageHorses}>
-                        Selecteer zichtbare
+                      <button
+                        type="button"
+                        className="med-btn med-btn-soft"
+                        onClick={selectAllVisibleUsageHorses}
+                      >
+                        Select visible
                       </button>
-                      <button type="button" className="med-btn med-btn-soft" onClick={clearUsageHorseSelection}>
-                        Wis selectie
+                      <button
+                        type="button"
+                        className="med-btn med-btn-soft"
+                        onClick={clearUsageHorseSelection}
+                      >
+                        Clear selection
                       </button>
                     </div>
 
@@ -1048,21 +1439,26 @@ export default function MedicinesTab() {
                 )}
 
                 <label className="med-form-full">
-                  <span>Notities</span>
+                  <span>Notes</span>
                   <textarea
                     rows={3}
                     value={usageForm.notes}
-                    onChange={(e) => setUsageForm((p) => ({ ...p, notes: e.target.value }))}
+                    onChange={(e) =>
+                      setUsageForm((prev) => ({
+                        ...prev,
+                        notes: e.target.value,
+                      }))
+                    }
                   />
                 </label>
               </div>
 
               <div className="med-form-actions">
-                <button type="button" className="med-btn" onClick={() => setShowUsageModal(false)}>
-                  Annuleer
+                <button type="button" className="med-btn" onClick={closeUsageModal}>
+                  Cancel
                 </button>
                 <button type="submit" className="med-btn med-btn-gold">
-                  Opslaan
+                  Save
                 </button>
               </div>
             </form>

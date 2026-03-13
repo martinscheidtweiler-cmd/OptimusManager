@@ -10,6 +10,7 @@ type Status = 'urgent' | 'overdue' | 'soon' | 'ok'
 type HorseRow = {
   id: string
   name: string | null
+  active: boolean | null
   farrier_name: string | null
   last_farrier_date: string | null
   farrier_interval_days: number | null
@@ -97,6 +98,7 @@ export default function FarrierTab() {
         `
         id,
         name,
+        active,
         farrier_name,
         last_farrier_date,
         farrier_interval_days,
@@ -106,6 +108,7 @@ export default function FarrierTab() {
         lost_shoe_reported_at
       `
       )
+      .eq('active', true)
       .order('name', { ascending: true })
 
     if (error) {

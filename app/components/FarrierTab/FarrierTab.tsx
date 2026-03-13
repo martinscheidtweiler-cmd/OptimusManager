@@ -32,6 +32,13 @@ type HorseFarrierItem = {
   lostShoeReportedAt: string | null
 }
 
+type EnrichedHorse = HorseFarrierItem & {
+  safeLastVisit: string
+  baseNextVisit: Date
+  effectiveNextVisit: Date
+  status: Status
+}
+
 const FARRIERS: FarrierName[] = ['Maarten', 'Kamiel', 'Johan', 'Wim']
 
 function addDays(dateString: string, days: number) {
@@ -94,8 +101,7 @@ export default function FarrierTab() {
 
     const { data, error } = await supabase
       .from('horses')
-      .select(
-        `
+      .select(`
         id,
         name,
         active,
@@ -106,8 +112,7 @@ export default function FarrierTab() {
         farrier_postponed_until,
         lost_shoe_alert,
         lost_shoe_reported_at
-      `
-      )
+      `)
       .eq('active', true)
       .order('name', { ascending: true })
 
@@ -136,7 +141,7 @@ export default function FarrierTab() {
     setLoading(false)
   }
 
-  const enriched = useMemo(() => {
+  const enriched = useMemo<EnrichedHorse[]>(() => {
     return horses.map((horse) => {
       const safeLastVisit = horse.lastVisit || todayString()
       const baseNextVisit = addDays(safeLastVisit, horse.intervalDays)
@@ -360,7 +365,7 @@ export default function FarrierTab() {
   return (
     <div className="farrier-tab-om">
       <div className="farrier-head-om">
-        <div>
+        <div className="farrier-head-copy-om">
           <span className="farrier-kicker-om">Hoof Care</span>
           <h2 className="farrier-title-om">Farrier follow-up</h2>
           <p className="farrier-text-om">
@@ -404,10 +409,7 @@ export default function FarrierTab() {
 
       {lostShoeOpen && (
         <div className="farrier-modal-backdrop-om" onClick={() => setLostShoeOpen(false)}>
-          <div
-            className="farrier-modal-om"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="farrier-modal-om" onClick={(e) => e.stopPropagation()}>
             <div className="farrier-modal-head-om">
               <span className="farrier-kicker-om">Urgent</span>
               <h3 className="farrier-modal-title-om">Report lost shoe</h3>
@@ -516,6 +518,74 @@ export default function FarrierTab() {
         ))}
       </div>
 
+      <div className="farrier-mobile-list-om">
+        {loading ? (
+          <div className="farrier-empty-om">Loading horses...</div>
+        ) : filtered.length === 0 ? (
+          <div className="farrier-empty-om">No horses found.</div>
+        ) : (
+          filtered.map((horse) => (
+            <div key={horse.id} className="farrier-mobile-card-om">
+              <div className="farrier-mobile-card-top-om">
+                <div>
+                  <div className="farrier-mobile-horse-om">{horse.horseName}</div>
+                  <div className="farrier-mobile-farrier-om">{horse.farrier || 'No farrier'}</div>
+                </div>
+
+                <span className={`farrier-status-om farrier-status-${horse.status}-om`}>
+                  {getStatusLabel(horse.status)}
+                </span>
+              </div>
+
+              <div className="farrier-mobile-grid-om">
+                <div className="farrier-mobile-item-om">
+                  <span className="farrier-mobile-label-om">Last visit</span>
+                  <strong>{formatDate(new Date(horse.safeLastVisit))}</strong>
+                </div>
+
+                <div className="farrier-mobile-item-om">
+                  <span className="farrier-mobile-label-om">Interval</span>
+                  <strong>{horse.intervalDays} days</strong>
+                </div>
+
+                <div className="farrier-mobile-item-om">
+                  <span className="farrier-mobile-label-om">Next due</span>
+                  <strong>{formatDate(horse.effectiveNextVisit)}</strong>
+                  {horse.postponedUntil ? (
+                    <small className="farrier-delay-note-om">+1 week applied</small>
+                  ) : null}
+                </div>
+
+                <div className="farrier-mobile-item-om farrier-mobile-item-full-om">
+                  <span className="farrier-mobile-label-om">Notes</span>
+                  <strong className="farrier-mobile-notes-om">{horse.notes || '—'}</strong>
+                </div>
+              </div>
+
+              <div className="farrier-mobile-actions-om">
+                <button
+                  type="button"
+                  className="farrier-table-btn-om farrier-mobile-action-btn-om"
+                  onClick={() => handleMarkDone(horse.id)}
+                  disabled={savingId === horse.id}
+                >
+                  {savingId === horse.id ? '...' : 'Done'}
+                </button>
+
+                <button
+                  type="button"
+                  className="farrier-mobile-delay-btn-om"
+                  onClick={() => handleDelayWeek(horse.id, horse.effectiveNextVisit)}
+                  disabled={savingId === horse.id || horse.lostShoeAlert}
+                >
+                  Delay 1w
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
       <div className="farrier-table-shell-om">
         <table className="farrier-table-om">
           <thead>
@@ -560,9 +630,7 @@ export default function FarrierTab() {
                     <div className="farrier-next-date-om">
                       <span>{formatDate(horse.effectiveNextVisit)}</span>
                       {horse.postponedUntil ? (
-                        <small className="farrier-delay-note-om">
-                          +1 week applied
-                        </small>
+                        <small className="farrier-delay-note-om">+1 week applied</small>
                       ) : null}
                     </div>
                   </td>

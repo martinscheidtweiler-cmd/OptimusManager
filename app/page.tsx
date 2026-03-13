@@ -26,6 +26,24 @@ export default function Home() {
   const topMenu: Tab[] = ['Planning', 'Vet', 'Farrier', 'Place']
 
   const [activeTab, setActiveTab] = useState<Tab>('Horses')
+  const [vetResetKey, setVetResetKey] = useState(0)
+  const [farrierResetKey, setFarrierResetKey] = useState(0)
+
+  const handleTabClick = (tab: Tab) => {
+    if (tab === 'Vet') {
+      setActiveTab('Vet')
+      setVetResetKey((prev) => prev + 1)
+      return
+    }
+
+    if (tab === 'Farrier') {
+      setActiveTab('Farrier')
+      setFarrierResetKey((prev) => prev + 1)
+      return
+    }
+
+    setActiveTab(tab)
+  }
 
   const renderContent = () => {
     switch (activeTab) {
@@ -36,10 +54,10 @@ export default function Home() {
         return <PlanningTab />
 
       case 'Farrier':
-        return <FarrierTab />
+        return <FarrierTab key={farrierResetKey} />
 
       case 'Vet':
-        return <VetTab />
+        return <VetTab key={vetResetKey} />
 
       case 'Place':
         return (
@@ -95,7 +113,7 @@ export default function Home() {
             <button
               key={item}
               className={`om-side-link ${activeTab === item ? 'active' : ''}`}
-              onClick={() => setActiveTab(item)}
+              onClick={() => handleTabClick(item)}
               type="button"
             >
               {item}
@@ -111,7 +129,7 @@ export default function Home() {
               <button
                 key={item}
                 className={`om-top-link ${activeTab === item ? 'active' : ''}`}
-                onClick={() => setActiveTab(item)}
+                onClick={() => handleTabClick(item)}
                 type="button"
               >
                 {item}

@@ -1,66 +1,111 @@
-.vet-menu-grid {
-  margin-top: 26px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 18px;
+.vet-intro {
+  margin: 10px 0 0;
+  max-width: 760px;
+  color: var(--om-muted);
+  font-size: 15px;
+  line-height: 1.7;
 }
 
-.vet-menu-card {
+.vet-group-list {
+  margin-top: 26px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 22px;
-  border-radius: 22px;
+  gap: 20px;
+}
+
+.vet-group-card {
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.74);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(16px);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.03);
-  transition:
-    background 0.38s ease,
-    border-color 0.38s ease,
-    box-shadow 0.38s ease,
-    transform 0.38s ease;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+  padding: 22px;
 }
 
-.vet-menu-card:hover {
-  transform: translateY(-1px);
-  background: linear-gradient(135deg, rgba(28, 28, 28, 0.96) 0%, rgba(48, 48, 48, 0.96) 100%);
-  border-color: rgba(18, 18, 18, 0.9);
-  box-shadow:
-    0 14px 28px rgba(18, 18, 18, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+.vet-group-head {
+  margin-bottom: 18px;
 }
 
-.vet-menu-card-title {
-  font-size: 20px;
+.vet-group-title {
+  margin: 0;
+  font-size: 24px;
   font-weight: 600;
   letter-spacing: -0.03em;
   color: var(--om-text);
-  transition: color 0.3s ease;
 }
 
-.vet-menu-card-text {
+.vet-group-text {
+  margin: 8px 0 0;
   font-size: 14px;
-  color: var(--om-muted);
   line-height: 1.6;
-  transition: color 0.3s ease;
+  color: var(--om-muted);
 }
 
-.vet-menu-card:hover .vet-menu-card-title,
-.vet-menu-card:hover .vet-menu-card-text {
-  color: #ffffff;
+.vet-submenu-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+
+.vet-submenu-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 110px;
+  padding: 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  background: rgba(255, 255, 255, 0.76);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.28s ease,
+    box-shadow 0.28s ease,
+    border-color 0.28s ease,
+    background 0.28s ease;
+}
+
+.vet-submenu-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(193, 126, 25, 0.28);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.06);
+}
+
+.vet-submenu-card-title {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--om-text);
+}
+
+.vet-submenu-card-text {
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--om-muted);
 }
 
 @media (max-width: 1000px) {
-  .vet-menu-grid {
+  .vet-submenu-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 650px) {
-  .vet-menu-grid {
+  .vet-group-card {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .vet-group-title {
+    font-size: 21px;
+  }
+
+  .vet-submenu-grid {
     grid-template-columns: 1fr;
+  }
+
+  .vet-submenu-card {
+    min-height: unset;
   }
 }

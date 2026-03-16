@@ -6,6 +6,7 @@ import PlanningTab from '@/app/components/PlanningTab/PlanningTab'
 import HorsesTab from '@/app/components/HorsesTab/HorsesTab'
 import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
 import VetTab from '@/app/components/VetTab/VetTab'
+import PlaceTab from '@/app/components/PlaceTab/PlaceTab'
 import './page.css'
 
 const inter = Inter({
@@ -60,15 +61,7 @@ export default function Home() {
         return <VetTab key={vetResetKey} />
 
       case 'Place':
-        return (
-          <div className="om-plain-content">
-            <span className="om-kicker">Facility</span>
-            <h2 className="om-title">Place overview</h2>
-            <p className="om-text">
-              Manage paddocks, arenas, stable zones and practical organisation.
-            </p>
-          </div>
-        )
+        return <PlaceTab />
 
       case 'Riders':
         return (

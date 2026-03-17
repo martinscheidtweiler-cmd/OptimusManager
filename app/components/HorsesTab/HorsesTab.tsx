@@ -8,6 +8,7 @@ import styles from './HorsesTab.module.css'
 type HorseType = 'Sport horse' | 'Young horse' | 'Foal' | 'Mare' | 'Mare with foal'
 type StableStatus = 'active' | 'away' | 'inactive'
 type StableLocation = '47B' | '47B Big Box' | '50' | 'Oostm' | 'Serre' | 'Vremde'
+type VaccineType = 'flu_tetanus' | 'rhino'
 
 type Horse = {
   id: string
@@ -34,6 +35,27 @@ type Horse = {
   notes: string | null
 }
 
+type Vaccination = {
+  id: string
+  horse_id: string
+  vaccine_type: VaccineType
+  administered_on: string
+  next_due_on: string | null
+  product_name: string | null
+  notes: string | null
+  created_at: string
+}
+
+type DewormingRecord = {
+  id: string
+  horse_id: string
+  administered_on: string
+  next_due_on: string | null
+  product_name: string | null
+  notes: string | null
+  created_at: string
+}
+
 export default function HorsesTab() {
   const router = useRouter()
 
@@ -43,45 +65,149 @@ export default function HorsesTab() {
   const [activeFilter, setActiveFilter] = useState<'All' | 'Active' | 'Inactive'>('Active')
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null)
 
+  const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
+  const [vaccinationsLoading, setVaccinationsLoading] = useState(false)
+
+  const [dewormingRecords, setDewormingRecords] = useState<DewormingRecord[]>([])
+  const [dewormingLoading, setDewormingLoading] = useState(false)
+
+  const [historyOpen, setHistoryOpen] = useState<{
+    flu_tetanus: boolean
+    rhino: boolean
+    deworming: boolean
+  }>({
+    flu_tetanus: false,
+    rhino: false,
+    deworming: false,
+  })
+
   const loadHorses = async () => {
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from('horses')
-      .select(`
-        id,
-        name,
-        active,
-        horse_type,
-        stable_status,
-        left_stable_at,
-        returned_stable_at,
-        moved_to_location,
-        moved_to_detail,
-        farrier_name,
-        farrier_last_done,
-        farrier_interval_weeks,
-        stable_location,
-        box_number,
-        pasture_name,
-        show_in_rider_planning,
-        show_in_mare_cards,
-        show_in_tasks,
-        last_in_heat_date,
-        pregnant,
-        pregnancy_notes,
-        notes
-      `)
-      .order('name', { ascending: true })
+    try {
+      const { data, error } = await supabase
+        .from('horses')
+        .select(`
+          id,
+          name,
+          active,
+          horse_type,
+          stable_status,
+          left_stable_at,
+          returned_stable_at,
+          moved_to_location,
+          moved_to_detail,
+          farrier_name,
+          farrier_last_done,
+          farrier_interval_weeks,
+          stable_location,
+          box_number,
+          pasture_name,
+          show_in_rider_planning,
+          show_in_mare_cards,
+          show_in_tasks,
+          last_in_heat_date,
+          pregnant,
+          pregnancy_notes,
+          notes
+        `)
+        .order('name', { ascending: true })
 
-    if (error) {
-      console.error('Error loading horses:', error)
-      setHorses([])
-    } else {
+      if (error) {
+        console.error('Error loading horses:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        setHorses([])
+        return
+      }
+
       setHorses((data || []) as Horse[])
+    } catch (err) {
+      console.error('Unexpected error loading horses:', err)
+      setHorses([])
+    } finally {
+      setLoading(false)
     }
+  }
 
-    setLoading(false)
+  const loadVaccinations = async (horseId: string) => {
+    setVaccinationsLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('vaccination_records')
+        .select(`
+          id,
+          horse_id,
+          vaccine_type,
+          administered_on,
+          next_due_on,
+          product_name,
+          notes,
+          created_at
+        `)
+        .eq('horse_id', horseId)
+        .order('administered_on', { ascending: false })
+
+      if (error) {
+        console.error('Error loading vaccinations:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        setVaccinations([])
+        return
+      }
+
+      setVaccinations((data || []) as Vaccination[])
+    } catch (err) {
+      console.error('Unexpected error loading vaccinations:', err)
+      setVaccinations([])
+    } finally {
+      setVaccinationsLoading(false)
+    }
+  }
+
+  const loadDeworming = async (horseId: string) => {
+    setDewormingLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('deworming_records')
+        .select(`
+          id,
+          horse_id,
+          administered_on,
+          next_due_on,
+          product_name,
+          notes,
+          created_at
+        `)
+        .eq('horse_id', horseId)
+        .order('administered_on', { ascending: false })
+
+      if (error) {
+        console.error('Error loading deworming:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        setDewormingRecords([])
+        return
+      }
+
+      setDewormingRecords((data || []) as DewormingRecord[])
+    } catch (err) {
+      console.error('Unexpected error loading deworming:', err)
+      setDewormingRecords([])
+    } finally {
+      setDewormingLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -109,12 +235,42 @@ export default function HorsesTab() {
     return horses.find((horse) => horse.id === selectedHorseId) || null
   }, [horses, selectedHorseId])
 
-  const openHorse = (horse: Horse) => {
+  const fluVaccinations = useMemo(() => {
+    return vaccinations.filter((v) => v.vaccine_type === 'flu_tetanus')
+  }, [vaccinations])
+
+  const rhinoVaccinations = useMemo(() => {
+    return vaccinations.filter((v) => v.vaccine_type === 'rhino')
+  }, [vaccinations])
+
+  const latestFlu = fluVaccinations[0] || null
+  const latestRhino = rhinoVaccinations[0] || null
+  const latestDeworming = dewormingRecords[0] || null
+
+  const openHorse = async (horse: Horse) => {
     setSelectedHorseId(horse.id)
+    setHistoryOpen({
+      flu_tetanus: false,
+      rhino: false,
+      deworming: false,
+    })
+
+    await Promise.all([loadVaccinations(horse.id), loadDeworming(horse.id)])
   }
 
   const closeHorse = () => {
     setSelectedHorseId(null)
+    setVaccinations([])
+    setDewormingRecords([])
+    setHistoryOpen({
+      flu_tetanus: false,
+      rhino: false,
+      deworming: false,
+    })
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   const formatDate = (value: string | null) => {
@@ -177,9 +333,13 @@ export default function HorsesTab() {
   if (selectedHorse) {
     return (
       <section className={styles.panel}>
-        <div className={styles.detailTopBar}>
+        <div className={`${styles.detailTopBar} ${styles.noPrint}`}>
           <button className={styles.backButton} onClick={closeHorse}>
             ← Back to horses
+          </button>
+
+          <button className={styles.printButton} onClick={handlePrint}>
+            Print
           </button>
 
           <button
@@ -190,32 +350,58 @@ export default function HorsesTab() {
           </button>
         </div>
 
-        <div className={styles.header}>
-          <div>
-            <span className={styles.kicker}>Horse detail</span>
-            <h2>{selectedHorse.name || 'Unnamed horse'}</h2>
-            <p>Basic card with the most important stable information.</p>
+        <div className={styles.printSheet}>
+          <div className={styles.printSheetHeader}>
+            <h1>{selectedHorse.name || 'Unnamed horse'}</h1>
+            <h2>Verkoopfiche</h2>
           </div>
 
-          <div className={styles.countBox}>
-            <span>Status</span>
-            <strong>{getStatusLabel(selectedHorse)}</strong>
+          <div className={styles.printSheetGrid}>
+            <div className={styles.printSheetItem}>
+              <span>Laatste griep + tetanus</span>
+              <strong>{latestFlu ? formatDate(latestFlu.administered_on) : '—'}</strong>
+              <small>{latestFlu?.product_name || '—'}</small>
+            </div>
+
+            <div className={styles.printSheetItem}>
+              <span>Laatste rhino</span>
+              <strong>{latestRhino ? formatDate(latestRhino.administered_on) : '—'}</strong>
+              <small>{latestRhino?.product_name || '—'}</small>
+            </div>
+
+            <div className={styles.printSheetItem}>
+              <span>Laatst naar de smid</span>
+              <strong>{formatDate(selectedHorse.farrier_last_done)}</strong>
+              <small>{selectedHorse.farrier_name || '—'}</small>
+            </div>
+
+            <div className={styles.printSheetItem}>
+              <span>Laatste ontworming</span>
+              <strong>{latestDeworming ? formatDate(latestDeworming.administered_on) : '—'}</strong>
+              <small>{latestDeworming?.product_name || '—'}</small>
+            </div>
           </div>
         </div>
 
         <div className={styles.detailGrid}>
-          <div className={`${styles.detailCard} ${styles.heroCard}`}>
+          <div className={`${styles.detailCard} ${styles.heroCard} ${styles.noPrint}`}>
             <div className={styles.heroTop}>
               <div>
+                <span className={styles.heroKicker}>Horse detail</span>
                 <h3 className={styles.heroName}>{selectedHorse.name || 'Unnamed horse'}</h3>
                 <p className={styles.heroSubline}>
                   {selectedHorse.horse_type || '—'} · {getStableLocationLabel(selectedHorse)}
                 </p>
               </div>
 
-              <span className={`${styles.statusPill} ${getStatusClass(selectedHorse)}`}>
-                {getStatusLabel(selectedHorse)}
-              </span>
+              <div className={styles.heroRight}>
+                <div className={styles.heroStatusBox}>
+                  <span className={styles.heroStatusLabel}>Status</span>
+                  <span className={`${styles.statusPill} ${getStatusClass(selectedHorse)}`}>
+                    {getStatusLabel(selectedHorse)}
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className={styles.heroFlags}>
@@ -243,8 +429,8 @@ export default function HorsesTab() {
             </div>
           </div>
 
-          <div className={styles.detailCard}>
-            <h3 className={styles.cardTitle}>Basic info</h3>
+          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+            <h3 className={styles.cardTitle}>Basic information</h3>
 
             <div className={styles.infoGrid}>
               <div className={styles.infoItem}>
@@ -263,17 +449,6 @@ export default function HorsesTab() {
               </div>
 
               <div className={styles.infoItem}>
-                <span>Active in list</span>
-                <strong>{selectedHorse.active === false ? 'No' : 'Yes'}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className={styles.detailCard}>
-            <h3 className={styles.cardTitle}>Stable movement</h3>
-
-            <div className={styles.infoGrid}>
-              <div className={styles.infoItem}>
                 <span>Left stable</span>
                 <strong>{formatDate(selectedHorse.left_stable_at)}</strong>
               </div>
@@ -290,7 +465,186 @@ export default function HorsesTab() {
             </div>
           </div>
 
-          <div className={styles.detailCard}>
+          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+            <h3 className={styles.cardTitle}>Vaccinations</h3>
+
+            {vaccinationsLoading ? (
+              <div className={styles.notesBox}>Loading vaccinations...</div>
+            ) : (
+              <div className={styles.vaccinationWrap}>
+                <div className={styles.vaccineBlock}>
+                  <div className={styles.vaccineTop}>
+                    <div>
+                      <span className={styles.vaccineLabel}>Griep + Tetanus</span>
+                      <strong className={styles.vaccineDate}>
+                        {latestFlu ? formatDate(latestFlu.administered_on) : '—'}
+                      </strong>
+                      <span className={styles.vaccineMeta}>
+                        Vervaldatum: {latestFlu ? formatDate(latestFlu.next_due_on) : '—'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={styles.historyToggle}
+                      onClick={() =>
+                        setHistoryOpen((prev) => ({
+                          ...prev,
+                          flu_tetanus: !prev.flu_tetanus,
+                        }))
+                      }
+                    >
+                      {historyOpen.flu_tetanus ? 'Historiek sluiten' : 'Historiek openen'}
+                    </button>
+                  </div>
+
+                  {historyOpen.flu_tetanus && (
+                    <div className={styles.historyList}>
+                      {fluVaccinations.length === 0 ? (
+                        <div className={styles.historyEmpty}>Geen historiek.</div>
+                      ) : (
+                        fluVaccinations.map((item) => (
+                          <div key={item.id} className={styles.historyRow}>
+                            <div className={styles.historyDate}>
+                              <strong>{formatDate(item.administered_on)}</strong>
+                              <span>Due: {formatDate(item.next_due_on)}</span>
+                            </div>
+
+                            <div className={styles.historyContent}>
+                              <div className={styles.historyProduct}>
+                                {item.product_name || 'Geen product ingevuld'}
+                              </div>
+                              <div className={styles.historyNote}>
+                                {item.notes?.trim() || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className={styles.vaccineBlock}>
+                  <div className={styles.vaccineTop}>
+                    <div>
+                      <span className={styles.vaccineLabel}>Rhino</span>
+                      <strong className={styles.vaccineDate}>
+                        {latestRhino ? formatDate(latestRhino.administered_on) : '—'}
+                      </strong>
+                      <span className={styles.vaccineMeta}>
+                        Vervaldatum: {latestRhino ? formatDate(latestRhino.next_due_on) : '—'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={styles.historyToggle}
+                      onClick={() =>
+                        setHistoryOpen((prev) => ({
+                          ...prev,
+                          rhino: !prev.rhino,
+                        }))
+                      }
+                    >
+                      {historyOpen.rhino ? 'Historiek sluiten' : 'Historiek openen'}
+                    </button>
+                  </div>
+
+                  {historyOpen.rhino && (
+                    <div className={styles.historyList}>
+                      {rhinoVaccinations.length === 0 ? (
+                        <div className={styles.historyEmpty}>Geen historiek.</div>
+                      ) : (
+                        rhinoVaccinations.map((item) => (
+                          <div key={item.id} className={styles.historyRow}>
+                            <div className={styles.historyDate}>
+                              <strong>{formatDate(item.administered_on)}</strong>
+                              <span>Due: {formatDate(item.next_due_on)}</span>
+                            </div>
+
+                            <div className={styles.historyContent}>
+                              <div className={styles.historyProduct}>
+                                {item.product_name || 'Geen product ingevuld'}
+                              </div>
+                              <div className={styles.historyNote}>
+                                {item.notes?.trim() || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+            <h3 className={styles.cardTitle}>Ontworming</h3>
+
+            {dewormingLoading ? (
+              <div className={styles.notesBox}>Loading deworming...</div>
+            ) : (
+              <div className={styles.vaccinationWrap}>
+                <div className={styles.vaccineBlock}>
+                  <div className={styles.vaccineTop}>
+                    <div>
+                      <span className={styles.vaccineLabel}>Laatste ontworming</span>
+                      <strong className={styles.vaccineDate}>
+                        {latestDeworming ? formatDate(latestDeworming.administered_on) : '—'}
+                      </strong>
+                      <span className={styles.vaccineMeta}>
+                        Vervaldatum: {latestDeworming ? formatDate(latestDeworming.next_due_on) : '—'}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className={styles.historyToggle}
+                      onClick={() =>
+                        setHistoryOpen((prev) => ({
+                          ...prev,
+                          deworming: !prev.deworming,
+                        }))
+                      }
+                    >
+                      {historyOpen.deworming ? 'Historiek sluiten' : 'Historiek openen'}
+                    </button>
+                  </div>
+
+                  {historyOpen.deworming && (
+                    <div className={styles.historyList}>
+                      {dewormingRecords.length === 0 ? (
+                        <div className={styles.historyEmpty}>Geen historiek.</div>
+                      ) : (
+                        dewormingRecords.map((item) => (
+                          <div key={item.id} className={styles.historyRow}>
+                            <div className={styles.historyDate}>
+                              <strong>{formatDate(item.administered_on)}</strong>
+                              <span>Due: {formatDate(item.next_due_on)}</span>
+                            </div>
+
+                            <div className={styles.historyContent}>
+                              <div className={styles.historyProduct}>
+                                {item.product_name || 'Geen product ingevuld'}
+                              </div>
+                              <div className={styles.historyNote}>
+                                {item.notes?.trim() || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className={`${styles.detailCard} ${styles.noPrint}`}>
             <h3 className={styles.cardTitle}>Farrier</h3>
 
             <div className={styles.infoGrid}>
@@ -321,7 +675,7 @@ export default function HorsesTab() {
           </div>
 
           {selectedHorse.show_in_mare_cards && (
-            <div className={styles.detailCard}>
+            <div className={`${styles.detailCard} ${styles.noPrint}`}>
               <h3 className={styles.cardTitle}>Mare card</h3>
 
               <div className={styles.infoGrid}>
@@ -343,7 +697,7 @@ export default function HorsesTab() {
             </div>
           )}
 
-          <div className={`${styles.detailCard} ${styles.fullWidth}`}>
+          <div className={`${styles.detailCard} ${styles.fullWidth} ${styles.noPrint}`}>
             <h3 className={styles.cardTitle}>Notes</h3>
             <div className={styles.notesBox}>
               {selectedHorse.notes?.trim() ? selectedHorse.notes : 'No notes yet.'}

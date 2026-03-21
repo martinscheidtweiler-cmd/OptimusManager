@@ -56,6 +56,18 @@ type DewormingRecord = {
   created_at: string
 }
 
+type FarrierVisit = {
+  id: string
+  horse_id: string | null
+  horse_name: string | null
+  farrier_name: string | null
+  visit_date: string | null
+  visit_type: string | null
+  interval_weeks: number | null
+  notes: string | null
+  created_at: string | null
+}
+
 export default function HorsesTab() {
   const router = useRouter()
 
@@ -71,14 +83,19 @@ export default function HorsesTab() {
   const [dewormingRecords, setDewormingRecords] = useState<DewormingRecord[]>([])
   const [dewormingLoading, setDewormingLoading] = useState(false)
 
+  const [farrierHistory, setFarrierHistory] = useState<FarrierVisit[]>([])
+  const [farrierHistoryLoading, setFarrierHistoryLoading] = useState(false)
+
   const [historyOpen, setHistoryOpen] = useState<{
     flu_tetanus: boolean
     rhino: boolean
     deworming: boolean
+    farrier: boolean
   }>({
     flu_tetanus: false,
     rhino: false,
     deworming: false,
+    farrier: false,
   })
 
   const loadHorses = async () => {
@@ -114,12 +131,7 @@ export default function HorsesTab() {
         .order('name', { ascending: true })
 
       if (error) {
-        console.error('Error loading horses:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        })
+        console.error('Error loading horses:', error)
         setHorses([])
         return
       }
@@ -153,12 +165,7 @@ export default function HorsesTab() {
         .order('administered_on', { ascending: false })
 
       if (error) {
-        console.error('Error loading vaccinations:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        })
+        console.error('Error loading vaccinations:', error)
         setVaccinations([])
         return
       }
@@ -191,12 +198,7 @@ export default function HorsesTab() {
         .order('administered_on', { ascending: false })
 
       if (error) {
-        console.error('Error loading deworming:', {
-          message: error.message,
-          details: error.details,
-          hint: error.hint,
-          code: error.code,
-        })
+        console.error('Error loading deworming:', error)
         setDewormingRecords([])
         return
       }
@@ -207,6 +209,41 @@ export default function HorsesTab() {
       setDewormingRecords([])
     } finally {
       setDewormingLoading(false)
+    }
+  }
+
+  const loadFarrierHistory = async (horseId: string) => {
+    setFarrierHistoryLoading(true)
+
+    try {
+      const { data, error } = await supabase
+        .from('farrier_visits')
+        .select(`
+          id,
+          horse_id,
+          horse_name,
+          farrier_name,
+          visit_date,
+          visit_type,
+          interval_weeks,
+          notes,
+          created_at
+        `)
+        .eq('horse_id', horseId)
+        .order('visit_date', { ascending: false })
+
+      if (error) {
+        console.error('Error loading farrier history:', error)
+        setFarrierHistory([])
+        return
+      }
+
+      setFarrierHistory((data || []) as FarrierVisit[])
+    } catch (err) {
+      console.error('Unexpected error loading farrier history:', err)
+      setFarrierHistory([])
+    } finally {
+      setFarrierHistoryLoading(false)
     }
   }
 
@@ -253,19 +290,26 @@ export default function HorsesTab() {
       flu_tetanus: false,
       rhino: false,
       deworming: false,
+      farrier: false,
     })
+    setFarrierHistory([])
 
-    await Promise.all([loadVaccinations(horse.id), loadDeworming(horse.id)])
+    await Promise.all([
+      loadVaccinations(horse.id),
+      loadDeworming(horse.id),
+    ])
   }
 
   const closeHorse = () => {
     setSelectedHorseId(null)
     setVaccinations([])
     setDewormingRecords([])
+    setFarrierHistory([])
     setHistoryOpen({
       flu_tetanus: false,
       rhino: false,
       deworming: false,
+      farrier: false,
     })
   }
 
@@ -328,6 +372,25 @@ export default function HorsesTab() {
     if (value === true) return 'Yes'
     if (value === false) return 'No'
     return '—'
+  }
+
+  const toggleFarrierHistory = async () => {
+    if (!selectedHorse) return
+
+    if (historyOpen.farrier) {
+      setHistoryOpen((prev) => ({
+        ...prev,
+        farrier: false,
+      }))
+      return
+    }
+
+    setHistoryOpen((prev) => ({
+      ...prev,
+      farrier: true,
+    }))
+
+    await loadFarrierHistory(selectedHorse.id)
   }
 
   if (selectedHorse) {
@@ -672,6 +735,46 @@ export default function HorsesTab() {
                 <strong>{getNextFarrierDate(selectedHorse)}</strong>
               </div>
             </div>
+
+            <div style={{ marginTop: '16px' }}>
+              <button
+                type="button"
+                className={styles.historyToggle}
+                onClick={toggleFarrierHistory}
+              >
+                {historyOpen.farrier ? 'Historiek sluiten' : 'Historiek openen'}
+              </button>
+            </div>
+
+            {historyOpen.farrier && (
+              <div className={styles.historyList} style={{ marginTop: '16px' }}>
+                {farrierHistoryLoading ? (
+                  <div className={styles.historyEmpty}>Loading history...</div>
+                ) : farrierHistory.length === 0 ? (
+                  <div className={styles.historyEmpty}>Geen farrier historiek.</div>
+                ) : (
+                  farrierHistory.map((item) => (
+                    <div key={item.id} className={styles.historyRow}>
+                      <div className={styles.historyDate}>
+                        <strong>{formatDate(item.visit_date)}</strong>
+                        <span>
+                          {item.interval_weeks ? `${item.interval_weeks} weeks` : '—'}
+                        </span>
+                      </div>
+
+                      <div className={styles.historyContent}>
+                        <div className={styles.historyProduct}>
+                          {item.farrier_name || 'Geen smid ingevuld'}
+                        </div>
+                        <div className={styles.historyNote}>
+                          {item.notes?.trim() || item.visit_type || '—'}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
           {selectedHorse.show_in_mare_cards && (

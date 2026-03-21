@@ -847,10 +847,11 @@ export default function FarrierTab() {
                 }}
               >
                 <div className="farrier-mobile-card-top-om">
-                  <div>
+                  <div className="farrier-mobile-card-head-om">
                     <div className="farrier-mobile-horse-om">{horse.horseName}</div>
-                    <div className="farrier-mobile-farrier-om">
-                      {horse.farrier || 'No farrier'} · {getShoeingLabel(horse.shoeingType)}
+                    <div className="farrier-mobile-inline-meta-om">
+                      {horse.farrier || 'No farrier'} - {getShoeingLabel(horse.shoeingType)} -{' '}
+                      {horse.intervalWeeks} weeks
                     </div>
                   </div>
 
@@ -866,16 +867,6 @@ export default function FarrierTab() {
                   </div>
 
                   <div className="farrier-mobile-item-om">
-                    <span className="farrier-mobile-label-om">Interval</span>
-                    <strong>{horse.intervalWeeks} weeks</strong>
-                  </div>
-
-                  <div className="farrier-mobile-item-om">
-                    <span className="farrier-mobile-label-om">Shoeing</span>
-                    <strong>{getShoeingLabel(horse.shoeingType)}</strong>
-                  </div>
-
-                  <div className="farrier-mobile-item-om">
                     <span className="farrier-mobile-label-om">Next due</span>
                     <strong>
                       {horse.effectiveNextVisit ? formatDate(horse.effectiveNextVisit) : '—'}
@@ -885,10 +876,12 @@ export default function FarrierTab() {
                     ) : null}
                   </div>
 
-                  <div className="farrier-mobile-item-om farrier-mobile-item-full-om">
-                    <span className="farrier-mobile-label-om">Notes</span>
-                    <strong className="farrier-mobile-notes-om">{horse.notes || '—'}</strong>
-                  </div>
+                  {horse.notes?.trim() ? (
+                    <div className="farrier-mobile-item-om farrier-mobile-item-full-om">
+                      <span className="farrier-mobile-label-om">Notes</span>
+                      <strong className="farrier-mobile-notes-om">{horse.notes}</strong>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="farrier-mobile-actions-om" onClick={(e) => e.stopPropagation()}>

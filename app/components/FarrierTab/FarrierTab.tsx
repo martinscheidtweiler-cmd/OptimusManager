@@ -12,9 +12,9 @@ type HorseRow = {
   name: string | null
   active: boolean | null
   farrier_name: string | null
-  last_farrier_date: string | null
-  farrier_interval_days: number | null
-  farrier_notes: string | null
+  farrier_last_done: string | null
+  farrier_interval_weeks: number | null
+  notes: string | null
   farrier_postponed_until: string | null
   lost_shoe_alert: boolean | null
   lost_shoe_reported_at: string | null
@@ -25,6 +25,7 @@ type HorseFarrierItem = {
   horseName: string
   farrier: FarrierName | ''
   lastVisit: string | null
+  intervalWeeks: number
   intervalDays: number
   notes: string
   postponedUntil: string | null
@@ -33,9 +34,9 @@ type HorseFarrierItem = {
 }
 
 type EnrichedHorse = HorseFarrierItem & {
-  safeLastVisit: string
-  baseNextVisit: Date
-  effectiveNextVisit: Date
+  safeLastVisit: string | null
+  baseNextVisit: Date | null
+  effectiveNextVisit: Date | null
   status: Status
 }
 
@@ -106,9 +107,9 @@ export default function FarrierTab() {
         name,
         active,
         farrier_name,
-        last_farrier_date,
-        farrier_interval_days,
-        farrier_notes,
+        farrier_last_done,
+        farrier_interval_weeks,
+        notes,
         farrier_postponed_until,
         lost_shoe_alert,
         lost_shoe_reported_at
@@ -123,19 +124,24 @@ export default function FarrierTab() {
       return
     }
 
-    const mapped: HorseFarrierItem[] = ((data as HorseRow[]) || []).map((horse) => ({
-      id: String(horse.id),
-      horseName: horse.name || 'Unnamed horse',
-      farrier: FARRIERS.includes(horse.farrier_name as FarrierName)
-        ? (horse.farrier_name as FarrierName)
-        : '',
-      lastVisit: horse.last_farrier_date,
-      intervalDays: horse.farrier_interval_days || 42,
-      notes: horse.farrier_notes || '',
-      postponedUntil: horse.farrier_postponed_until,
-      lostShoeAlert: !!horse.lost_shoe_alert,
-      lostShoeReportedAt: horse.lost_shoe_reported_at,
-    }))
+    const mapped: HorseFarrierItem[] = ((data as HorseRow[]) || []).map((horse) => {
+      const intervalWeeks = horse.farrier_interval_weeks || 6
+
+      return {
+        id: String(horse.id),
+        horseName: horse.name || 'Unnamed horse',
+        farrier: FARRIERS.includes(horse.farrier_name as FarrierName)
+          ? (horse.farrier_name as FarrierName)
+          : '',
+        lastVisit: horse.farrier_last_done,
+        intervalWeeks,
+        intervalDays: intervalWeeks * 7,
+        notes: horse.notes || '',
+        postponedUntil: horse.farrier_postponed_until,
+        lostShoeAlert: !!horse.lost_shoe_alert,
+        lostShoeReportedAt: horse.lost_shoe_reported_at,
+      }
+    })
 
     setHorses(mapped)
     setLoading(false)
@@ -143,13 +149,16 @@ export default function FarrierTab() {
 
   const enriched = useMemo<EnrichedHorse[]>(() => {
     return horses.map((horse) => {
-      const safeLastVisit = horse.lastVisit || todayString()
-      const baseNextVisit = addDays(safeLastVisit, horse.intervalDays)
+      const safeLastVisit = horse.lastVisit
+      const baseNextVisit = safeLastVisit
+        ? addDays(safeLastVisit, horse.intervalDays)
+        : null
 
       let effectiveNextVisit = baseNextVisit
+
       if (horse.postponedUntil) {
         const postponedDate = new Date(horse.postponedUntil)
-        if (postponedDate.getTime() > baseNextVisit.getTime()) {
+        if (!effectiveNextVisit || postponedDate.getTime() > effectiveNextVisit.getTime()) {
           effectiveNextVisit = postponedDate
         }
       }
@@ -157,6 +166,8 @@ export default function FarrierTab() {
       let status: Status = 'ok'
       if (horse.lostShoeAlert) {
         status = 'urgent'
+      } else if (!effectiveNextVisit) {
+        status = 'ok'
       } else {
         const daysLeft = diffInDays(new Date(), effectiveNextVisit)
         if (daysLeft < 0) status = 'overdue'
@@ -200,7 +211,10 @@ export default function FarrierTab() {
         const order = { urgent: 0, overdue: 1, soon: 2, ok: 3 }
         const statusDiff = order[a.status] - order[b.status]
         if (statusDiff !== 0) return statusDiff
-        return a.effectiveNextVisit.getTime() - b.effectiveNextVisit.getTime()
+
+        const aTime = a.effectiveNextVisit ? a.effectiveNextVisit.getTime() : Number.MAX_SAFE_INTEGER
+        const bTime = b.effectiveNextVisit ? b.effectiveNextVisit.getTime() : Number.MAX_SAFE_INTEGER
+        return aTime - bTime
       })
   }, [enriched, selectedFarrier, search])
 
@@ -237,7 +251,7 @@ export default function FarrierTab() {
     const { error: updateError } = await supabase
       .from('horses')
       .update({
-        last_farrier_date: newDate,
+        farrier_last_done: newDate,
         farrier_postponed_until: null,
         lost_shoe_alert: false,
         lost_shoe_reported_at: null,
@@ -286,7 +300,9 @@ export default function FarrierTab() {
     setSavingId(null)
   }
 
-  async function handleDelayWeek(id: string, currentNextDate: Date) {
+  async function handleDelayWeek(id: string, currentNextDate: Date | null) {
+    if (!currentNextDate) return
+
     setSavingId(id)
     setError('')
 
@@ -540,17 +556,21 @@ export default function FarrierTab() {
               <div className="farrier-mobile-grid-om">
                 <div className="farrier-mobile-item-om">
                   <span className="farrier-mobile-label-om">Last visit</span>
-                  <strong>{formatDate(new Date(horse.safeLastVisit))}</strong>
+                  <strong>
+                    {horse.safeLastVisit ? formatDate(new Date(horse.safeLastVisit)) : '—'}
+                  </strong>
                 </div>
 
                 <div className="farrier-mobile-item-om">
                   <span className="farrier-mobile-label-om">Interval</span>
-                  <strong>{horse.intervalDays} days</strong>
+                  <strong>{horse.intervalWeeks} weeks</strong>
                 </div>
 
                 <div className="farrier-mobile-item-om">
                   <span className="farrier-mobile-label-om">Next due</span>
-                  <strong>{formatDate(horse.effectiveNextVisit)}</strong>
+                  <strong>
+                    {horse.effectiveNextVisit ? formatDate(horse.effectiveNextVisit) : '—'}
+                  </strong>
                   {horse.postponedUntil ? (
                     <small className="farrier-delay-note-om">+1 week applied</small>
                   ) : null}
@@ -576,7 +596,7 @@ export default function FarrierTab() {
                   type="button"
                   className="farrier-mobile-delay-btn-om"
                   onClick={() => handleDelayWeek(horse.id, horse.effectiveNextVisit)}
-                  disabled={savingId === horse.id || horse.lostShoeAlert}
+                  disabled={savingId === horse.id || horse.lostShoeAlert || !horse.effectiveNextVisit}
                 >
                   Delay 1w
                 </button>
@@ -623,12 +643,18 @@ export default function FarrierTab() {
                   </td>
 
                   <td>{horse.farrier || '—'}</td>
-                  <td>{formatDate(new Date(horse.safeLastVisit))}</td>
-                  <td>{horse.intervalDays} days</td>
+
+                  <td>
+                    {horse.safeLastVisit ? formatDate(new Date(horse.safeLastVisit)) : '—'}
+                  </td>
+
+                  <td>{horse.intervalWeeks} weeks</td>
 
                   <td>
                     <div className="farrier-next-date-om">
-                      <span>{formatDate(horse.effectiveNextVisit)}</span>
+                      <span>
+                        {horse.effectiveNextVisit ? formatDate(horse.effectiveNextVisit) : '—'}
+                      </span>
                       {horse.postponedUntil ? (
                         <small className="farrier-delay-note-om">+1 week applied</small>
                       ) : null}
@@ -659,7 +685,7 @@ export default function FarrierTab() {
                       type="button"
                       className="farrier-table-link-om"
                       onClick={() => handleDelayWeek(horse.id, horse.effectiveNextVisit)}
-                      disabled={savingId === horse.id || horse.lostShoeAlert}
+                      disabled={savingId === horse.id || horse.lostShoeAlert || !horse.effectiveNextVisit}
                     >
                       Delay 1w
                     </button>

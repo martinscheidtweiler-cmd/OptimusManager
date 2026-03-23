@@ -1,110 +1,88 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import VremdeMap from './maps/VremdeMap'
+import PlaceManager from './maps/PlaceManager'
 import './PlaceTab.css'
 
-type SiteKey = 'vremde' | 'broechem' | 'bevel' | 'sint-katelijne-waver'
+type SiteKey =
+  | 'vremde'
+  | 'sint-katelijne-waver'
+  | 'paddock-paradise'
+  | 'oostmalse-steenweg'
+  | '47b'
+  | '50'
+  | 'goossens'
+  | 'serre'
+  | 'bevel'
 
 type Site = {
   id: SiteKey
   name: string
   subtitle: string
   status: 'active' | 'setup'
-  horses: number
-  pastures: number
-  buildings: number
+}
+
+type DragPayload = {
+  horseIds: string[]
 }
 
 const SITES: Site[] = [
-  {
-    id: 'vremde',
-    name: 'Vremde',
-    subtitle: 'Interactieve weidekaart',
-    status: 'active',
-    horses: 26,
-    pastures: 8,
-    buildings: 2,
-  },
-  {
-    id: 'broechem',
-    name: 'Broechem',
-    subtitle: 'Groot complex met meerdere stallen',
-    status: 'setup',
-    horses: 0,
-    pastures: 0,
-    buildings: 0,
-  },
-  {
-    id: 'bevel',
-    name: 'Bevel',
-    subtitle: 'Grote weide / buitenlocatie',
-    status: 'setup',
-    horses: 0,
-    pastures: 0,
-    buildings: 0,
-  },
-  {
-    id: 'sint-katelijne-waver',
-    name: 'Sint-Katelijne-Waver',
-    subtitle: 'Tweede complex',
-    status: 'setup',
-    horses: 0,
-    pastures: 0,
-    buildings: 0,
-  },
+  { id: 'vremde', name: 'Vremde', subtitle: 'Interactieve kaart', status: 'active' },
+  { id: 'sint-katelijne-waver', name: 'Sint-Katelijne-Waver', subtitle: 'Plaatsbeheer', status: 'active' },
+  { id: 'bevel', name: 'Bevel', subtitle: 'Plaatsbeheer', status: 'active' },
+  { id: 'paddock-paradise', name: 'Paddock Paradise', subtitle: 'Later', status: 'setup' },
+  { id: 'oostmalse-steenweg', name: 'Oostmalse Steenweg', subtitle: 'Later', status: 'setup' },
+  { id: '47b', name: '47B', subtitle: 'Later', status: 'setup' },
+  { id: '50', name: '50', subtitle: 'Later', status: 'setup' },
+  { id: 'goossens', name: 'Goossens', subtitle: 'Later', status: 'setup' },
+  { id: 'serre', name: 'Serre', subtitle: 'Later', status: 'setup' },
 ]
+
+function getDraggedHorseIdsFromEvent(e: React.DragEvent) {
+  try {
+    const raw = e.dataTransfer.getData('application/json')
+    if (raw) {
+      const parsed = JSON.parse(raw) as DragPayload
+      return parsed.horseIds ?? []
+    }
+  } catch {
+    //
+  }
+
+  const fallback = e.dataTransfer.getData('text/plain')
+  if (!fallback) return []
+  return fallback.split(',').map((v) => v.trim()).filter(Boolean)
+}
 
 export default function PlaceTab() {
   const [activeSiteId, setActiveSiteId] = useState<SiteKey>('vremde')
+
+  const [pendingSiteDrop, setPendingSiteDrop] = useState<{
+    horseIds: string[]
+    targetSiteSlug: SiteKey
+  } | null>(null)
 
   const activeSite = useMemo(
     () => SITES.find((site) => site.id === activeSiteId) ?? SITES[0],
     [activeSiteId]
   )
 
-  const renderMainContent = () => {
-    switch (activeSiteId) {
-      case 'vremde':
-        return <VremdeMap />
+  function allowDrop(e: React.DragEvent) {
+    e.preventDefault()
+  }
 
-      case 'broechem':
-        return (
-          <div className="place-coming-soon">
-            <span className="place-coming-soon-kicker">In opbouw</span>
-            <h3>Broechem map</h3>
-            <p>
-              Hier komt de grote interactieve kaart van Broechem met stallen, weides,
-              polygonen en verplaatsingen.
-            </p>
-          </div>
-        )
+  function handleDropOnSite(siteId: SiteKey, e: React.DragEvent) {
+    e.preventDefault()
 
-      case 'bevel':
-        return (
-          <div className="place-coming-soon">
-            <span className="place-coming-soon-kicker">In opbouw</span>
-            <h3>Bevel map</h3>
-            <p>
-              Hier komt de kaart van Bevel. Ideaal voor grote buitenweides en rotatiebeheer.
-            </p>
-          </div>
-        )
+    const horseIds = getDraggedHorseIdsFromEvent(e)
+    if (!horseIds.length) return
 
-      case 'sint-katelijne-waver':
-        return (
-          <div className="place-coming-soon">
-            <span className="place-coming-soon-kicker">In opbouw</span>
-            <h3>Sint-Katelijne-Waver map</h3>
-            <p>
-              Hier komt de interactieve kaart van Sint-Katelijne-Waver met zones en plaatsbeheer.
-            </p>
-          </div>
-        )
+    setPendingSiteDrop({
+      horseIds,
+      targetSiteSlug: siteId,
+    })
 
-      default:
-        return null
-    }
+    setActiveSiteId(siteId)
   }
 
   return (
@@ -114,7 +92,7 @@ export default function PlaceTab() {
           <span className="place-tab-kicker">Facility management</span>
           <h2 className="place-tab-title">Place</h2>
           <p className="place-tab-subtitle">
-            Beheer je sites, weides, gebouwen en later ook boxen vanuit één visuele kaartomgeving.
+            Beheer je sites, weides, gebouwen en paarden vanuit één omgeving.
           </p>
         </div>
 
@@ -124,7 +102,7 @@ export default function PlaceTab() {
             <strong>{SITES.length}</strong>
           </div>
           <div className="place-tab-stat-card">
-            <span>Actieve kaart</span>
+            <span>Actieve locatie</span>
             <strong>{activeSite.name}</strong>
           </div>
         </div>
@@ -146,6 +124,8 @@ export default function PlaceTab() {
                 type="button"
                 className={`place-tab-site-card ${activeSiteId === site.id ? 'active' : ''}`}
                 onClick={() => setActiveSiteId(site.id)}
+                onDragOver={allowDrop}
+                onDrop={(e) => handleDropOnSite(site.id, e)}
               >
                 <div className="place-tab-site-top">
                   <h4>{site.name}</h4>
@@ -160,33 +140,19 @@ export default function PlaceTab() {
 
                 <p>{site.subtitle}</p>
 
-                <div className="place-tab-site-meta">
-                  <span>{site.horses} paarden</span>
-                  <span>{site.pastures} weides</span>
-                  <span>{site.buildings} gebouwen</span>
-                </div>
+                <div className="place-tab-site-drop-note">Sleep paarden hierheen</div>
               </button>
             ))}
-          </div>
-
-          <div className="place-tab-sidebar-note">
-            <h4>Volgende stap</h4>
-            <p>
-              Eerst werken we Vremde volledig af. Daarna kopiëren we dezelfde structuur naar
-              Broechem, Bevel en Sint-Katelijne-Waver.
-            </p>
           </div>
         </aside>
 
         <section className="place-tab-main">
-          <div className="place-tab-panel-head">
-            <div>
-              <p className="place-tab-eyebrow">Kaart</p>
-              <h3>{activeSite.name}</h3>
-            </div>
-          </div>
-
-          {renderMainContent()}
+          <PlaceManager
+            siteSlug={activeSite.id}
+            siteLabel={activeSite.name}
+            pendingSiteDrop={pendingSiteDrop}
+            onClearPendingSiteDrop={() => setPendingSiteDrop(null)}
+          />
         </section>
       </div>
     </div>

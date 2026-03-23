@@ -261,3 +261,27 @@
     flex: 1;
   }
 }
+
+.place-tab-site-card {
+  position: relative;
+}
+
+.place-tab-site-drop-note {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8d7853;
+  opacity: 0.9;
+}
+
+.place-tab-site-card {
+  position: relative;
+}
+
+.place-tab-site-drop-note {
+  margin-top: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #8d7853;
+  opacity: 0.9;
+}

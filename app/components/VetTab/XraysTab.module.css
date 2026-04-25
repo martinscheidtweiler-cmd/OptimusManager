@@ -1,0 +1,578 @@
+.xrayPage {
+  width: 100%;
+  color: var(--om-text);
+}
+
+.xrayTopbar {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 26px;
+}
+
+.xrayBack {
+  border: 1px solid var(--om-border);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--om-text);
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 650;
+  cursor: pointer;
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.25s ease;
+}
+
+.xrayBack:hover {
+  background: #fff;
+  border-color: rgba(193, 126, 25, 0.35);
+  transform: translateY(-1px);
+}
+
+.xrayKicker {
+  display: block;
+  margin-bottom: 6px;
+  color: #b67818;
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.xrayTopbar h2 {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: var(--om-text);
+}
+
+.xrayTopbar p {
+  margin: 8px 0 0;
+  color: var(--om-muted);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.xrayLayout {
+  display: grid;
+  grid-template-columns: 330px 1fr;
+  gap: 20px;
+}
+
+.xraySidebar,
+.xrayCard,
+.xrayPlaceholder {
+  border: 1px solid var(--om-border);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+}
+
+.xraySidebar {
+  padding: 16px;
+  align-self: start;
+}
+
+.xraySearch,
+.xrayFormGrid input,
+.xrayFormGrid textarea {
+  width: 100%;
+  border: 1px solid var(--om-border);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--om-text);
+  padding: 13px 14px;
+  outline: none;
+  font: inherit;
+}
+
+.xraySearch:focus,
+.xrayFormGrid input:focus,
+.xrayFormGrid textarea:focus {
+  border-color: rgba(193, 126, 25, 0.45);
+  box-shadow: 0 0 0 4px rgba(193, 126, 25, 0.08);
+}
+
+.xrayHorseList {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  max-height: 620px;
+  overflow: auto;
+  padding-right: 3px;
+}
+
+.xrayHorse {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--om-border);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 14px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--om-text);
+  transition:
+    background 0.25s ease,
+    border-color 0.25s ease,
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+}
+
+.xrayHorse:hover,
+.xrayHorseActive {
+  border-color: rgba(193, 126, 25, 0.42);
+  background: rgba(255, 250, 239, 0.96);
+  box-shadow: 0 8px 20px rgba(193, 126, 25, 0.08);
+  transform: translateY(-1px);
+}
+
+.xrayHorse span {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.xrayHorse small {
+  color: var(--om-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.xrayMain {
+  display: grid;
+  gap: 20px;
+}
+
+.xrayCard {
+  padding: 22px;
+}
+
+.xrayFormCard {
+  background:
+    radial-gradient(circle at top right, rgba(193, 126, 25, 0.12), transparent 34%),
+    rgba(255, 255, 255, 0.82);
+}
+
+.xrayPlaceholder {
+  min-height: 280px;
+  display: grid;
+  place-content: center;
+  text-align: center;
+  padding: 28px;
+}
+
+.xrayPlaceholder span {
+  color: #b67818;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.14em;
+}
+
+.xrayPlaceholder strong {
+  margin-top: 8px;
+  font-size: 22px;
+  letter-spacing: -0.03em;
+  color: var(--om-text);
+}
+
+.xrayCardHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.xrayCardHead h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--om-text);
+}
+
+.xrayCardHead > strong {
+  color: #b67818;
+  font-size: 28px;
+  line-height: 1;
+}
+
+.xrayFormGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.xrayFormGrid label {
+  display: grid;
+  gap: 8px;
+  color: var(--om-muted);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.xrayFormGrid textarea {
+  min-height: 118px;
+  resize: vertical;
+}
+
+.xrayFull {
+  grid-column: 1 / -1;
+}
+
+.xraySave {
+  margin-top: 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #111;
+  color: #fff;
+  padding: 13px 22px;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.25s ease,
+    transform 0.25s ease,
+    opacity 0.25s ease;
+}
+
+.xraySave:hover {
+  background: #b67818;
+  transform: translateY(-1px);
+}
+
+.xraySave:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.xrayRecordList {
+  display: grid;
+  gap: 12px;
+}
+
+.xrayRecord {
+  border: 1px solid var(--om-border);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.72);
+  padding: 16px;
+}
+
+.xrayRecordTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.xrayRecordTop strong {
+  display: block;
+  color: var(--om-text);
+  font-size: 16px;
+}
+
+.xrayRecordTop span {
+  display: block;
+  margin-top: 4px;
+  color: var(--om-muted);
+  font-size: 13px;
+}
+
+.xrayNote {
+  margin: 14px 0;
+  color: var(--om-text);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.xrayLinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.xrayLinks a {
+  border: 1px solid rgba(193, 126, 25, 0.34);
+  border-radius: 999px;
+  color: #9a5d08;
+  background: rgba(255, 246, 229, 0.86);
+  padding: 8px 13px;
+  font-weight: 700;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+.xrayLinks a:hover {
+  background: rgba(255, 238, 205, 1);
+}
+
+.xrayDelete {
+  border: 1px solid rgba(180, 40, 40, 0.24);
+  background: rgba(255, 240, 240, 0.9);
+  color: #b42828;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.xrayDelete:hover {
+  background: rgba(255, 226, 226, 1);
+}
+
+.xrayEmpty {
+  color: var(--om-muted);
+  padding: 16px;
+  font-size: 14px;
+}
+
+.lockPage {
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+}
+
+.lockCard {
+  width: min(460px, 100%);
+  border: 1px solid var(--om-border);
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.08);
+  padding: 28px;
+}
+
+.lockCard h2 {
+  margin: 0;
+  font-size: 32px;
+  letter-spacing: -0.04em;
+  color: var(--om-text);
+}
+
+.lockCard p {
+  color: var(--om-muted);
+  line-height: 1.6;
+}
+
+.lockCard input {
+  width: 100%;
+  border: 1px solid var(--om-border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 14px 15px;
+  font: inherit;
+  outline: none;
+}
+
+.lockActions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.surgeryBadge {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(180, 40, 40, 0.12);
+  color: #b42828;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.fileUploadBox {
+  position: relative;
+  min-height: 118px;
+  border: 1px dashed rgba(193, 126, 25, 0.42);
+  border-radius: 18px;
+  background: rgba(255, 250, 239, 0.76);
+  padding: 18px;
+  cursor: pointer;
+}
+
+.fileUploadBox:hover {
+  background: rgba(255, 246, 229, 1);
+  border-color: rgba(193, 126, 25, 0.72);
+}
+
+.fileUploadBox span {
+  color: #b67818;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+
+.fileUploadBox strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--om-text);
+  font-size: 15px;
+  word-break: break-word;
+}
+
+.fileUploadBox small {
+  display: block;
+  margin-top: 5px;
+  color: var(--om-muted);
+}
+
+.fileUploadBox input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.surgeryCheck {
+  display: flex !important;
+  grid-template-columns: none !important;
+  align-items: center;
+  gap: 12px !important;
+  border: 1px solid rgba(180, 40, 40, 0.18);
+  background: rgba(255, 245, 245, 0.85);
+  border-radius: 18px;
+  padding: 16px;
+}
+
+.surgeryCheck input {
+  width: 18px !important;
+  height: 18px;
+}
+
+.surgeryCheck strong {
+  display: block;
+  color: #b42828;
+}
+
+.surgeryCheck small {
+  display: block;
+  margin-top: 3px;
+  color: var(--om-muted);
+  line-height: 1.4;
+}
+
+.surgeryNeeded,
+.surgeryDone {
+  margin-top: 14px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.surgeryNeeded {
+  background: rgba(255, 235, 235, 0.95);
+  border: 1px solid rgba(180, 40, 40, 0.22);
+  color: #b42828;
+}
+
+.surgeryDone {
+  background: rgba(235, 255, 240, 0.95);
+  border: 1px solid rgba(32, 130, 70, 0.22);
+  color: #208246;
+}
+
+.surgeryNeeded span,
+.surgeryDone span {
+  font-weight: 800;
+}
+
+.surgeryNeeded button,
+.surgeryDone button {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 12px;
+  background: #111;
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .xrayLayout {
+    grid-template-columns: 1fr;
+  }
+
+  .xrayFormGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .xrayTopbar {
+    flex-direction: column;
+  }
+
+  .lockActions {
+    flex-direction: column;
+  }
+}
+
+.recheckDate {
+  display: inline-flex !important;
+  margin-top: 6px !important;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(193, 126, 25, 0.12);
+  color: #9a5d08 !important;
+  font-size: 12px !important;
+  font-weight: 800;
+}
+
+.recheckBadge {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(193, 126, 25, 0.14);
+  color: #9a5d08;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.xrayFormGrid select {
+  width: 100%;
+  border: 1px solid var(--om-border);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--om-text);
+  padding: 13px 14px;
+  outline: none;
+  font: inherit;
+}
+
+.xrayFormGrid select:focus {
+  border-color: rgba(193, 126, 25, 0.45);
+  box-shadow: 0 0 0 4px rgba(193, 126, 25, 0.08);
+}
+
+.ageBadge {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(193, 126, 25, 0.14);
+  color: #9a5d08;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.ageBadgeDanger {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(180, 40, 40, 0.12);
+  color: #b42828;
+  font-size: 11px;
+  font-weight: 800;
+}

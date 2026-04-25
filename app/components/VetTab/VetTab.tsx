@@ -1,7 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import './VetTab.css'
+import styles from './VetTab.module.css'
+import XraysTab from './XraysTab'
+import LabResultsTab from './LabResultsTab'
+import VetVisitsTab from './VetVisitsTab'
 import MedicinesTab from './MedicinesTab'
 import VaccinationsTab from './VaccinationsTab'
 import DewormingTab from './DewormingTab'
@@ -66,6 +69,18 @@ const menuGroups: VetGroup[] = [
 export default function VetTab() {
   const [activeMenu, setActiveMenu] = useState<VetMenu | null>(null)
 
+  if (activeMenu === 'Xray') {
+    return <XraysTab onBack={() => setActiveMenu(null)} />
+  }
+
+  if (activeMenu === 'Lab Results') {
+    return <LabResultsTab onBack={() => setActiveMenu(null)} />
+  }
+
+  if (activeMenu === 'Vet Visits') {
+    return <VetVisitsTab onBack={() => setActiveMenu(null)} />
+  }
+
   if (activeMenu === 'Vaccinations') {
     return <VaccinationsTab onBack={() => setActiveMenu(null)} />
   }
@@ -79,31 +94,37 @@ export default function VetTab() {
   }
 
   return (
-    <div className="om-plain-content">
-      <span className="om-kicker">Health Management</span>
-      <h2 className="om-title">Vet</h2>
-      <p className="vet-intro">
+    <div className={styles.omPlainContent}>
+      <span className={styles.omKicker}>Health Management</span>
+      <h2 className={styles.omTitle}>Vet</h2>
+
+      <p className={styles.vetIntro}>
         Clear overview of diagnostics, treatments, prevention and breeding follow-up.
       </p>
 
-      <div className="vet-group-list">
+      <div className={styles.vetGroupList}>
         {menuGroups.map((group) => (
-          <section key={group.title} className="vet-group-card">
-            <div className="vet-group-head">
-              <h3 className="vet-group-title">{group.title}</h3>
-              <p className="vet-group-text">{group.text}</p>
+          <section key={group.title} className={styles.vetGroupCard}>
+            <div className={styles.vetGroupHead}>
+              <h3 className={styles.vetGroupTitle}>{group.title}</h3>
+              <p className={styles.vetGroupText}>{group.text}</p>
             </div>
 
-            <div className="vet-submenu-grid">
+            <div className={styles.vetSubmenuGrid}>
               {group.items.map((item) => (
                 <button
                   key={item.key}
-                  className="vet-submenu-card"
-                  onClick={() => setActiveMenu(item.key)}
                   type="button"
+                  className={styles.vetSubmenuCard}
+                  onClick={() => setActiveMenu(item.key)}
                 >
-                  <span className="vet-submenu-card-title">{item.label}</span>
-                  <span className="vet-submenu-card-text">{item.text}</span>
+                  <span className={styles.vetSubmenuCardTitle}>
+                    {item.label}
+                  </span>
+
+                  <span className={styles.vetSubmenuCardText}>
+                    {item.text}
+                  </span>
                 </button>
               ))}
             </div>

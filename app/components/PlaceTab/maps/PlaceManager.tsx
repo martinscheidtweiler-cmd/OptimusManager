@@ -101,10 +101,6 @@ const VREMDE_ZONES: Zone[] = [
   { id: 'vremde-10', name: 'Stable 2', unitType: 'stable', points: '260,190 293,190 293,260 261,260' },
 ]
 
-/**
- * VOORBEELD BEVEL ZONES
- * Deze moet je nog exact aanpassen aan jouw /maps/bevel-map.png
- */
 const BEVEL_ZONES: Zone[] = [
   {
     id: 'bevel-1',
@@ -126,6 +122,33 @@ const BEVEL_ZONES: Zone[] = [
   },
 ]
 
+const SKW_ZONES: Zone[] = [
+  {
+    id: 'skw-1',
+    name: 'Field 1',
+    unitType: 'pasture',
+    points: '50,50 250,50 250,250 50,250',
+  },
+  {
+    id: 'skw-2',
+    name: 'Field 2',
+    unitType: 'pasture',
+    points: '270,50 520,50 520,250 270,250',
+  },
+  {
+    id: 'skw-3',
+    name: 'Field 3',
+    unitType: 'pasture',
+    points: '50,280 250,280 250,520 50,520',
+  },
+  {
+    id: 'skw-4',
+    name: 'Stable 1',
+    unitType: 'stable',
+    points: '270,280 520,280 520,360 270,360',
+  },
+]
+
 const SITE_MAPS: Record<string, { image: string; viewBox: string; zones: Zone[] }> = {
   vremde: {
     image: '/maps/vremde-map.png',
@@ -136,6 +159,21 @@ const SITE_MAPS: Record<string, { image: string; viewBox: string; zones: Zone[] 
     image: '/maps/bevel-map.png',
     viewBox: '0 0 629 628',
     zones: BEVEL_ZONES,
+  },
+  skw: {
+    image: '/maps/skw-map.png',
+    viewBox: '0 0 629 628',
+    zones: SKW_ZONES,
+  },
+  'sint-katelijne': {
+    image: '/maps/skw-map.png',
+    viewBox: '0 0 629 628',
+    zones: SKW_ZONES,
+  },
+  'sint-katelijne-waver': {
+    image: '/maps/skw-map.png',
+    viewBox: '0 0 629 628',
+    zones: SKW_ZONES,
   },
 }
 

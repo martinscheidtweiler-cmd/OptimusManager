@@ -34,6 +34,18 @@ type Props = {
   onBack: () => void
 }
 
+function todayISO() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function errorMessage(err: unknown) {
+  if (err instanceof Error) return err.message
+  if (typeof err === 'object' && err !== null && 'message' in err) {
+    return String((err as { message?: unknown }).message)
+  }
+  return String(err)
+}
+
 export default function XraysTab({ onBack }: Props) {
   const [unlocked, setUnlocked] = useState(false)
   const [password, setPassword] = useState('')
@@ -43,13 +55,17 @@ export default function XraysTab({ onBack }: Props) {
   const [selectedHorseId, setSelectedHorseId] = useState('')
   const [search, setSearch] = useState('')
 
-  const [takenOn, setTakenOn] = useState('')
+  const [takenOn, setTakenOn] = useState(todayISO())
   const [recheckOn, setRecheckOn] = useState('')
   const [xrayType, setXrayType] = useState<XrayType>('general')
   const [note, setNote] = useState('')
   const [needsSurgery, setNeedsSurgery] = useState(false)
+
   const [xrayFile, setXrayFile] = useState<File | null>(null)
   const [reportFile, setReportFile] = useState<File | null>(null)
+
+  const [xrayLink, setXrayLink] = useState('')
+  const [reportLink, setReportLink] = useState('')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -81,7 +97,8 @@ export default function XraysTab({ onBack }: Props) {
       setHorses((horsesData || []) as Horse[])
       setRecords((recordsData || []) as XrayRecord[])
     } catch (err) {
-      console.error('Error loading xray data:', err)
+      console.error('XRAY LOAD ERROR:', err)
+      alert(`Laden mislukt: ${errorMessage(err)}`)
       setHorses([])
       setRecords([])
     } finally {
@@ -131,7 +148,6 @@ export default function XraysTab({ onBack }: Props) {
     if (age === null) return null
 
     const horseRecords = records.filter((record) => record.horse_id === horse.id)
-
     const has2yo = horseRecords.some((record) => record.xray_type === '2yo')
     const has6yo = horseRecords.some((record) => record.xray_type === '6yo')
 
@@ -165,22 +181,35 @@ export default function XraysTab({ onBack }: Props) {
   }
 
   const uploadFile = async (file: File, horseId: string, type: 'xray' | 'report') => {
-    const ext = file.name.split('.').pop() || 'file'
-    const cleanName = file.name
-      .replace(/\.[^/.]+$/, '')
-      .replace(/[^a-zA-Z0-9-_]/g, '-')
-      .toLowerCase()
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'file'
+    const cleanName =
+      file.name
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[^a-zA-Z0-9-_]/g, '-')
+        .replace(/-+/g, '-')
+        .toLowerCase() || 'file'
 
     const path = `${horseId}/${type}-${Date.now()}-${cleanName}.${ext}`
 
-    const { error } = await supabase.storage.from('horse-xrays').upload(path, file, {
-      cacheControl: '3600',
-      upsert: false,
-    })
+    const { error: uploadError } = await supabase.storage
+      .from('horse-xrays')
+      .upload(path, file, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: file.type || undefined,
+      })
 
-    if (error) throw error
+    if (uploadError) {
+      console.error('XRAY UPLOAD ERROR:', uploadError)
+      throw new Error(`Upload ${type} mislukt: ${uploadError.message}`)
+    }
 
     const { data } = supabase.storage.from('horse-xrays').getPublicUrl(path)
+
+    if (!data.publicUrl) {
+      throw new Error(`Geen public URL gekregen voor ${type}.`)
+    }
+
     return data.publicUrl
   }
 
@@ -190,8 +219,21 @@ export default function XraysTab({ onBack }: Props) {
       return
     }
 
-    if (!xrayFile && !reportFile && !note.trim() && !needsSurgery && !recheckOn) {
-      alert('Upload een xray, rapport, vink surgery aan, stel recheck in of schrijf een opmerking.')
+    if (!takenOn) {
+      alert('Kies een x-ray datum.')
+      return
+    }
+
+    if (
+      !xrayLink.trim() &&
+      !reportLink.trim() &&
+      !xrayFile &&
+      !reportFile &&
+      !note.trim() &&
+      !needsSurgery &&
+      !recheckOn
+    ) {
+      alert('Voeg minstens een link, bestand, opmerking, surgery of recheck toe.')
       return
     }
 
@@ -201,10 +243,19 @@ export default function XraysTab({ onBack }: Props) {
       let xrayUrl: string | null = null
       let reportUrl: string | null = null
 
-      if (xrayFile) xrayUrl = await uploadFile(xrayFile, selectedHorseId, 'xray')
-      if (reportFile) reportUrl = await uploadFile(reportFile, selectedHorseId, 'report')
+      if (xrayLink.trim()) {
+        xrayUrl = xrayLink.trim()
+      } else if (xrayFile) {
+        xrayUrl = await uploadFile(xrayFile, selectedHorseId, 'xray')
+      }
 
-      const { error } = await supabase.from('horse_xray_records').insert({
+      if (reportLink.trim()) {
+        reportUrl = reportLink.trim()
+      } else if (reportFile) {
+        reportUrl = await uploadFile(reportFile, selectedHorseId, 'report')
+      }
+
+      const payload = {
         horse_id: selectedHorseId,
         xray_type: xrayType,
         xray_url: xrayUrl,
@@ -214,14 +265,23 @@ export default function XraysTab({ onBack }: Props) {
         recheck_on: recheckOn || null,
         needs_surgery: needsSurgery,
         surgery_done: false,
-      })
+      }
 
-      if (error) throw error
+      console.log('XRAY INSERT PAYLOAD:', payload)
+
+      const { error } = await supabase.from('horse_xray_records').insert(payload)
+
+      if (error) {
+        console.error('XRAY INSERT ERROR:', error)
+        throw new Error(error.message)
+      }
 
       setXrayFile(null)
       setReportFile(null)
+      setXrayLink('')
+      setReportLink('')
       setNote('')
-      setTakenOn('')
+      setTakenOn(todayISO())
       setRecheckOn('')
       setXrayType('general')
       setNeedsSurgery(false)
@@ -234,8 +294,8 @@ export default function XraysTab({ onBack }: Props) {
 
       await loadData()
     } catch (err) {
-      console.error('Error saving xray record:', err)
-      alert('Opslaan mislukt.')
+      console.error('XRAY SAVE ERROR:', err)
+      alert(`Opslaan mislukt: ${errorMessage(err)}`)
     } finally {
       setSaving(false)
     }
@@ -248,8 +308,8 @@ export default function XraysTab({ onBack }: Props) {
       .eq('id', record.id)
 
     if (error) {
-      console.error('Error updating surgery:', error)
-      alert('Aanpassen mislukt.')
+      console.error('XRAY SURGERY UPDATE ERROR:', error)
+      alert(`Aanpassen mislukt: ${error.message}`)
       return
     }
 
@@ -257,13 +317,13 @@ export default function XraysTab({ onBack }: Props) {
   }
 
   const deleteRecord = async (id: string) => {
-    if (!confirm('Deze xray record verwijderen?')) return
+    if (!confirm('Deze x-ray record verwijderen?')) return
 
     const { error } = await supabase.from('horse_xray_records').delete().eq('id', id)
 
     if (error) {
-      console.error('Error deleting xray record:', error)
-      alert('Verwijderen mislukt.')
+      console.error('XRAY DELETE ERROR:', error)
+      alert(`Verwijderen mislukt: ${error.message}`)
       return
     }
 
@@ -272,8 +332,10 @@ export default function XraysTab({ onBack }: Props) {
 
   const formatDate = (value: string | null) => {
     if (!value) return '—'
+
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return '—'
+
     return date.toLocaleDateString('nl-BE')
   }
 
@@ -421,7 +483,10 @@ export default function XraysTab({ onBack }: Props) {
                         <div>
                           <strong>{formatDate(record.taken_on)}</strong>
                           <span>{formatXrayType(record.xray_type)}</span>
-                          <span>Added {formatDate(record.created_at)}</span>
+
+                          {record.note && (
+                            <span className={styles.historyRemark}>{record.note}</span>
+                          )}
 
                           {record.recheck_on && (
                             <span className={styles.recheckDate}>
@@ -452,8 +517,6 @@ export default function XraysTab({ onBack }: Props) {
                           </button>
                         </div>
                       )}
-
-                      {record.note && <p className={styles.xrayNote}>{record.note}</p>}
 
                       <div className={styles.xrayLinks}>
                         {record.xray_url && (
@@ -512,10 +575,30 @@ export default function XraysTab({ onBack }: Props) {
                     />
                   </label>
 
+                  <label>
+                    X-ray link
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      value={xrayLink}
+                      onChange={(e) => setXrayLink(e.target.value)}
+                    />
+                  </label>
+
+                  <label>
+                    Report link
+                    <input
+                      type="url"
+                      placeholder="https://connect.vet/view/..."
+                      value={reportLink}
+                      onChange={(e) => setReportLink(e.target.value)}
+                    />
+                  </label>
+
                   <label className={styles.fileUploadBox}>
                     <span>X-ray file</span>
                     <strong>{xrayFile ? xrayFile.name : 'Choose x-ray file'}</strong>
-                    <small>Image or PDF</small>
+                    <small>Image or PDF — optional if link is filled</small>
                     <input
                       id="xray-file"
                       type="file"
@@ -527,7 +610,7 @@ export default function XraysTab({ onBack }: Props) {
                   <label className={styles.fileUploadBox}>
                     <span>Report</span>
                     <strong>{reportFile ? reportFile.name : 'Choose report file'}</strong>
-                    <small>PDF or image</small>
+                    <small>PDF or image — optional if link is filled</small>
                     <input
                       id="report-file"
                       type="file"

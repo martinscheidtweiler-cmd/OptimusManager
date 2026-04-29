@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { DragEvent } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
-import './VremdeMap.css'
+import './VremdeMap.module.css'
 
 type UnitRow = {
   id: string
@@ -102,79 +103,25 @@ const VREMDE_ZONES: Zone[] = [
 ]
 
 const BEVEL_ZONES: Zone[] = [
-  {
-    id: 'bevel-1',
-    name: 'Field 1',
-    unitType: 'pasture',
-    points: '400,60 465,40 525,270 450,285',
-  },
-  {
-    id: 'bevel-2',
-    name: 'Field 2',
-    unitType: 'pasture',
-    points: '118,420 175,235 310,60 370,25 385,65 400,60 447,270 420,280 175,470',
-  },
-  {
-    id: 'bevel-3',
-    name: 'Field 3',
-    unitType: 'pasture',
-    points: '175,470 420,280 447,270 450,285 424,290 540,610 340,560 250,560 245,540',
-  },
+  { id: 'bevel-1', name: 'Field 1', unitType: 'pasture', points: '400,60 465,40 525,270 450,285' },
+  { id: 'bevel-2', name: 'Field 2', unitType: 'pasture', points: '118,420 175,235 310,60 370,25 385,65 400,60 447,270 420,280 175,470' },
+  { id: 'bevel-3', name: 'Field 3', unitType: 'pasture', points: '175,470 420,280 447,270 450,285 424,290 540,610 340,560 250,560 245,540' },
 ]
 
 const SKW_ZONES: Zone[] = [
-  {
-    id: 'skw-1',
-    name: 'Field 1',
-    unitType: 'pasture',
-    points: '50,50 250,50 250,250 50,250',
-  },
-  {
-    id: 'skw-2',
-    name: 'Field 2',
-    unitType: 'pasture',
-    points: '270,50 520,50 520,250 270,250',
-  },
-  {
-    id: 'skw-3',
-    name: 'Field 3',
-    unitType: 'pasture',
-    points: '50,280 250,280 250,520 50,520',
-  },
-  {
-    id: 'skw-4',
-    name: 'Stable 1',
-    unitType: 'stable',
-    points: '270,280 520,280 520,360 270,360',
-  },
+  { id: 'skw-1', name: 'Field 1', unitType: 'pasture', points: '310,35 450,111 365,265 227,200' },
+  { id: 'skw-2', name: 'Field 2', unitType: 'pasture', points: '227,200 365,265 335,328 192,265' },
+  { id: 'skw-3', name: 'Field 3', unitType: 'pasture', points: '115,440 140,415 280,595 260,605 240,580 200,600 120,500' },
+  { id: 'skw-4', name: 'Field 4', unitType: 'pasture', points: '225,405 348,550 280,595 163,445' },
+  { id: 'skw-5', name: 'Stable 1', unitType: 'stable', points: '225,405 200,375 140,415 163,445' },
 ]
 
 const SITE_MAPS: Record<string, { image: string; viewBox: string; zones: Zone[] }> = {
-  vremde: {
-    image: '/maps/vremde-map.png',
-    viewBox: '0 0 629 628',
-    zones: VREMDE_ZONES,
-  },
-  bevel: {
-    image: '/maps/bevel-map.png',
-    viewBox: '0 0 629 628',
-    zones: BEVEL_ZONES,
-  },
-  skw: {
-    image: '/maps/skw-map.png',
-    viewBox: '0 0 629 628',
-    zones: SKW_ZONES,
-  },
-  'sint-katelijne': {
-    image: '/maps/skw-map.png',
-    viewBox: '0 0 629 628',
-    zones: SKW_ZONES,
-  },
-  'sint-katelijne-waver': {
-    image: '/maps/skw-map.png',
-    viewBox: '0 0 629 628',
-    zones: SKW_ZONES,
-  },
+  vremde: { image: '/maps/vremde-map.png', viewBox: '0 0 629 628', zones: VREMDE_ZONES },
+  bevel: { image: '/maps/bevel-map.png', viewBox: '0 0 629 628', zones: BEVEL_ZONES },
+  skw: { image: '/maps/skw-map.png', viewBox: '0 0 629 628', zones: SKW_ZONES },
+  'sint-katelijne': { image: '/maps/skw-map.png', viewBox: '0 0 629 628', zones: SKW_ZONES },
+  'sint-katelijne-waver': { image: '/maps/skw-map.png', viewBox: '0 0 629 628', zones: SKW_ZONES },
 }
 
 function normalizeName(value: string | null | undefined) {
@@ -185,6 +132,7 @@ function formatDateTime(value: string | null | undefined) {
   if (!value) return '—'
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return value
+
   return d.toLocaleString('nl-BE', {
     day: '2-digit',
     month: '2-digit',
@@ -305,6 +253,7 @@ export default function PlaceManager({
       if (groupUnitsRes.error) throw groupUnitsRes.error
 
       const currentUnits = (unitsRes.data ?? []) as UnitRow[]
+
       setUnits(currentUnits)
       setAllUnits((allUnitsRes.data ?? []) as UnitRow[])
       setHorsePlaces(((horsesRes.data ?? []) as HorsePlaceRow[]).filter((item) => item.horse_active !== false))
@@ -313,7 +262,7 @@ export default function PlaceManager({
       setGroupUnits((groupUnitsRes.data ?? []) as PlaceGroupUnitRow[])
 
       if (!selectedId) {
-        if (hasMap && currentMap.zones[0]) {
+        if (hasMap && currentMap?.zones[0]) {
           setSelectedId(currentMap.zones[0].id)
         } else if (currentUnits[0]) {
           setSelectedId(currentUnits[0].id)
@@ -327,34 +276,22 @@ export default function PlaceManager({
   }
 
   useEffect(() => {
-    loadData()
+    void loadData()
   }, [siteSlug])
 
   useEffect(() => {
     const channel = supabase
       .channel(`place-live-updates-${siteSlug}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'horses' }, async () => {
-        await loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'horse_place_assignments' }, async () => {
-        await loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_units' }, async () => {
-        await loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_blocks' }, async () => {
-        await loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_groups' }, async () => {
-        await loadData()
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_group_units' }, async () => {
-        await loadData()
-      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'horses' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'horse_place_assignments' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_units' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_blocks' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_groups' }, () => void loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'place_group_units' }, () => void loadData())
       .subscribe()
 
     return () => {
-      supabase.removeChannel(channel)
+      void supabase.removeChannel(channel)
     }
   }, [siteSlug])
 
@@ -364,128 +301,88 @@ export default function PlaceManager({
     const isStable = unit.unit_type === 'stable'
     const unitName = unit.name?.trim() || ''
 
-    const updatePayload = {
-      stable_location: siteName,
-      box_number: isStable ? unitName.replace(/^stable\s*/i, '').trim() || unitName : null,
-      pasture_name: !isStable ? unitName : null,
-    }
-
     const { error: updateHorseError } = await supabase
       .from('horses')
-      .update(updatePayload)
+      .update({
+        stable_location: siteName,
+        box_number: isStable ? unitName.replace(/^stable\s*/i, '').trim() || unitName : null,
+        pasture_name: !isStable ? unitName : null,
+      })
       .eq('id', horseId)
 
     if (updateHorseError) throw updateHorseError
   }
 
   const zonesWithData = useMemo(() => {
-    if (hasMap && currentMap) {
-      return currentMap.zones.map((zone) => {
-        const linkedUnit =
-          units.find((u) => normalizeName(u.name) === normalizeName(zone.name)) ?? null
+    const sourceZones = hasMap && currentMap ? currentMap.zones : null
 
-        const horses = linkedUnit
-          ? horsePlaces.filter((item) => item.unit_id === linkedUnit.id)
-          : []
-
-        const currentBlock =
-          linkedUnit
-            ? blocks.find(
-                (block) =>
-                  block.unit_id === linkedUnit.id &&
-                  block.active === true &&
-                  new Date(block.ends_at).getTime() > Date.now()
-              ) ?? null
-            : null
-
-        const memberships = linkedUnit
-          ? groupUnits.filter((gu) => gu.unit_id === linkedUnit.id)
-          : []
-
-        const activeGroup =
-          memberships.length > 0
-            ? groups.find((g) => g.id === memberships[0].group_id) ?? null
-            : null
-
-        const groupedUnitIds = activeGroup
-          ? groupUnits.filter((gu) => gu.group_id === activeGroup.id).map((gu) => gu.unit_id)
-          : linkedUnit
-            ? [linkedUnit.id]
-            : []
-
-        const groupedUnitNames = groupedUnitIds
-          .map((id) => units.find((u) => u.id === id)?.name ?? null)
-          .filter((v): v is string => !!v)
-
-        const groupedHorses = horsePlaces.filter(
-          (horse) => !!horse.unit_id && groupedUnitIds.includes(horse.unit_id)
-        )
-
-        return {
-          id: zone.id,
-          name: zone.name,
-          unitType: zone.unitType,
-          linkedUnit,
-          horses,
-          count: horses.length,
-          isBlocked: !!currentBlock,
-          currentBlock,
-          activeGroup,
-          groupedUnitIds,
-          groupedUnitNames,
-          groupedHorses,
-          points: zone.points,
-        }
+    if (sourceZones) {
+      return sourceZones.map((zone) => {
+        const linkedUnit = units.find((u) => normalizeName(u.name) === normalizeName(zone.name)) ?? null
+        return buildZoneData(zone.id, zone.name, zone.unitType, zone.points, linkedUnit)
       })
     }
 
-    return units.map((unit) => {
-      const horses = horsePlaces.filter((item) => item.unit_id === unit.id)
+    return units.map((unit) =>
+      buildZoneData(
+        unit.id,
+        unit.name,
+        unit.unit_type === 'stable' ? 'stable' : 'pasture',
+        '',
+        unit
+      )
+    )
+  }, [hasMap, currentMap, units, horsePlaces, blocks, groups, groupUnits])
 
-      const currentBlock =
-        blocks.find(
+  function buildZoneData(
+    id: string,
+    name: string,
+    unitType: 'pasture' | 'stable',
+    points: string,
+    linkedUnit: UnitRow | null
+  ) {
+    const horses = linkedUnit ? horsePlaces.filter((item) => item.unit_id === linkedUnit.id) : []
+
+    const currentBlock = linkedUnit
+      ? blocks.find(
           (block) =>
-            block.unit_id === unit.id &&
+            block.unit_id === linkedUnit.id &&
             block.active === true &&
             new Date(block.ends_at).getTime() > Date.now()
         ) ?? null
+      : null
 
-      const memberships = groupUnits.filter((gu) => gu.unit_id === unit.id)
+    const memberships = linkedUnit ? groupUnits.filter((gu) => gu.unit_id === linkedUnit.id) : []
+    const activeGroup = memberships.length > 0 ? groups.find((g) => g.id === memberships[0].group_id) ?? null : null
 
-      const activeGroup =
-        memberships.length > 0
-          ? groups.find((g) => g.id === memberships[0].group_id) ?? null
-          : null
+    const groupedUnitIds = activeGroup
+      ? groupUnits.filter((gu) => gu.group_id === activeGroup.id).map((gu) => gu.unit_id)
+      : linkedUnit
+        ? [linkedUnit.id]
+        : []
 
-      const groupedUnitIds = activeGroup
-        ? groupUnits.filter((gu) => gu.group_id === activeGroup.id).map((gu) => gu.unit_id)
-        : [unit.id]
+    const groupedUnitNames = groupedUnitIds
+      .map((unitId) => units.find((u) => u.id === unitId)?.name ?? null)
+      .filter((v): v is string => !!v)
 
-      const groupedUnitNames = groupedUnitIds
-        .map((id) => units.find((u) => u.id === id)?.name ?? null)
-        .filter((v): v is string => !!v)
+    const groupedHorses = horsePlaces.filter((horse) => !!horse.unit_id && groupedUnitIds.includes(horse.unit_id))
 
-      const groupedHorses = horsePlaces.filter(
-        (horse) => !!horse.unit_id && groupedUnitIds.includes(horse.unit_id)
-      )
-
-      return {
-        id: unit.id,
-        name: unit.name,
-        unitType: unit.unit_type === 'stable' ? 'stable' : 'pasture',
-        linkedUnit: unit,
-        horses,
-        count: horses.length,
-        isBlocked: !!currentBlock,
-        currentBlock,
-        activeGroup,
-        groupedUnitIds,
-        groupedUnitNames,
-        groupedHorses,
-        points: '',
-      }
-    })
-  }, [hasMap, currentMap, units, horsePlaces, blocks, groups, groupUnits])
+    return {
+      id,
+      name,
+      unitType,
+      linkedUnit,
+      horses,
+      count: horses.length,
+      isBlocked: !!currentBlock,
+      currentBlock,
+      activeGroup,
+      groupedUnitIds,
+      groupedUnitNames,
+      groupedHorses,
+      points,
+    }
+  }
 
   const selectedZone = useMemo(() => {
     if (!zonesWithData.length) return null
@@ -497,10 +394,7 @@ export default function PlaceManager({
     [hoveredId, zonesWithData]
   )
 
-  const horsesInSelectedZone = useMemo(() => {
-    if (!selectedZone) return []
-    return selectedZone.groupedHorses
-  }, [selectedZone])
+  const horsesInSelectedZone = selectedZone?.groupedHorses ?? []
 
   const allHorsesForThisSite = useMemo(() => {
     if (!site) return []
@@ -542,19 +436,17 @@ export default function PlaceManager({
     )
   }
 
-  function allowDrop(e: React.DragEvent) {
+  function allowDrop(e: DragEvent) {
     e.preventDefault()
   }
 
-  function handleHorseDragStart(e: React.DragEvent, horseId: string) {
+  function handleHorseDragStart(e: DragEvent, horseId: string) {
     const horseIds =
       selectedHorseIds.length > 1 && selectedHorseIds.includes(horseId)
         ? selectedHorseIds
         : [horseId]
 
-    const payload: DragPayload = { horseIds }
-
-    e.dataTransfer.setData('application/json', JSON.stringify(payload))
+    e.dataTransfer.setData('application/json', JSON.stringify({ horseIds }))
     e.dataTransfer.setData('text/plain', horseIds.join(','))
     setDraggingHorseIds(horseIds)
   }
@@ -563,20 +455,19 @@ export default function PlaceManager({
     setDraggingHorseIds([])
   }
 
-  function getDraggedHorseIds(e: React.DragEvent) {
+  function getDraggedHorseIds(e: DragEvent) {
     try {
       const raw = e.dataTransfer.getData('application/json')
-      if (raw) {
-        const parsed = JSON.parse(raw) as DragPayload
-        return parsed.horseIds ?? []
-      }
+      if (raw) return (JSON.parse(raw) as DragPayload).horseIds ?? []
     } catch {
       //
     }
 
-    const fallback = e.dataTransfer.getData('text/plain')
-    if (!fallback) return []
-    return fallback.split(',').map((v) => v.trim()).filter(Boolean)
+    return e.dataTransfer
+      .getData('text/plain')
+      .split(',')
+      .map((v) => v.trim())
+      .filter(Boolean)
   }
 
   async function moveHorseIdsToUnit(horseIds: string[], unit: UnitRow) {
@@ -588,9 +479,7 @@ export default function PlaceManager({
           new Date(block.ends_at).getTime() > Date.now()
       ) ?? null
 
-    if (activeBlock) {
-      throw new Error(`${unit.name} is tijdelijk afgesloten.`)
-    }
+    if (activeBlock) throw new Error(`${unit.name} is tijdelijk afgesloten.`)
 
     for (const horseId of horseIds) {
       const { error: moveError } = await supabase.rpc('move_horse_v2', {
@@ -608,7 +497,7 @@ export default function PlaceManager({
     }
   }
 
-  async function handleDropToUnit(unit: UnitRow, e: React.DragEvent) {
+  async function handleDropToUnit(unit: UnitRow, e: DragEvent) {
     e.preventDefault()
 
     const horseIds = getDraggedHorseIds(e)
@@ -706,14 +595,8 @@ export default function PlaceManager({
         })
         .filter(Boolean)
 
-      if (!rows.length) {
-        setError('Geen geldige plaatsen geselecteerd.')
-        return
-      }
-
       const { error: insertError } = await supabase.from('place_blocks').insert(rows)
-
-      if (insertError) throw new Error(insertError.message || 'Fout bij blokkeren')
+      if (insertError) throw insertError
 
       setSelectedBlockUnitIds([])
       await loadData()
@@ -729,8 +612,7 @@ export default function PlaceManager({
       setBulkBusy(true)
       setError(null)
 
-      const targetIds = [...selectedBlockUnitIds]
-      if (!targetIds.length) {
+      if (!selectedBlockUnitIds.length) {
         setError('Duid eerst minstens 1 geblokkeerde plaats aan.')
         return
       }
@@ -739,7 +621,7 @@ export default function PlaceManager({
         .filter(
           (block) =>
             !!block.unit_id &&
-            targetIds.includes(block.unit_id) &&
+            selectedBlockUnitIds.includes(block.unit_id) &&
             block.active === true &&
             new Date(block.ends_at).getTime() > Date.now()
         )
@@ -750,17 +632,12 @@ export default function PlaceManager({
         return
       }
 
-      const nowIso = new Date().toISOString()
-
       const { error: updateError } = await supabase
         .from('place_blocks')
-        .update({
-          active: false,
-          ends_at: nowIso,
-        })
+        .update({ active: false, ends_at: new Date().toISOString() })
         .in('id', ids)
 
-      if (updateError) throw new Error(updateError.message || 'Fout bij vrijgeven')
+      if (updateError) throw updateError
 
       setSelectedBlockUnitIds([])
       await loadData()
@@ -785,32 +662,18 @@ export default function PlaceManager({
       const currentGroupId = selectedZone?.activeGroup?.id ?? null
 
       if (currentGroupId) {
-        const { error: deleteMembersError } = await supabase
-          .from('place_group_units')
-          .delete()
-          .eq('group_id', currentGroupId)
-
-        if (deleteMembersError) throw deleteMembersError
-
-        const { error: updateGroupError } = await supabase
+        await supabase.from('place_group_units').delete().eq('group_id', currentGroupId)
+        await supabase
           .from('place_groups')
-          .update({
-            name: groupName.trim() || selectedZone?.activeGroup?.name || 'Open verbinding',
-          })
+          .update({ name: groupName.trim() || selectedZone?.activeGroup?.name || 'Open verbinding' })
           .eq('id', currentGroupId)
 
-        if (updateGroupError) throw updateGroupError
-
-        const rows = selectedGroupUnitIds.map((unitId) => ({
-          group_id: currentGroupId,
-          unit_id: unitId,
-        }))
-
-        const { error: insertMembersError } = await supabase
-          .from('place_group_units')
-          .insert(rows)
-
-        if (insertMembersError) throw insertMembersError
+        await supabase.from('place_group_units').insert(
+          selectedGroupUnitIds.map((unitId) => ({
+            group_id: currentGroupId,
+            unit_id: unitId,
+          }))
+        )
       } else {
         const { data: newGroup, error: groupError } = await supabase
           .from('place_groups')
@@ -824,16 +687,12 @@ export default function PlaceManager({
 
         if (groupError) throw groupError
 
-        const rows = selectedGroupUnitIds.map((unitId) => ({
-          group_id: newGroup.id,
-          unit_id: unitId,
-        }))
-
-        const { error: insertMembersError } = await supabase
-          .from('place_group_units')
-          .insert(rows)
-
-        if (insertMembersError) throw insertMembersError
+        await supabase.from('place_group_units').insert(
+          selectedGroupUnitIds.map((unitId) => ({
+            group_id: newGroup.id,
+            unit_id: unitId,
+          }))
+        )
       }
 
       await loadData()
@@ -852,19 +711,8 @@ export default function PlaceManager({
       setGroupBusy(true)
       setError(null)
 
-      const { error: deleteMembersError } = await supabase
-        .from('place_group_units')
-        .delete()
-        .eq('group_id', currentGroupId)
-
-      if (deleteMembersError) throw deleteMembersError
-
-      const { error: updateGroupError } = await supabase
-        .from('place_groups')
-        .update({ active: false })
-        .eq('id', currentGroupId)
-
-      if (updateGroupError) throw updateGroupError
+      await supabase.from('place_group_units').delete().eq('group_id', currentGroupId)
+      await supabase.from('place_groups').update({ active: false }).eq('id', currentGroupId)
 
       setGroupName('')
       setSelectedGroupUnitIds([])
@@ -907,44 +755,33 @@ export default function PlaceManager({
 
             {hasMap && currentMap ? (
               <div className="vremde-map-stage">
-                <img
-                  src={currentMap.image}
-                  alt={`${siteLabel} map`}
-                  className="vremde-map-image"
-                />
+                <img src={currentMap.image} alt={`${siteLabel} map`} className="vremde-map-image" />
 
-                <svg
-                  className="vremde-map-overlay"
-                  viewBox={currentMap.viewBox}
-                  preserveAspectRatio="none"
-                >
+                <svg className="vremde-map-overlay" viewBox={currentMap.viewBox} preserveAspectRatio="none">
                   {zonesWithData.map((zone) => (
-                    <g key={zone.id}>
-                      <polygon
-                        points={zone.points}
-                        className={`vremde-zone ${
-                          zone.unitType === 'stable' ? 'is-stable' : 'is-pasture'
-                        } ${zone.isBlocked ? 'is-blocked' : ''} ${
-                          selectedZone?.id === zone.id ? 'is-active' : ''
-                        } ${zone.activeGroup ? 'is-grouped' : ''}`}
-                        onClick={() => setSelectedId(zone.id)}
-                        onDragOver={allowDrop}
-                        onDrop={(e) => {
-                          if (zone.linkedUnit) void handleDropToUnit(zone.linkedUnit, e)
-                        }}
-                        onMouseEnter={(e) => {
-                          setHoveredId(zone.id)
-                          setHoverPos({ x: e.clientX, y: e.clientY })
-                        }}
-                        onMouseMove={(e) => {
-                          setHoverPos({ x: e.clientX, y: e.clientY })
-                        }}
-                        onMouseLeave={() => {
-                          setHoveredId(null)
-                          setHoverPos(null)
-                        }}
-                      />
-                    </g>
+                    <polygon
+                      key={zone.id}
+                      points={zone.points}
+                      className={`vremde-zone ${zone.unitType === 'stable' ? 'is-stable' : 'is-pasture'} ${
+                        zone.isBlocked ? 'is-blocked' : ''
+                      } ${selectedZone?.id === zone.id ? 'is-active' : ''} ${
+                        zone.activeGroup ? 'is-grouped' : ''
+                      }`}
+                      onClick={() => setSelectedId(zone.id)}
+                      onDragOver={allowDrop}
+                      onDrop={(e) => {
+                        if (zone.linkedUnit) void handleDropToUnit(zone.linkedUnit, e)
+                      }}
+                      onMouseEnter={(e) => {
+                        setHoveredId(zone.id)
+                        setHoverPos({ x: e.clientX, y: e.clientY })
+                      }}
+                      onMouseMove={(e) => setHoverPos({ x: e.clientX, y: e.clientY })}
+                      onMouseLeave={() => {
+                        setHoveredId(null)
+                        setHoverPos(null)
+                      }}
+                    />
                   ))}
                 </svg>
               </div>
@@ -976,34 +813,20 @@ export default function PlaceManager({
             )}
 
             {hoveredZone && hoverPos && hasMap ? (
-              <div
-                className="vremde-hover-card"
-                style={{
-                  left: hoverPos.x,
-                  top: hoverPos.y,
-                }}
-              >
+              <div className="vremde-hover-card" style={{ left: hoverPos.x, top: hoverPos.y }}>
                 <div className="vremde-hover-head">
                   <strong>{hoveredZone.name}</strong>
                   <span>{hoveredZone.unitType === 'stable' ? 'Stal' : 'Weide'}</span>
                 </div>
 
                 <div className="vremde-zone-tags">
-                  <span className="vremde-zone-tag">
-                    {hoveredZone.unitType === 'stable' ? 'Stal' : 'Weide'}
-                  </span>
-                  {hoveredZone.isBlocked ? (
-                    <span className="vremde-zone-tag is-blocked">Geblokkeerd</span>
-                  ) : null}
-                  {hoveredZone.activeGroup ? (
-                    <span className="vremde-zone-tag is-grouped">Gekoppeld</span>
-                  ) : null}
+                  <span className="vremde-zone-tag">{hoveredZone.unitType === 'stable' ? 'Stal' : 'Weide'}</span>
+                  {hoveredZone.isBlocked ? <span className="vremde-zone-tag is-blocked">Geblokkeerd</span> : null}
+                  {hoveredZone.activeGroup ? <span className="vremde-zone-tag is-grouped">Gekoppeld</span> : null}
                 </div>
 
                 {hoveredZone.activeGroup ? (
-                  <div className="vremde-hover-group">
-                    Verbonden: {hoveredZone.groupedUnitNames.join(' + ')}
-                  </div>
+                  <div className="vremde-hover-group">Verbonden: {hoveredZone.groupedUnitNames.join(' + ')}</div>
                 ) : null}
 
                 {hoveredZone.isBlocked && hoveredZone.currentBlock ? (
@@ -1042,15 +865,9 @@ export default function PlaceManager({
                   <div className="vremde-selected-name">{selectedZone.name}</div>
 
                   <div className="vremde-zone-tags" style={{ marginBottom: 12 }}>
-                    <span className="vremde-zone-tag">
-                      {selectedZone.unitType === 'stable' ? 'Stal' : 'Weide'}
-                    </span>
-                    {selectedZone.isBlocked ? (
-                      <span className="vremde-zone-tag is-blocked">Geblokkeerd</span>
-                    ) : null}
-                    {selectedZone.activeGroup ? (
-                      <span className="vremde-zone-tag is-grouped">Gekoppeld</span>
-                    ) : null}
+                    <span className="vremde-zone-tag">{selectedZone.unitType === 'stable' ? 'Stal' : 'Weide'}</span>
+                    {selectedZone.isBlocked ? <span className="vremde-zone-tag is-blocked">Geblokkeerd</span> : null}
+                    {selectedZone.activeGroup ? <span className="vremde-zone-tag is-grouped">Gekoppeld</span> : null}
                   </div>
 
                   {selectedZone.activeGroup ? (
@@ -1071,9 +888,7 @@ export default function PlaceManager({
                           key={horse.horse_id}
                           className={`vremde-simple-horse-row has-click-select ${
                             draggingHorseIds.includes(horse.horse_id) ? 'is-dragging' : ''
-                          } ${
-                            selectedHorseIds.includes(horse.horse_id) ? 'is-selected' : ''
-                          }`}
+                          } ${selectedHorseIds.includes(horse.horse_id) ? 'is-selected' : ''}`}
                           draggable
                           onClick={() => toggleHorseSelection(horse.horse_id)}
                           onDragStart={(e) => handleHorseDragStart(e, horse.horse_id)}
@@ -1100,7 +915,7 @@ export default function PlaceManager({
                 <h3>Alle paarden van deze site</h3>
                 <button
                   type="button"
-                  className="vremde-collapse-btn vredme-collapse-inline"
+                  className="vremde-collapse-btn vremde-collapse-inline"
                   onClick={() => setShowAllSiteHorses((prev) => !prev)}
                 >
                   {showAllSiteHorses ? 'Sluit' : 'Open'}
@@ -1120,9 +935,7 @@ export default function PlaceManager({
                           key={horse.horse_id}
                           className={`vremde-horse-row is-draggable has-click-select ${
                             draggingHorseIds.includes(horse.horse_id) ? 'is-dragging' : ''
-                          } ${
-                            selectedHorseIds.includes(horse.horse_id) ? 'is-selected' : ''
-                          }`}
+                          } ${selectedHorseIds.includes(horse.horse_id) ? 'is-selected' : ''}`}
                           draggable
                           onClick={() => toggleHorseSelection(horse.horse_id)}
                           onDragStart={(e) => handleHorseDragStart(e, horse.horse_id)}
@@ -1145,148 +958,111 @@ export default function PlaceManager({
             <div className="vremde-panel">
               <h3>Tijdelijk sluiten</h3>
 
-              <div className="vremde-collapsible">
-                <button
-                  type="button"
-                  className="vremde-collapse-btn"
-                  onClick={() => setShowBlockManager((prev) => !prev)}
-                >
-                  {showBlockManager ? 'Sluit tijdelijk sluiten' : 'Open tijdelijk sluiten'}
-                </button>
+              <button type="button" className="vremde-collapse-btn" onClick={() => setShowBlockManager((prev) => !prev)}>
+                {showBlockManager ? 'Sluit tijdelijk sluiten' : 'Open tijdelijk sluiten'}
+              </button>
 
-                {showBlockManager ? (
-                  <div className="vremde-block-manager">
-                    <div className="vremde-check-grid">
-                      {zonesWithData.map((zone) => {
-                        const unitId = zone.linkedUnit?.id
-                        if (!unitId) return null
+              {showBlockManager ? (
+                <div className="vremde-block-manager">
+                  <div className="vremde-check-grid">
+                    {zonesWithData.map((zone) => {
+                      const unitId = zone.linkedUnit?.id
+                      if (!unitId) return null
 
-                        return (
-                          <label key={zone.id} className="vremde-check-item">
-                            <input
-                              type="checkbox"
-                              checked={selectedBlockUnitIds.includes(unitId)}
-                              onChange={() => toggleSelectedBlockUnit(unitId)}
-                            />
-                            <span>{zone.name}</span>
-                            {zone.isBlocked ? <em>al dicht</em> : null}
-                          </label>
-                        )
-                      })}
+                      return (
+                        <label key={zone.id} className="vremde-check-item">
+                          <input
+                            type="checkbox"
+                            checked={selectedBlockUnitIds.includes(unitId)}
+                            onChange={() => toggleSelectedBlockUnit(unitId)}
+                          />
+                          <span>{zone.name}</span>
+                          {zone.isBlocked ? <em>al dicht</em> : null}
+                        </label>
+                      )
+                    })}
+                  </div>
+
+                  <div className="vremde-block-form">
+                    <div className="vremde-field">
+                      <label>Aantal dagen</label>
+                      <input type="number" min="1" value={bulkDays} onChange={(e) => setBulkDays(e.target.value)} />
                     </div>
 
-                    <div className="vremde-block-form">
-                      <div className="vremde-field">
-                        <label>Aantal dagen</label>
-                        <input
-                          type="number"
-                          min="1"
-                          value={bulkDays}
-                          onChange={(e) => setBulkDays(e.target.value)}
-                        />
-                      </div>
-
-                      <div className="vremde-field">
-                        <label>Reden</label>
-                        <input
-                          type="text"
-                          value={bulkReason}
-                          onChange={(e) => setBulkReason(e.target.value)}
-                          placeholder="bv. bemesten"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="vremde-block-actions">
-                      <button
-                        type="button"
-                        className="vremde-btn-primary"
-                        onClick={blockSelectedUnits}
-                        disabled={bulkBusy}
-                      >
-                        Geselecteerde plaatsen sluiten
-                      </button>
-
-                      <button
-                        type="button"
-                        className="vremde-btn-secondary"
-                        onClick={unblockSelectedUnits}
-                        disabled={bulkBusy}
-                      >
-                        Geselecteerde plaatsen vrijgeven
-                      </button>
+                    <div className="vremde-field">
+                      <label>Reden</label>
+                      <input
+                        type="text"
+                        value={bulkReason}
+                        onChange={(e) => setBulkReason(e.target.value)}
+                        placeholder="bv. bemesten"
+                      />
                     </div>
                   </div>
-                ) : null}
-              </div>
+
+                  <div className="vremde-block-actions">
+                    <button type="button" className="vremde-btn-primary" onClick={blockSelectedUnits} disabled={bulkBusy}>
+                      Geselecteerde plaatsen sluiten
+                    </button>
+
+                    <button type="button" className="vremde-btn-secondary" onClick={unblockSelectedUnits} disabled={bulkBusy}>
+                      Geselecteerde plaatsen vrijgeven
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             <div className="vremde-panel">
               <h3>Plaatsen koppelen</h3>
 
-              <div className="vremde-collapsible">
-                <button
-                  type="button"
-                  className="vremde-collapse-btn"
-                  onClick={() => setShowGroupManager((prev) => !prev)}
-                >
-                  {showGroupManager ? 'Sluit plaatsen koppelen' : 'Open plaatsen koppelen'}
-                </button>
+              <button type="button" className="vremde-collapse-btn" onClick={() => setShowGroupManager((prev) => !prev)}>
+                {showGroupManager ? 'Sluit plaatsen koppelen' : 'Open plaatsen koppelen'}
+              </button>
 
-                {showGroupManager ? (
-                  <>
-                    <div className="vremde-field" style={{ marginTop: 14 }}>
-                      <label>Naam koppeling</label>
-                      <input
-                        type="text"
-                        value={groupName}
-                        onChange={(e) => setGroupName(e.target.value)}
-                        placeholder="bv. Open verbinding Stable 2 + Field 1 + Field 2"
-                      />
-                    </div>
+              {showGroupManager ? (
+                <>
+                  <div className="vremde-field" style={{ marginTop: 14 }}>
+                    <label>Naam koppeling</label>
+                    <input
+                      type="text"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      placeholder="bv. Open verbinding Stable 2 + Field 1"
+                    />
+                  </div>
 
-                    <div className="vremde-check-grid">
-                      {zonesWithData.map((zone) => {
-                        const unitId = zone.linkedUnit?.id
-                        if (!unitId) return null
+                  <div className="vremde-check-grid">
+                    {zonesWithData.map((zone) => {
+                      const unitId = zone.linkedUnit?.id
+                      if (!unitId) return null
 
-                        return (
-                          <label key={zone.id} className="vremde-check-item">
-                            <input
-                              type="checkbox"
-                              checked={selectedGroupUnitIds.includes(unitId)}
-                              onChange={() => toggleSelectedGroupUnit(unitId)}
-                            />
-                            <span>{zone.name}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
+                      return (
+                        <label key={zone.id} className="vremde-check-item">
+                          <input
+                            type="checkbox"
+                            checked={selectedGroupUnitIds.includes(unitId)}
+                            onChange={() => toggleSelectedGroupUnit(unitId)}
+                          />
+                          <span>{zone.name}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
 
-                    <div className="vremde-block-actions">
-                      <button
-                        type="button"
-                        className="vremde-btn-primary"
-                        onClick={saveGroup}
-                        disabled={groupBusy}
-                      >
-                        Koppeling opslaan
+                  <div className="vremde-block-actions">
+                    <button type="button" className="vremde-btn-primary" onClick={saveGroup} disabled={groupBusy}>
+                      Koppeling opslaan
+                    </button>
+
+                    {selectedZone?.activeGroup ? (
+                      <button type="button" className="vremde-btn-secondary" onClick={removeCurrentGroup} disabled={groupBusy}>
+                        Koppeling verwijderen
                       </button>
-
-                      {selectedZone?.activeGroup ? (
-                        <button
-                          type="button"
-                          className="vremde-btn-secondary"
-                          onClick={removeCurrentGroup}
-                          disabled={groupBusy}
-                        >
-                          Koppeling verwijderen
-                        </button>
-                      ) : null}
-                    </div>
-                  </>
-                ) : null}
-              </div>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
             </div>
 
             {unplacedHorses.length > 0 ? (
@@ -1298,9 +1074,7 @@ export default function PlaceManager({
                       key={horse.horse_id}
                       className={`vremde-horse-row is-draggable has-click-select ${
                         draggingHorseIds.includes(horse.horse_id) ? 'is-dragging' : ''
-                      } ${
-                        selectedHorseIds.includes(horse.horse_id) ? 'is-selected' : ''
-                      }`}
+                      } ${selectedHorseIds.includes(horse.horse_id) ? 'is-selected' : ''}`}
                       draggable
                       onClick={() => toggleHorseSelection(horse.horse_id)}
                       onDragStart={(e) => handleHorseDragStart(e, horse.horse_id)}
@@ -1326,20 +1100,11 @@ export default function PlaceManager({
               <div>
                 <h3>{pendingDropTargetSite.name}</h3>
                 <p>
-                  Kies exact waar je{' '}
-                  <strong>
-                    {pendingSiteDrop.horseIds.length} paard
-                    {pendingSiteDrop.horseIds.length === 1 ? '' : 'en'}
-                  </strong>{' '}
-                  wil zetten.
+                  Kies exact waar je <strong>{pendingSiteDrop.horseIds.length} paard{pendingSiteDrop.horseIds.length === 1 ? '' : 'en'}</strong> wil zetten.
                 </p>
               </div>
 
-              <button
-                type="button"
-                className="place-modal-close"
-                onClick={onClearPendingSiteDrop}
-              >
+              <button type="button" className="place-modal-close" onClick={onClearPendingSiteDrop}>
                 ✕
               </button>
             </div>

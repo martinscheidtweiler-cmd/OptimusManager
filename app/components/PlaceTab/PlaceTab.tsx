@@ -41,6 +41,7 @@ const SITES: Site[] = [
 function getDraggedHorseIdsFromEvent(e: React.DragEvent) {
   try {
     const raw = e.dataTransfer.getData('application/json')
+
     if (raw) {
       const parsed = JSON.parse(raw) as DragPayload
       return parsed.horseIds ?? []
@@ -51,7 +52,11 @@ function getDraggedHorseIdsFromEvent(e: React.DragEvent) {
 
   const fallback = e.dataTransfer.getData('text/plain')
   if (!fallback) return []
-  return fallback.split(',').map((v) => v.trim()).filter(Boolean)
+
+  return fallback
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
 }
 
 export default function PlaceTab() {
@@ -101,6 +106,7 @@ export default function PlaceTab() {
             <span>Sites</span>
             <strong>{SITES.length}</strong>
           </div>
+
           <div className="place-tab-stat-card">
             <span>Actieve locatie</span>
             <strong>{activeSite.name}</strong>
@@ -122,13 +128,16 @@ export default function PlaceTab() {
               <button
                 key={site.id}
                 type="button"
-                className={`place-tab-site-card ${activeSiteId === site.id ? 'active' : ''}`}
+                className={`place-tab-site-card ${
+                  activeSiteId === site.id ? 'active' : ''
+                }`}
                 onClick={() => setActiveSiteId(site.id)}
                 onDragOver={allowDrop}
                 onDrop={(e) => handleDropOnSite(site.id, e)}
               >
                 <div className="place-tab-site-top">
                   <h4>{site.name}</h4>
+
                   <span
                     className={`place-tab-site-badge ${
                       site.status === 'active' ? 'active' : 'setup'
@@ -140,7 +149,9 @@ export default function PlaceTab() {
 
                 <p>{site.subtitle}</p>
 
-                <div className="place-tab-site-drop-note">Sleep paarden hierheen</div>
+                <div className="place-tab-site-drop-note">
+                  Sleep paarden hierheen
+                </div>
               </button>
             ))}
           </div>

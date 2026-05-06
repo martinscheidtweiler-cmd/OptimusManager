@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DragEvent } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
-import './VremdeMap.module.css'
+import './VremdeMap.css'
 
 type UnitRow = {
   id: string

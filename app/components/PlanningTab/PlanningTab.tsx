@@ -30,6 +30,13 @@ type HorseRow = {
   horse_type: string | null
 }
 
+type StaffRow = {
+  id: string
+  name: string
+  role: string | null
+  active: boolean | null
+}
+
 type Horse = {
   id: string
   name: string
@@ -90,21 +97,20 @@ type ActiveDrag =
   | DragDayAssignmentData
   | null
 
-const RIDERS: Rider[] = [
-  { id: 'r1', name: 'Terry', color: 'terry' },
-  { id: 'r2', name: 'Cis', color: 'cis' },
-  { id: 'r3', name: 'Lisa', color: 'lisa' },
-  { id: 'r4', name: 'Lenne', color: 'lenne' },
-  { id: 'r5', name: 'Alessia', color: 'alessia' },
-  { id: 'r6', name: 'Rider1', color: 'rider1' },
-  { id: 'r7', name: 'Rider2', color: 'rider2' },
-  { id: 'nr', name: 'NO RIDER', color: 'norider', isNoRider: true },
-]
-
+const STAFF_RIDER_NAMES = ['Terry', 'Lenne', 'Alessia', 'Lot', 'Zanna']
 const RIDE_TYPES: RideType[] = ['Flatwork', 'Showjumping', 'Lunging']
-const STORAGE_KEY = 'hb-week-planner-v7'
 const DEFAULT_RIDE_MINUTES = 40
 const CHANGE_MINUTES = 10
+
+function getColor(name: string) {
+  const key = name.toLowerCase()
+  if (key === 'terry') return 'terry'
+  if (key === 'lenne') return 'lenne'
+  if (key === 'alessia') return 'alessia'
+  if (key === 'lot') return 'rider1'
+  if (key === 'zanna') return 'rider2'
+  return 'rider1'
+}
 
 function startOfMonday(base = new Date()) {
   const d = new Date(base)
@@ -134,7 +140,9 @@ function parseIsoDateLocal(value: string) {
 }
 
 function buildWeekDates(weekStart: Date) {
-  return Array.from({ length: 7 }, (_, index) => toIsoDateLocal(addDays(weekStart, index)))
+  return Array.from({ length: 7 }, (_, index) =>
+    toIsoDateLocal(addDays(weekStart, index)),
+  )
 }
 
 function formatDayLabel(date: string) {
@@ -149,27 +157,19 @@ function formatWeekRange(weekStart: Date) {
   const first = weekStart
   const last = addDays(weekStart, 6)
 
-  const firstLabel = first.toLocaleDateString('en-GB', {
+  return `${first.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
-  })
-
-  const lastLabel = last.toLocaleDateString('en-GB', {
+  })} — ${last.toLocaleDateString('en-GB', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
-  })
-
-  return `${firstLabel} — ${lastLabel}`
+  })}`
 }
 
 function cssTypeClass(type: RideType | null) {
   if (!type) return 'no-type'
   return type.toLowerCase()
-}
-
-function getRider(riderId: string) {
-  return RIDERS.find((r) => r.id === riderId)
 }
 
 function sortAssignments(list: Assignment[]) {
@@ -185,6 +185,7 @@ function normalizeOrders(list: Assignment[]) {
 
 function formatTotalTime(items: Assignment[]) {
   if (items.length === 0) return '0 min'
+
   const rideMinutes = items.reduce((sum, item) => sum + item.minutes, 0)
   const changeMinutes = Math.max(0, items.length - 1) * CHANGE_MINUTES
   const total = rideMinutes + changeMinutes
@@ -219,28 +220,25 @@ function PlannerDropCell({
   return (
     <div
       ref={setNodeRef}
-      className={`planner-cell ${isSelectedDay ? 'selected' : ''} ${isOver ? 'drag-over' : ''}`}
+      className={`planner-cell ${isSelectedDay ? 'selected' : ''} ${
+        isOver ? 'drag-over' : ''
+      }`}
     >
       {children}
     </div>
   )
 }
 
-function DraggableRideChip({
-  rider,
-  type,
-}: {
-  rider: Rider
-  type: RideType
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `template-ride-${rider.id}-${type}`,
-    data: {
-      kind: 'template-ride',
-      riderId: rider.id,
-      type,
-    } satisfies DragTemplateRideData,
-  })
+function DraggableRideChip({ rider, type }: { rider: Rider; type: RideType }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `template-ride-${rider.id}-${type}`,
+      data: {
+        kind: 'template-ride',
+        riderId: rider.id,
+        type,
+      } satisfies DragTemplateRideData,
+    })
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -251,7 +249,9 @@ function DraggableRideChip({
       ref={setNodeRef}
       type="button"
       style={style}
-      className={`planner-chip rider-${rider.color} type-${cssTypeClass(type)} ${isDragging ? 'is-dragging' : ''}`}
+      className={`planner-chip rider-${rider.color} type-${cssTypeClass(type)} ${
+        isDragging ? 'is-dragging' : ''
+      }`}
       {...listeners}
       {...attributes}
     >
@@ -261,13 +261,14 @@ function DraggableRideChip({
 }
 
 function DraggableNoRiderChip({ rider }: { rider: Rider }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: `template-no-rider-${rider.id}`,
-    data: {
-      kind: 'template-no-rider',
-      riderId: rider.id,
-    } satisfies DragTemplateNoRiderData,
-  })
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: `template-no-rider-${rider.id}`,
+      data: {
+        kind: 'template-no-rider',
+        riderId: rider.id,
+      } satisfies DragTemplateNoRiderData,
+    })
 
   const style = transform
     ? { transform: `translate3d(${transform.x}px, ${transform.y}px, 0)` }
@@ -278,7 +279,9 @@ function DraggableNoRiderChip({ rider }: { rider: Rider }) {
       ref={setNodeRef}
       type="button"
       style={style}
-      className={`planner-chip planner-chip-black ${isDragging ? 'is-dragging' : ''}`}
+      className={`planner-chip planner-chip-black ${
+        isDragging ? 'is-dragging' : ''
+      }`}
       {...listeners}
       {...attributes}
     >
@@ -322,7 +325,9 @@ function SortableDayAssignment({
     <div
       ref={setNodeRef}
       style={style}
-      className={`planner-day-item rider-${rider?.color ?? 'norider'} type-${cssTypeClass(assignment.type)} ${isDragging ? 'is-dragging' : ''}`}
+      className={`planner-day-item rider-${rider?.color ?? 'norider'} type-${cssTypeClass(
+        assignment.type,
+      )} ${isDragging ? 'is-dragging' : ''}`}
     >
       <button
         type="button"
@@ -333,7 +338,8 @@ function SortableDayAssignment({
         <div className="planner-day-item-text">
           <strong>{horseName}</strong>
           <span>
-            {rider?.isNoRider ? 'NO RIDER' : assignment.type} · {assignment.minutes} min
+            {rider?.isNoRider ? 'NO RIDER' : assignment.type} ·{' '}
+            {assignment.minutes} min
           </span>
         </div>
       </button>
@@ -363,7 +369,11 @@ function TableAssignmentCard({
   onDelete: (assignmentId: string) => void
 }) {
   return (
-    <div className={`planner-table-card rider-${rider?.color ?? 'norider'} type-${cssTypeClass(assignment.type)}`}>
+    <div
+      className={`planner-table-card rider-${rider?.color ?? 'norider'} type-${cssTypeClass(
+        assignment.type,
+      )}`}
+    >
       <button
         type="button"
         className="planner-table-delete"
@@ -383,13 +393,17 @@ function TableAssignmentCard({
         {rider?.isNoRider ? (
           <>
             <div className="planner-table-card-only">NO RIDER</div>
-            <div className="planner-table-card-minutes">{assignment.minutes} min</div>
+            <div className="planner-table-card-minutes">
+              {assignment.minutes} min
+            </div>
           </>
         ) : (
           <>
             <div className="planner-table-card-type">{assignment.type}</div>
             <div className="planner-table-card-rider">{rider?.name}</div>
-            <div className="planner-table-card-minutes">{assignment.minutes} min</div>
+            <div className="planner-table-card-minutes">
+              {assignment.minutes} min
+            </div>
           </>
         )}
       </button>
@@ -398,73 +412,194 @@ function TableAssignmentCard({
 }
 
 export default function PlanningTab() {
-  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() => startOfMonday(new Date()))
+  const [currentWeekStart, setCurrentWeekStart] = useState<Date>(() =>
+    startOfMonday(new Date()),
+  )
   const [horses, setHorses] = useState<Horse[]>([])
+  const [riders, setRiders] = useState<Rider[]>([
+    { id: 'NO RIDER', name: 'NO RIDER', color: 'norider', isNoRider: true },
+  ])
   const [assignments, setAssignments] = useState<Assignment[]>([])
   const [selectedDate, setSelectedDate] = useState('')
   const [horseSearch, setHorseSearch] = useState('')
   const [activeDrag, setActiveDrag] = useState<ActiveDrag>(null)
   const [loadingHorses, setLoadingHorses] = useState(true)
+  const [loadingAssignments, setLoadingAssignments] = useState(true)
   const [quickAssign, setQuickAssign] = useState<QuickAssignState>(null)
   const [editState, setEditState] = useState<EditState>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 6 },
-    })
+    }),
   )
 
-  const weekDates = useMemo(() => buildWeekDates(currentWeekStart), [currentWeekStart])
+  const weekDates = useMemo(
+    () => buildWeekDates(currentWeekStart),
+    [currentWeekStart],
+  )
 
   useEffect(() => {
-    setSelectedDate((prev) => (prev && weekDates.includes(prev) ? prev : weekDates[4] ?? weekDates[0] ?? ''))
+    setSelectedDate((prev) =>
+      prev && weekDates.includes(prev) ? prev : weekDates[4] ?? weekDates[0] ?? '',
+    )
   }, [weekDates])
 
   useEffect(() => {
-    async function loadHorses() {
-      setLoadingHorses(true)
+    loadInitialData()
+  }, [])
 
-      const { data, error } = await supabase
-        .from('horses')
-        .select('id, name, horse_type')
-        .eq('horse_type', 'Sport horse')
-        .order('name', { ascending: true })
+  async function loadInitialData() {
+    await Promise.all([loadStaff(), loadHorses(), loadAssignments()])
+  }
 
-      if (error) {
-        console.error(error)
-        setHorses([])
-        setLoadingHorses(false)
-        return
-      }
+  async function loadStaff() {
+    const { data, error } = await supabase
+      .from('staff')
+      .select('id,name,role,active')
+      .eq('active', true)
+      .order('name', { ascending: true })
 
-      const mapped: Horse[] = ((data as HorseRow[] | null) ?? [])
-        .filter((horse) => horse.name && horse.name.trim() !== '')
-        .map((horse) => ({
-          id: horse.id,
-          name: horse.name!.trim(),
-        }))
+    if (error) {
+      console.error('Load staff error:', error)
+      setRiders([
+        { id: 'Terry', name: 'Terry', color: 'terry' },
+        { id: 'Lenne', name: 'Lenne', color: 'lenne' },
+        { id: 'Alessia', name: 'Alessia', color: 'alessia' },
+        { id: 'Lot', name: 'Lot', color: 'rider1' },
+        { id: 'Zanna', name: 'Zanna', color: 'rider2' },
+        { id: 'NO RIDER', name: 'NO RIDER', color: 'norider', isNoRider: true },
+      ])
+      return
+    }
 
-      setHorses(mapped)
+    const staffRows = (data as StaffRow[] | null) ?? []
+
+    const mappedStaff: Rider[] = staffRows
+      .filter((person) => STAFF_RIDER_NAMES.includes(person.name))
+      .map((person) => ({
+        id: person.name,
+        name: person.name,
+        color: getColor(person.name),
+      }))
+
+    setRiders([
+      ...mappedStaff,
+      { id: 'NO RIDER', name: 'NO RIDER', color: 'norider', isNoRider: true },
+    ])
+  }
+
+  async function loadHorses() {
+    setLoadingHorses(true)
+
+    const { data, error } = await supabase
+      .from('horses')
+      .select('id, name, horse_type')
+      .eq('horse_type', 'Sport horse')
+      .order('name', { ascending: true })
+
+    if (error) {
+      console.error('Load horses error:', error)
+      setHorses([])
       setLoadingHorses(false)
+      return
     }
 
-    loadHorses()
-  }, [])
+    const mapped: Horse[] = ((data as HorseRow[] | null) ?? [])
+      .filter((horse) => horse.name && horse.name.trim() !== '')
+      .map((horse) => ({
+        id: horse.id,
+        name: horse.name!.trim(),
+      }))
 
-  useEffect(() => {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return
+    setHorses(mapped)
+    setLoadingHorses(false)
+  }
 
-    try {
-      setAssignments(JSON.parse(raw) as Assignment[])
-    } catch {
+  async function loadAssignments() {
+    setLoadingAssignments(true)
+
+    const { data, error } = await supabase
+      .from('riding_planning')
+      .select('*')
+      .order('date', { ascending: true })
+      .order('sort_order', { ascending: true })
+
+    if (error) {
+      console.error('Load riding planning error:', error)
       setAssignments([])
+      setLoadingAssignments(false)
+      return
     }
-  }, [])
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(assignments))
-  }, [assignments])
+    const mapped: Assignment[] =
+      data?.map((row) => ({
+        id: row.id,
+        horseId: row.horse_id,
+        date: row.date,
+        riderId: row.rider_name,
+        type: row.ride_type as RideType | null,
+        order: row.sort_order ?? 0,
+        minutes: row.minutes ?? DEFAULT_RIDE_MINUTES,
+      })) ?? []
+
+    setAssignments(mapped)
+    setLoadingAssignments(false)
+  }
+
+  async function saveSingleAssignment(item: Assignment) {
+    const { data, error } = await supabase
+      .from('riding_planning')
+      .upsert(
+        {
+          horse_id: item.horseId,
+          date: item.date,
+          rider_name: item.riderId,
+          ride_type: item.type,
+          sort_order: item.order,
+          minutes: item.minutes,
+        },
+        {
+          onConflict: 'horse_id,date',
+        },
+      )
+      .select()
+      .single()
+
+    if (error) {
+      console.error('Save riding planning error:', error)
+      alert(`Save error: ${error.message}`)
+      await loadAssignments()
+      return null
+    }
+
+    return data
+  }
+
+  async function saveDayAssignments(nextAssignments: Assignment[], date: string) {
+    setAssignments(nextAssignments)
+
+    const dayItems = nextAssignments.filter((item) => item.date === date)
+
+    for (const item of dayItems) {
+      await saveSingleAssignment(item)
+    }
+
+    await loadAssignments()
+  }
+
+  async function deleteAssignmentFromDb(assignment: Assignment) {
+    const { error } = await supabase
+      .from('riding_planning')
+      .delete()
+      .eq('horse_id', assignment.horseId)
+      .eq('date', assignment.date)
+
+    if (error) {
+      console.error('Delete riding planning error:', error)
+      alert(`Delete error: ${error.message}`)
+    }
+  }
 
   const filteredHorses = useMemo(() => {
     const query = horseSearch.trim().toLowerCase()
@@ -485,18 +620,22 @@ export default function PlanningTab() {
   }, [assignments, selectedDate])
 
   const selectedDayByRider = useMemo(() => {
-    return RIDERS.map((rider) => ({
+    return riders.map((rider) => ({
       rider,
       items: sortAssignments(
-        selectedDayAssignments.filter((item) => item.riderId === rider.id)
+        selectedDayAssignments.filter((item) => item.riderId === rider.id),
       ),
     }))
-  }, [selectedDayAssignments])
+  }, [selectedDayAssignments, riders])
 
   const editAssignment = useMemo(() => {
     if (!editState) return null
     return assignmentsById.get(editState.assignmentId) ?? null
   }, [editState, assignmentsById])
+
+  function getRider(riderId: string) {
+    return riders.find((r) => r.id === riderId)
+  }
 
   function getCellAssignment(horseId: string, date: string) {
     return assignments.find((item) => item.horseId === horseId && item.date === date)
@@ -506,63 +645,75 @@ export default function PlanningTab() {
     const sameDay = list.filter((item) => item.date === date)
     const otherDays = list.filter((item) => item.date !== date)
 
-    const rebuilt = RIDERS.flatMap((rider) =>
+    const rebuilt = riders.flatMap((rider) =>
       normalizeOrders(
-        sortAssignments(sameDay.filter((item) => item.riderId === rider.id))
-      )
+        sortAssignments(sameDay.filter((item) => item.riderId === rider.id)),
+      ),
     )
 
     return [...otherDays, ...rebuilt]
   }
 
-  function upsertAssignment(
+  async function upsertAssignment(
     horseId: string,
     date: string,
     riderId: string,
-    type: RideType | null
+    type: RideType | null,
   ) {
-    setAssignments((prev) => {
-      const existing = prev.find((item) => item.horseId === horseId && item.date === date)
-      const riderItems = sortAssignments(
-        prev.filter(
-          (item) =>
-            item.date === date &&
-            item.riderId === riderId &&
-            item.id !== existing?.id
-        )
-      )
+    const existing = assignments.find(
+      (item) => item.horseId === horseId && item.date === date,
+    )
 
-      const nextItem: Assignment = {
-        id: existing?.id ?? `${horseId}-${date}`,
-        horseId,
-        date,
-        riderId,
-        type,
-        order: riderItems.length,
-        minutes: existing?.minutes ?? DEFAULT_RIDE_MINUTES,
-      }
+    const riderItems = sortAssignments(
+      assignments.filter(
+        (item) =>
+          item.date === date &&
+          item.riderId === riderId &&
+          item.id !== existing?.id,
+      ),
+    )
 
-      const withoutCurrent = prev.filter(
-        (item) => !(item.horseId === horseId && item.date === date)
-      )
+    const nextItem: Assignment = {
+      id: existing?.id ?? `local-${crypto.randomUUID()}`,
+      horseId,
+      date,
+      riderId,
+      type,
+      order: riderItems.length,
+      minutes: existing?.minutes ?? DEFAULT_RIDE_MINUTES,
+    }
 
-      const updated = [...withoutCurrent, nextItem]
-      return rebuildOrdersForDay(updated, date)
-    })
+    const withoutCurrent = assignments.filter(
+      (item) => !(item.horseId === horseId && item.date === date),
+    )
+
+    const updated = rebuildOrdersForDay([...withoutCurrent, nextItem], date)
+    setAssignments(updated)
+
+    await saveSingleAssignment(nextItem)
+    await loadAssignments()
   }
 
-  function removeAssignment(assignmentId: string) {
-    setAssignments((prev) => {
-      const existing = prev.find((item) => item.id === assignmentId)
-      if (!existing) return prev
-      const next = prev.filter((item) => item.id !== assignmentId)
-      return rebuildOrdersForDay(next, existing.date)
-    })
+  async function removeAssignment(assignmentId: string) {
+    const existing = assignments.find((item) => item.id === assignmentId)
+    if (!existing) return
+
+    setAssignments((prev) => prev.filter((item) => item.id !== assignmentId))
     setEditState(null)
+
+    await deleteAssignmentFromDb(existing)
+    await loadAssignments()
   }
 
-  function clearWeek() {
+  async function clearWeek() {
+    const weekItems = assignments.filter((item) => weekDates.includes(item.date))
+
+    for (const item of weekItems) {
+      await deleteAssignmentFromDb(item)
+    }
+
     setAssignments((prev) => prev.filter((item) => !weekDates.includes(item.date)))
+    await loadAssignments()
   }
 
   function goNextWeek() {
@@ -578,179 +729,153 @@ export default function PlanningTab() {
     setSelectedDate(date)
   }
 
-  function quickAssignRide(riderId: string, type: RideType | null) {
+  async function quickAssignRide(riderId: string, type: RideType | null) {
     if (!quickAssign) return
-    upsertAssignment(quickAssign.horseId, quickAssign.date, riderId, type)
+    await upsertAssignment(quickAssign.horseId, quickAssign.date, riderId, type)
     setQuickAssign(null)
   }
 
-  function updateAssignmentFromModal(values: {
+  async function updateAssignmentFromModal(values: {
     assignmentId: string
     riderId: string
     type: RideType | null
     minutes: number
   }) {
-    setAssignments((prev) => {
-      const existing = prev.find((item) => item.id === values.assignmentId)
-      if (!existing) return prev
+    const existing = assignments.find((item) => item.id === values.assignmentId)
+    if (!existing) return
 
-      const without = prev.filter((item) => item.id !== values.assignmentId)
-
-      const targetList = sortAssignments(
-        without.filter(
-          (item) =>
-            item.date === existing.date &&
-            item.riderId === values.riderId
-        )
-      )
-
-      const updated: Assignment = {
-        ...existing,
-        riderId: values.riderId,
-        type: values.type,
-        minutes: values.minutes,
-        order: targetList.length,
-      }
-
-      return rebuildOrdersForDay([...without, updated], existing.date)
-    })
+    const updated: Assignment = {
+      ...existing,
+      riderId: values.riderId,
+      type: values.type,
+      minutes: values.minutes,
+    }
 
     setEditState(null)
+    await saveSingleAssignment(updated)
+    await loadAssignments()
   }
 
-  function moveDayAssignmentBetweenRiders(
+  async function moveDayAssignmentBetweenRiders(
     movingAssignmentId: string,
     targetRiderId: string,
-    overAssignmentId?: string | null
+    overAssignmentId?: string | null,
   ) {
-    setAssignments((prev) => {
-      const moving = prev.find((item) => item.id === movingAssignmentId)
-      if (!moving) return prev
+    const moving = assignments.find((item) => item.id === movingAssignmentId)
+    if (!moving) return
 
-      const date = moving.date
-      const sameDay = prev.filter((item) => item.date === date)
-      const otherDays = prev.filter((item) => item.date !== date)
+    const date = moving.date
+    const sameDay = assignments.filter((item) => item.date === date)
+    const otherDays = assignments.filter((item) => item.date !== date)
 
-      const sourceList = sortAssignments(
-        sameDay.filter((item) => item.riderId === moving.riderId && item.id !== moving.id)
+    const sourceList = sortAssignments(
+      sameDay.filter(
+        (item) => item.riderId === moving.riderId && item.id !== moving.id,
+      ),
+    )
+
+    const targetListBase = sortAssignments(
+      sameDay.filter(
+        (item) => item.riderId === targetRiderId && item.id !== moving.id,
+      ),
+    )
+
+    let targetIndex = targetListBase.length
+
+    if (overAssignmentId) {
+      const overIndex = targetListBase.findIndex(
+        (item) => item.id === overAssignmentId,
       )
+      if (overIndex !== -1) targetIndex = overIndex
+    }
 
-      const targetListBase = sortAssignments(
-        sameDay.filter(
-          (item) => item.riderId === targetRiderId && item.id !== moving.id
-        )
-      )
+    const movingUpdated: Assignment = {
+      ...moving,
+      riderId: targetRiderId,
+    }
 
-      let targetIndex = targetListBase.length
-      if (overAssignmentId) {
-        const overIndex = targetListBase.findIndex((item) => item.id === overAssignmentId)
-        if (overIndex !== -1) targetIndex = overIndex
+    const targetList = [...targetListBase]
+    targetList.splice(targetIndex, 0, movingUpdated)
+
+    const rebuilt = riders.flatMap((rider) => {
+      if (rider.id === moving.riderId && moving.riderId !== targetRiderId) {
+        return normalizeOrders(sourceList)
       }
 
-      const movingUpdated: Assignment = {
-        ...moving,
-        riderId: targetRiderId,
+      if (rider.id === targetRiderId) {
+        return normalizeOrders(targetList)
       }
 
-      const targetList = [...targetListBase]
-      targetList.splice(targetIndex, 0, movingUpdated)
-
-      const rebuilt = RIDERS.flatMap((rider) => {
-        if (rider.id === moving.riderId && moving.riderId !== targetRiderId) {
-          return normalizeOrders(sourceList)
-        }
-
-        if (rider.id === targetRiderId) {
-          return normalizeOrders(targetList)
-        }
-
-        return normalizeOrders(
-          sortAssignments(sameDay.filter((item) => item.riderId === rider.id))
-        )
-      })
-
-      return [...otherDays, ...rebuilt]
+      return normalizeOrders(
+        sortAssignments(sameDay.filter((item) => item.riderId === rider.id)),
+      )
     })
+
+    await saveDayAssignments([...otherDays, ...rebuilt], date)
   }
 
-  function reorderWithinRider(
+  async function reorderWithinRider(
     movingAssignmentId: string,
     riderId: string,
-    overAssignmentId?: string | null
+    overAssignmentId?: string | null,
   ) {
-    setAssignments((prev) => {
-      const moving = prev.find((item) => item.id === movingAssignmentId)
-      if (!moving) return prev
+    const moving = assignments.find((item) => item.id === movingAssignmentId)
+    if (!moving) return
 
-      const date = moving.date
-      const sameDay = prev.filter((item) => item.date === date)
-      const otherDays = prev.filter((item) => item.date !== date)
+    const date = moving.date
+    const sameDay = assignments.filter((item) => item.date === date)
+    const otherDays = assignments.filter((item) => item.date !== date)
 
-      const riderList = sortAssignments(
-        sameDay.filter((item) => item.riderId === riderId)
-      )
+    const riderList = sortAssignments(
+      sameDay.filter((item) => item.riderId === riderId),
+    )
 
-      const fromIndex = riderList.findIndex((item) => item.id === moving.id)
-      if (fromIndex === -1) return prev
+    const fromIndex = riderList.findIndex((item) => item.id === moving.id)
+    if (fromIndex === -1) return
 
-      let toIndex = riderList.length - 1
-      if (overAssignmentId) {
-        const index = riderList.findIndex((item) => item.id === overAssignmentId)
-        if (index !== -1) toIndex = index
+    let toIndex = riderList.length - 1
+
+    if (overAssignmentId) {
+      const index = riderList.findIndex((item) => item.id === overAssignmentId)
+      if (index !== -1) toIndex = index
+    }
+
+    const reordered = [...riderList]
+    const [removed] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, removed)
+
+    const rebuilt = riders.flatMap((rider) => {
+      if (rider.id === riderId) {
+        return normalizeOrders(reordered)
       }
 
-      const reordered = [...riderList]
-      const [removed] = reordered.splice(fromIndex, 1)
-      reordered.splice(toIndex, 0, removed)
-
-      const rebuilt = RIDERS.flatMap((rider) => {
-        if (rider.id === riderId) {
-          return normalizeOrders(reordered)
-        }
-
-        return normalizeOrders(
-          sortAssignments(sameDay.filter((item) => item.riderId === rider.id))
-        )
-      })
-
-      return [...otherDays, ...rebuilt]
+      return normalizeOrders(
+        sortAssignments(sameDay.filter((item) => item.riderId === rider.id)),
+      )
     })
+
+    await saveDayAssignments([...otherDays, ...rebuilt], date)
   }
 
-  function moveAssignmentToTableCell(
+  async function moveAssignmentToTableCell(
     movingAssignmentId: string,
     horseId: string,
-    date: string
+    date: string,
   ) {
-    setAssignments((prev) => {
-      const moving = prev.find((item) => item.id === movingAssignmentId)
-      if (!moving) return prev
+    const moving = assignments.find((item) => item.id === movingAssignmentId)
+    if (!moving) return
 
-      const withoutCurrent = prev.filter((item) => item.id !== movingAssignmentId)
-      const withoutTargetHorseDay = withoutCurrent.filter(
-        (item) => !(item.horseId === horseId && item.date === date)
-      )
+    await deleteAssignmentFromDb(moving)
 
-      const targetList = sortAssignments(
-        withoutTargetHorseDay.filter(
-          (item) => item.date === date && item.riderId === moving.riderId
-        )
-      )
+    const updated: Assignment = {
+      ...moving,
+      horseId,
+      date,
+    }
 
-      const updated: Assignment = {
-        ...moving,
-        id: `${horseId}-${date}`,
-        horseId,
-        date,
-        order: targetList.length,
-      }
-
-      const afterInsert = [...withoutTargetHorseDay, updated]
-      const rebuiltSource = rebuildOrdersForDay(afterInsert, moving.date)
-      return moving.date === date ? rebuiltSource : rebuildOrdersForDay(rebuiltSource, date)
-    })
-
+    await saveSingleAssignment(updated)
     setSelectedDate(date)
+    await loadAssignments()
   }
 
   function handleDragStart(event: DragStartEvent) {
@@ -759,7 +884,7 @@ export default function PlanningTab() {
     setActiveDrag(data)
   }
 
-  function handleDragEnd(event: DragEndEvent) {
+  async function handleDragEnd(event: DragEndEvent) {
     const activeData = event.active.data.current as ActiveDrag
     const over = event.over
 
@@ -771,21 +896,30 @@ export default function PlanningTab() {
 
     if (activeData.kind === 'template-ride') {
       if (overData?.kind === 'table-cell') {
-        upsertAssignment(overData.horseId, overData.date, activeData.riderId, activeData.type)
+        await upsertAssignment(
+          overData.horseId,
+          overData.date,
+          activeData.riderId,
+          activeData.type,
+        )
       }
       return
     }
 
     if (activeData.kind === 'template-no-rider') {
       if (overData?.kind === 'table-cell') {
-        upsertAssignment(overData.horseId, overData.date, activeData.riderId, null)
+        await upsertAssignment(overData.horseId, overData.date, activeData.riderId, null)
       }
       return
     }
 
     if (activeData.kind === 'day-assignment') {
       if (overData?.kind === 'table-cell') {
-        moveAssignmentToTableCell(activeData.assignmentId, overData.horseId, overData.date)
+        await moveAssignmentToTableCell(
+          activeData.assignmentId,
+          overData.horseId,
+          overData.date,
+        )
         return
       }
 
@@ -797,9 +931,13 @@ export default function PlanningTab() {
         if (!moving) return
 
         if (moving.riderId === targetRiderId) {
-          reorderWithinRider(activeData.assignmentId, targetRiderId, null)
+          await reorderWithinRider(activeData.assignmentId, targetRiderId, null)
         } else {
-          moveDayAssignmentBetweenRiders(activeData.assignmentId, targetRiderId, null)
+          await moveDayAssignmentBetweenRiders(
+            activeData.assignmentId,
+            targetRiderId,
+            null,
+          )
         }
         return
       }
@@ -809,15 +947,25 @@ export default function PlanningTab() {
 
       if (overAssignment && moving && overAssignment.date === moving.date) {
         if (moving.riderId === overAssignment.riderId) {
-          reorderWithinRider(activeData.assignmentId, overAssignment.riderId, overAssignment.id)
+          await reorderWithinRider(
+            activeData.assignmentId,
+            overAssignment.riderId,
+            overAssignment.id,
+          )
         } else {
-          moveDayAssignmentBetweenRiders(activeData.assignmentId, overAssignment.riderId, overAssignment.id)
+          await moveDayAssignmentBetweenRiders(
+            activeData.assignmentId,
+            overAssignment.riderId,
+            overAssignment.id,
+          )
         }
       }
     }
   }
 
-  const totalPlannedThisWeek = assignments.filter((item) => weekDates.includes(item.date)).length
+  const totalPlannedThisWeek = assignments.filter((item) =>
+    weekDates.includes(item.date),
+  ).length
 
   return (
     <DndContext
@@ -855,7 +1003,9 @@ export default function PlanningTab() {
             placeholder="Search horse..."
           />
 
-          <div className="planner-count">{totalPlannedThisWeek} planned this week</div>
+          <div className="planner-count">
+            {loadingAssignments ? 'Loading planning...' : `${totalPlannedThisWeek} planned this week`}
+          </div>
         </div>
 
         <div className="planner-layout">
@@ -874,11 +1024,22 @@ export default function PlanningTab() {
                 <button
                   key={date}
                   type="button"
-                  className={`planner-head planner-day-head ${selectedDate === date ? 'active' : ''}`}
+                  className={`planner-head planner-day-head ${
+                    selectedDate === date ? 'active' : ''
+                  }`}
                   onClick={() => setSelectedDate(date)}
                 >
-                  <strong>{parseIsoDateLocal(date).toLocaleDateString('en-GB', { weekday: 'short' })}</strong>
-                  <span>{parseIsoDateLocal(date).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' })}</span>
+                  <strong>
+                    {parseIsoDateLocal(date).toLocaleDateString('en-GB', {
+                      weekday: 'short',
+                    })}
+                  </strong>
+                  <span>
+                    {parseIsoDateLocal(date).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: '2-digit',
+                    })}
+                  </span>
                 </button>
               ))}
 
@@ -889,7 +1050,9 @@ export default function PlanningTab() {
               ) : (
                 filteredHorses.map((horse) => (
                   <Fragment key={horse.id}>
-                    <div className="planner-horse planner-sticky-left">{horse.name}</div>
+                    <div className="planner-horse planner-sticky-left">
+                      {horse.name}
+                    </div>
 
                     {weekDates.map((date) => {
                       const item = getCellAssignment(horse.id, date)
@@ -905,7 +1068,9 @@ export default function PlanningTab() {
                             <button
                               type="button"
                               className="planner-drop"
-                              onClick={() => openQuickAssign(horse.id, horse.name, date)}
+                              onClick={() =>
+                                openQuickAssign(horse.id, horse.name, date)
+                              }
                             >
                               Drop
                             </button>
@@ -913,7 +1078,9 @@ export default function PlanningTab() {
                             <TableAssignmentCard
                               assignment={item}
                               rider={getRider(item.riderId)}
-                              onOpen={(assignmentId) => setEditState({ assignmentId })}
+                              onOpen={(assignmentId) =>
+                                setEditState({ assignmentId })
+                              }
                               onDelete={removeAssignment}
                             />
                           )}
@@ -935,7 +1102,12 @@ export default function PlanningTab() {
 
               <div className="planner-riders">
                 {selectedDayByRider.map(({ rider, items }) => (
-                  <div key={rider.id} className={`planner-rider-block ${rider.isNoRider ? 'planner-rider-block-black' : ''}`}>
+                  <div
+                    key={rider.id}
+                    className={`planner-rider-block ${
+                      rider.isNoRider ? 'planner-rider-block-black' : ''
+                    }`}
+                  >
                     <div className="planner-rider-top">
                       <div>
                         <strong>{rider.name}</strong>
@@ -950,7 +1122,11 @@ export default function PlanningTab() {
                         <DraggableNoRiderChip rider={rider} />
                       ) : (
                         RIDE_TYPES.map((type) => (
-                          <DraggableRideChip key={type} rider={rider} type={type} />
+                          <DraggableRideChip
+                            key={type}
+                            rider={rider}
+                            type={type}
+                          />
                         ))
                       )}
                     </div>
@@ -970,9 +1146,14 @@ export default function PlanningTab() {
                               <SortableDayAssignment
                                 key={item.id}
                                 assignment={item}
-                                horseName={horseNameById.get(item.horseId) ?? 'Unknown horse'}
+                                horseName={
+                                  horseNameById.get(item.horseId) ??
+                                  'Unknown horse'
+                                }
                                 rider={rider}
-                                onOpen={(assignmentId) => setEditState({ assignmentId })}
+                                onOpen={(assignmentId) =>
+                                  setEditState({ assignmentId })
+                                }
                               />
                             ))
                           )}
@@ -987,8 +1168,14 @@ export default function PlanningTab() {
         </div>
 
         {quickAssign && (
-          <div className="planner-modal-backdrop" onClick={() => setQuickAssign(null)}>
-            <div className="planner-modal-simple" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="planner-modal-backdrop"
+            onClick={() => setQuickAssign(null)}
+          >
+            <div
+              className="planner-modal-simple"
+              onClick={(e) => e.stopPropagation()}
+            >
               <div className="planner-modal-simple-top">
                 <div>
                   <div className="planner-kicker">Quick assign</div>
@@ -1006,7 +1193,7 @@ export default function PlanningTab() {
               </div>
 
               <div className="planner-modal-simple-list">
-                {RIDERS.map((rider) => (
+                {riders.map((rider) => (
                   <div key={rider.id} className="planner-modal-simple-row">
                     <div className="planner-modal-simple-name">{rider.name}</div>
 
@@ -1043,6 +1230,7 @@ export default function PlanningTab() {
           <EditAssignmentModal
             assignment={editAssignment}
             horseName={horseNameById.get(editAssignment.horseId) ?? 'Unknown horse'}
+            riders={riders}
             onClose={() => setEditState(null)}
             onSave={updateAssignmentFromModal}
             onDelete={removeAssignment}
@@ -1052,7 +1240,9 @@ export default function PlanningTab() {
         <DragOverlay>
           {activeDrag?.kind === 'template-ride' ? (
             <div
-              className={`planner-chip rider-${getRider(activeDrag.riderId)?.color ?? 'norider'} type-${cssTypeClass(activeDrag.type)}`}
+              className={`planner-chip rider-${
+                getRider(activeDrag.riderId)?.color ?? 'norider'
+              } type-${cssTypeClass(activeDrag.type)}`}
             >
               {getRider(activeDrag.riderId)?.name} · {activeDrag.type}
             </div>
@@ -1088,12 +1278,14 @@ function RiderListDropZone({
 function EditAssignmentModal({
   assignment,
   horseName,
+  riders,
   onClose,
   onSave,
   onDelete,
 }: {
   assignment: Assignment
   horseName: string
+  riders: Rider[]
   onClose: () => void
   onSave: (values: {
     assignmentId: string
@@ -1106,7 +1298,7 @@ function EditAssignmentModal({
   const [riderId, setRiderId] = useState(assignment.riderId)
   const [type, setType] = useState<RideType | null>(assignment.type)
   const [minutes, setMinutes] = useState(String(assignment.minutes))
-  const selectedRider = getRider(riderId)
+  const selectedRider = riders.find((rider) => rider.id === riderId)
 
   useEffect(() => {
     setRiderId(assignment.riderId)
@@ -1143,11 +1335,13 @@ function EditAssignmentModal({
         <div className="planner-form-group">
           <label className="planner-form-label">Rider</label>
           <div className="planner-select-grid">
-            {RIDERS.map((rider) => (
+            {riders.map((rider) => (
               <button
                 key={rider.id}
                 type="button"
-                className={`planner-select-btn ${riderId === rider.id ? 'active' : ''} ${rider.isNoRider ? 'black' : ''}`}
+                className={`planner-select-btn ${
+                  riderId === rider.id ? 'active' : ''
+                } ${rider.isNoRider ? 'black' : ''}`}
                 onClick={() => {
                   setRiderId(rider.id)
                   if (rider.isNoRider) setType(null)
@@ -1168,7 +1362,9 @@ function EditAssignmentModal({
                 <button
                   key={rideType}
                   type="button"
-                  className={`planner-select-btn ${type === rideType ? 'active' : ''}`}
+                  className={`planner-select-btn ${
+                    type === rideType ? 'active' : ''
+                  }`}
                   onClick={() => setType(rideType)}
                 >
                   {rideType}
@@ -1202,7 +1398,11 @@ function EditAssignmentModal({
             <button type="button" className="planner-btn" onClick={onClose}>
               Cancel
             </button>
-            <button type="button" className="planner-btn planner-btn-dark" onClick={save}>
+            <button
+              type="button"
+              className="planner-btn planner-btn-dark"
+              onClick={save}
+            >
               Save
             </button>
           </div>

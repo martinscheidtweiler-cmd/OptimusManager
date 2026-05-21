@@ -9,7 +9,7 @@ import StaffView from './StaffView'
 import RulesView from './RulesView'
 import './OperationsTab.css'
 
-export type View = 'today' | 'board' | 'movement' | 'staff' | 'rules'
+export type View = 'overview' | 'timeline' | 'movement' | 'staff' | 'rules'
 
 export type Staff = {
   id: string
@@ -25,6 +25,18 @@ export type Staff = {
   works_friday: boolean | null
   works_saturday: boolean | null
   works_sunday: boolean | null
+  allowed_task_types: string[] | null
+}
+
+export type StaffDayStatus = {
+  id?: string
+  staff_id: string
+  date: string
+  status: 'available' | 'late' | 'absent' | 'holiday' | 'sick' | 'half_day'
+  late_from?: string | null
+  available_from: string | null
+  available_until: string | null
+  note: string | null
 }
 
 export type Horse = {
@@ -78,6 +90,7 @@ export type StableTask = {
   notes: string | null
   completed_at?: string | null
   completed_by?: string | null
+  priority: number | null
 }
 
 export type MovementPlan = {
@@ -91,15 +104,70 @@ export type MovementPlan = {
   notes: string | null
 }
 
+export type DailyTask = {
+  id: string
+  name: string
+  task_type: string
+  timing_required: boolean | null
+  start_time: string | null
+  duration_minutes: number | null
+  priority: number | null
+  primary_staff: string | null
+  fallback_staff: string[] | null
+  active: boolean | null
+  notes: string | null
+  sort_order: number | null
+}
+
+export type RecurringTask = {
+  id: string
+  name: string
+  task_type: string
+  frequency_type: 'daily' | 'weekly' | 'monthly' | 'every_x_days' | string
+  interval_days: number | null
+  next_due_date: string | null
+  timing_required: boolean | null
+  start_time: string | null
+  duration_minutes: number | null
+  priority: number | null
+  primary_staff: string | null
+  fallback_staff: string[] | null
+  active: boolean | null
+  notes: string | null
+}
+
+export type Workflow = {
+  id: string
+  name: string
+  workflow_type: string
+  active: boolean | null
+  notes: string | null
+}
+
+export type WorkflowStep = {
+  id: string
+  workflow_id: string
+  name: string
+  task_type: string
+  offset_minutes: number | null
+  duration_minutes: number | null
+  priority: number | null
+  primary_staff: string | null
+  fallback_staff: string[] | null
+  condition: string | null
+  sort_order: number | null
+  active: boolean | null
+}
+
 const views: { key: View; label: string }[] = [
-  { key: 'today', label: 'Today' },
-  { key: 'board', label: 'Timeline' },
+  { key: 'overview', label: 'Overview' },
+  { key: 'timeline', label: 'Timeline' },
   { key: 'movement', label: 'Movement' },
   { key: 'staff', label: 'Staff' },
-  { key: 'rules', label: 'Rules' },
+  { key: 'rules', label: 'Tasks' },
 ]
 
-const FALLBACK_STAFF = ['George', 'Lenne', 'Alessia', 'Sandro', 'Sofia', 'Lot', 'Zanna']
+const DEFAULT_FALLBACK_STAFF = ['George', 'Lenne', 'Alessia', 'Sandro', 'Sofia', 'Lot', 'Zanna']
 
 function todayIso() {
   const d = new Date()
@@ -108,8 +176,16 @@ function todayIso() {
   ).padStart(2, '0')}`
 }
 
-function getTodayWorkKey() {
-  const day = new Date().getDay()
+function addDaysIso(days: number) {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`
+}
+
+function getWorkKeyForDate(date: string) {
+  const day = new Date(`${date}T12:00:00`).getDay()
   if (day === 0) return 'works_sunday'
   if (day === 1) return 'works_monday'
   if (day === 2) return 'works_tuesday'
@@ -123,6 +199,11 @@ function buildDateTime(date: string, hour: number, minute: number) {
   const d = new Date(`${date}T00:00:00`)
   d.setHours(hour, minute, 0, 0)
   return d.toISOString()
+}
+
+function buildDateTimeFromTime(date: string, time: string | null) {
+  if (!time) return null
+  return new Date(`${date}T${time.slice(0, 5)}:00`).toISOString()
 }
 
 function addMinutes(iso: string, minutes: number) {
@@ -175,24 +256,56 @@ function findFreeSlot(
   }
 }
 
+function isDue(date: string, task: RecurringTask) {
+  if (task.active === false) return false
+  if (!task.next_due_date) return true
+  return task.next_due_date <= date
+}
+
+function isTerryRider(riderName: string) {
+  return riderName.trim().toLowerCase().includes('terry')
+}
+
 export default function OperationsTab() {
-  const [activeView, setActiveView] = useState<View>('today')
+  const [activeView, setActiveView] = useState<View>('overview')
+  const [selectedDate, setSelectedDate] = useState(todayIso())
+
   const [staff, setStaff] = useState<Staff[]>([])
+  const [staffStatuses, setStaffStatuses] = useState<Record<string, StaffDayStatus>>({})
   const [horses, setHorses] = useState<Horse[]>([])
   const [statuses, setStatuses] = useState<Record<string, DailyStatus>>({})
   const [ridingPlans, setRidingPlans] = useState<RidingPlan[]>([])
   const [stableTasks, setStableTasks] = useState<StableTask[]>([])
   const [movementPlans, setMovementPlans] = useState<MovementPlan[]>([])
+
+  const [dailyTasks, setDailyTasks] = useState<DailyTask[]>([])
+  const [recurringTasks, setRecurringTasks] = useState<RecurringTask[]>([])
+  const [workflows, setWorkflows] = useState<Workflow[]>([])
+  const [workflowSteps, setWorkflowSteps] = useState<WorkflowStep[]>([])
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [generating, setGenerating] = useState(false)
 
-  const date = todayIso()
+  const workKey = getWorkKeyForDate(selectedDate) as keyof Staff
 
-  const todayStaff = useMemo(() => {
-    const key = getTodayWorkKey() as keyof Staff
-    return staff.filter((person) => person.active !== false && person[key])
-  }, [staff])
+  const dayStaff = useMemo(() => {
+    return staff.filter((person) => {
+      const dayStatus = staffStatuses[person.id]
+      if (person.active === false) return false
+      if (dayStatus?.status === 'absent') return false
+      if (dayStatus?.status === 'holiday') return false
+      if (dayStatus?.status === 'sick') return false
+      return Boolean(person[workKey])
+    })
+  }, [staff, staffStatuses, workKey])
+
+  const absentStaff = useMemo(() => {
+    return staff.filter((person) => {
+      const s = staffStatuses[person.id]?.status
+      return s === 'absent' || s === 'holiday' || s === 'sick'
+    })
+  }, [staff, staffStatuses])
 
   const sportHorses = useMemo(() => {
     return horses.filter((horse) => {
@@ -238,26 +351,56 @@ export default function OperationsTab() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [selectedDate])
 
   async function loadData() {
     setLoading(true)
 
-    const [staffResult, horsesResult, statusResult, ridingResult, tasksResult, movementResult] =
-      await Promise.all([
-        supabase.from('staff').select('*').order('name'),
-        supabase.from('horses').select('id,name,stable_location,box_number,active,horse_type').order('name'),
-        supabase.from('horse_daily_status').select('*').eq('date', date),
-        supabase.from('riding_planning').select('*').eq('date', date).order('rider_name').order('sort_order'),
-        supabase.from('stable_tasks').select('*').eq('date', date).order('starts_at'),
-        supabase.from('horse_movement_planning').select('*').eq('date', date).order('starts_at'),
-      ])
+    const [
+      staffResult,
+      staffStatusResult,
+      horsesResult,
+      statusResult,
+      ridingResult,
+      tasksResult,
+      movementResult,
+      dailyTasksResult,
+      recurringTasksResult,
+      workflowsResult,
+      workflowStepsResult,
+    ] = await Promise.all([
+      supabase.from('staff').select('*').order('name'),
+      supabase.from('staff_day_status').select('*').eq('date', selectedDate),
+      supabase.from('horses').select('id,name,stable_location,box_number,active,horse_type').order('name'),
+      supabase.from('horse_daily_status').select('*').eq('date', selectedDate),
+      supabase.from('riding_planning').select('*').eq('date', selectedDate).order('rider_name').order('sort_order'),
+      supabase.from('stable_tasks').select('*').eq('date', selectedDate).order('starts_at'),
+      supabase.from('horse_movement_planning').select('*').eq('date', selectedDate).order('starts_at'),
+      supabase.from('daily_tasks').select('*').order('sort_order'),
+      supabase.from('recurring_tasks').select('*').order('priority', { ascending: false }),
+      supabase.from('workflows').select('*').order('name'),
+      supabase.from('workflow_steps').select('*').order('sort_order'),
+    ])
 
     if (staffResult.data) setStaff(staffResult.data as Staff[])
     if (horsesResult.data) setHorses(horsesResult.data as Horse[])
     if (ridingResult.data) setRidingPlans(ridingResult.data as RidingPlan[])
     if (tasksResult.data) setStableTasks(tasksResult.data as StableTask[])
     if (movementResult.data) setMovementPlans(movementResult.data as MovementPlan[])
+    if (dailyTasksResult.data) setDailyTasks(dailyTasksResult.data as DailyTask[])
+    if (recurringTasksResult.data) setRecurringTasks(recurringTasksResult.data as RecurringTask[])
+    if (workflowsResult.data) setWorkflows(workflowsResult.data as Workflow[])
+    if (workflowStepsResult.data) setWorkflowSteps(workflowStepsResult.data as WorkflowStep[])
+
+    if (staffStatusResult.data) {
+      const mapped: Record<string, StaffDayStatus> = {}
+      ;(staffStatusResult.data as StaffDayStatus[]).forEach((status) => {
+        mapped[status.staff_id] = status
+      })
+      setStaffStatuses(mapped)
+    } else {
+      setStaffStatuses({})
+    }
 
     if (statusResult.data) {
       const mapped: Record<string, DailyStatus> = {}
@@ -265,6 +408,8 @@ export default function OperationsTab() {
         mapped[status.horse_id] = status
       })
       setStatuses(mapped)
+    } else {
+      setStatuses({})
     }
 
     setLoading(false)
@@ -274,7 +419,7 @@ export default function OperationsTab() {
     return (
       statuses[horseId] || {
         horse_id: horseId,
-        date,
+        date: selectedDate,
         vet_visit: false,
         stay_inside: false,
         medication: false,
@@ -300,7 +445,7 @@ export default function OperationsTab() {
 
     const rows = Object.values(statuses).map((status) => ({
       horse_id: status.horse_id,
-      date,
+      date: selectedDate,
       vet_visit: status.vet_visit,
       stay_inside: status.stay_inside,
       medication: status.medication,
@@ -313,6 +458,7 @@ export default function OperationsTab() {
       const { error } = await supabase.from('horse_daily_status').upsert(rows, {
         onConflict: 'horse_id,date',
       })
+
       if (error) alert(`Save error: ${error.message}`)
     }
 
@@ -320,10 +466,21 @@ export default function OperationsTab() {
     await loadData()
   }
 
+  function staffAvailableNames() {
+    return dayStaff.map((person) => person.name)
+  }
+
+  function safeAssignedPerson(preferred: string) {
+    const available = staffAvailableNames()
+    if (available.includes(preferred)) return preferred
+    return available[0] || preferred
+  }
+
   async function generateTasks() {
     setGenerating(true)
 
-    await supabase.from('stable_tasks').delete().eq('date', date).eq('auto_generated', true)
+    await saveStatuses()
+    await supabase.from('stable_tasks').delete().eq('date', selectedDate).eq('auto_generated', true)
 
     const rows: any[] = []
     const personTasks: Record<string, { starts_at: string | null; ends_at: string | null }[]> = {}
@@ -346,17 +503,37 @@ export default function OperationsTab() {
       notes?: string | null
       fallbackStaff?: string[]
       fixedPerson?: boolean
+      priority?: number
     }) {
-      const candidates = input.fixedPerson
-        ? [input.assigned_to]
-        : [input.assigned_to, ...(input.fallbackStaff || FALLBACK_STAFF)].filter(
-            (v, i, arr) => v && arr.indexOf(v) === i,
-          )
+      const availableNames = staffAvailableNames()
 
-      let bestPerson = candidates[0]
+      function canDoTask(personName: string) {
+        const person = staff.find((item) => item.name === personName)
+        if (!person) return true
+
+        const allowed = person.allowed_task_types || []
+        if (allowed.length === 0) return true
+
+        return allowed.includes(input.task_type)
+      }
+
+      const candidates = input.fixedPerson
+        ? [safeAssignedPerson(input.assigned_to)]
+        : [input.assigned_to, ...(input.fallbackStaff || DEFAULT_FALLBACK_STAFF)]
+            .filter((v, i, arr) => v && arr.indexOf(v) === i)
+            .filter((name) => availableNames.length === 0 || availableNames.includes(name))
+            .filter((name) => canDoTask(name))
+
+      const finalCandidates = candidates.length
+        ? candidates
+        : availableNames.filter((name) => canDoTask(name))
+
+      const fallbackCandidates = finalCandidates.length ? finalCandidates : [input.assigned_to]
+
+      let bestPerson = fallbackCandidates[0]
       let bestSlot = findFreeSlot(personTasks[bestPerson] || [], input.start, input.duration)
 
-      candidates.forEach((person) => {
+      fallbackCandidates.forEach((person) => {
         const slot = findFreeSlot(personTasks[person] || [], input.start, input.duration)
         if (new Date(slot.starts_at).getTime() < new Date(bestSlot.starts_at).getTime()) {
           bestPerson = person
@@ -365,9 +542,9 @@ export default function OperationsTab() {
       })
 
       const task = {
-        date,
+        date: selectedDate,
         horse_id: input.horse_id || null,
-        title: input.title.toLowerCase(),
+        title: input.title,
         task_type: input.task_type,
         assigned_to: bestPerson,
         starts_at: bestSlot.starts_at,
@@ -375,6 +552,7 @@ export default function OperationsTab() {
         auto_generated: true,
         status: 'pending',
         notes: input.notes || null,
+        priority: input.priority || 50,
       }
 
       rows.push(task)
@@ -383,166 +561,112 @@ export default function OperationsTab() {
       personTasks[bestPerson].push({ starts_at: task.starts_at, ends_at: task.ends_at })
     }
 
-    addTask({
-      title: '47b hay / lucerne',
-      task_type: 'feed',
-      assigned_to: 'George',
-      start: buildDateTime(date, 7, 0),
-      duration: 30,
-      fixedPerson: true,
-    })
+    dailyTasks
+      .filter((task) => task.active !== false)
+      .forEach((task, index) => {
+        const preferredStart = task.timing_required
+          ? buildDateTimeFromTime(selectedDate, task.start_time)
+          : buildDateTime(selectedDate, 7 + Math.floor(index / 3), (index % 3) * 20)
 
-    addTask({
-      title: '47b morning feed',
-      task_type: 'feed',
-      assigned_to: 'George',
-      start: buildDateTime(date, 7, 45),
-      duration: 25,
-      fixedPerson: true,
-    })
-
-    addTask({
-      title: 'muck out boxes',
-      task_type: 'muck',
-      assigned_to: 'George',
-      start: buildDateTime(date, 8, 20),
-      duration: 160,
-      fallbackStaff: ['George', 'Sandro'],
-    })
-
-    const walkerGroups = [
-      buildDateTime(date, 8, 10),
-      buildDateTime(date, 8, 45),
-      buildDateTime(date, 9, 20),
-      buildDateTime(date, 9, 55),
-    ]
-
-    walkerGroups.forEach((start, index) => {
-      addTask({
-        title: `walker group ${index + 1}`,
-        task_type: 'walker',
-        assigned_to: 'Lenne',
-        start,
-        duration: 25,
-        fallbackStaff: ['Lenne', 'Lot', 'Zanna', 'Alessia'],
+        addTask({
+          title: task.name,
+          task_type: task.task_type || 'manual',
+          assigned_to: task.primary_staff || 'George',
+          start: preferredStart || buildDateTime(selectedDate, 8, 0),
+          duration: task.duration_minutes || 30,
+          notes: task.notes,
+          fallbackStaff: task.fallback_staff || [],
+          fixedPerson: false,
+          priority: task.priority || 50,
+        })
       })
 
-      addTask({
-        title: `turnout group ${index + 1}`,
-        task_type: 'turnout',
-        assigned_to: 'Lenne',
-        start: addMinutes(start, 30),
-        duration: 12,
-        fallbackStaff: ['Lenne', 'Lot', 'Zanna', 'Alessia', 'George'],
+    recurringTasks
+      .filter((task) => isDue(selectedDate, task))
+      .forEach((task, index) => {
+        const preferredStart = task.timing_required
+          ? buildDateTimeFromTime(selectedDate, task.start_time)
+          : buildDateTime(selectedDate, 11 + Math.floor(index / 2), (index % 2) * 30)
+
+        addTask({
+          title: task.name,
+          task_type: task.task_type || 'manual',
+          assigned_to: task.primary_staff || 'George',
+          start: preferredStart || buildDateTime(selectedDate, 11, 0),
+          duration: task.duration_minutes || 30,
+          notes: task.notes,
+          fallbackStaff: task.fallback_staff || [],
+          fixedPerson: false,
+          priority: task.priority || 60,
+        })
       })
-    })
-
-    addTask({
-      title: 'field to sand paddock',
-      task_type: 'paddock',
-      assigned_to: 'George',
-      start: buildDateTime(date, 12, 0),
-      duration: 45,
-      fallbackStaff: ['George', 'Sandro', 'Lenne'],
-    })
-
-    addTask({
-      title: 'bring horses inside',
-      task_type: 'turnout',
-      assigned_to: 'George',
-      start: buildDateTime(date, 16, 30),
-      duration: 45,
-      fallbackStaff: ['George', 'Sandro', 'Lenne'],
-    })
-
-    addTask({
-      title: 'evening hay',
-      task_type: 'feed',
-      assigned_to: 'George',
-      start: buildDateTime(date, 17, 15),
-      duration: 20,
-      fixedPerson: true,
-    })
-
-    addTask({
-      title: 'evening feed',
-      task_type: 'feed',
-      assigned_to: 'George',
-      start: buildDateTime(date, 17, 30),
-      duration: 30,
-      fixedPerson: true,
-    })
-
-    addTask({
-      title: 'late hay + feed',
-      task_type: 'feed',
-      assigned_to: 'George',
-      start: buildDateTime(date, 23, 0),
-      duration: 30,
-      fixedPerson: true,
-    })
 
     movementPlans.forEach((move) => {
       const horse = horseById.get(move.horse_id)
       if (!move.starts_at || !move.ends_at) return
 
+      const status = getStatus(move.horse_id)
+      if (move.movement_type === 'walker' && status.skip_walker) return
+      if ((move.movement_type === 'field' || move.movement_type === 'sand_paddock') && status.skip_turnout) return
+      if (status.stay_inside && move.movement_type !== 'inside') return
+
       addTask({
-        title: `${horse?.name || 'horse'} ${move.movement_type}`,
+        title: `${horse?.name || 'Horse'} · ${move.movement_type}`,
         task_type: move.movement_type,
-        assigned_to: move.assigned_to || 'Lenne',
+        assigned_to: 'Lenne',
         start: move.starts_at,
         duration: durationMinutes(move.starts_at, move.ends_at),
         horse_id: move.horse_id,
         notes: horse?.name || null,
         fallbackStaff: ['Lenne', 'Lot', 'Zanna', 'Alessia', 'George'],
+        priority: 70,
       })
     })
 
+    const rideWorkflow = workflows.find(
+      (workflow) =>
+        workflow.active !== false &&
+        ['ride', 'riding'].includes((workflow.workflow_type || '').toLowerCase()),
+    )
+
+    const rideWorkflowSteps = rideWorkflow
+      ? workflowSteps
+          .filter((step) => step.workflow_id === rideWorkflow.id && step.active !== false)
+          .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+      : []
+
     ridingPlansWithHorse.forEach((plan, index) => {
-      const rideStart = buildDateTime(date, 10 + index, 0)
+      const rideStart = buildDateTime(selectedDate, 10 + index, 0)
+      const rideMinutes = plan.minutes || 40
+      const terryRide = isTerryRider(plan.rider_name)
 
-      addTask({
-        title: `get ${plan.horseName}`,
-        task_type: 'groom',
-        assigned_to: 'Lenne',
-        start: addMinutes(rideStart, -25),
-        duration: 10,
-        horse_id: plan.horse_id,
-        notes: `for ${plan.rider_name}`,
-        fallbackStaff: ['Lenne', 'Lot', 'Zanna', 'Alessia'],
-      })
+      rideWorkflowSteps.forEach((step) => {
+        const isRide = step.task_type === 'ride'
+        const isAfter =
+          step.offset_minutes !== null &&
+          step.offset_minutes >= 0 &&
+          step.name.toLowerCase().includes('after')
 
-      addTask({
-        title: `tack up ${plan.horseName}`,
-        task_type: 'groom',
-        assigned_to: 'Alessia',
-        start: addMinutes(rideStart, -15),
-        duration: 15,
-        horse_id: plan.horse_id,
-        notes: plan.rider_name,
-        fallbackStaff: ['Alessia', 'Lot', 'Zanna'],
-      })
+        const assignedPerson = isRide
+          ? plan.rider_name
+          : terryRide
+            ? step.primary_staff || 'Lenne'
+            : plan.rider_name
 
-      addTask({
-        title: `ride ${plan.horseName}`,
-        task_type: 'ride',
-        assigned_to: plan.rider_name,
-        start: rideStart,
-        duration: plan.minutes || 40,
-        horse_id: plan.horse_id,
-        notes: plan.ride_type || null,
-        fixedPerson: true,
-      })
+        const fallbackPeople = isRide ? [] : terryRide ? step.fallback_staff || [] : [plan.rider_name]
 
-      addTask({
-        title: `aftercare ${plan.horseName}`,
-        task_type: 'groom',
-        assigned_to: 'Alessia',
-        start: addMinutes(rideStart, plan.minutes || 40),
-        duration: 15,
-        horse_id: plan.horse_id,
-        notes: 'untack / check',
-        fallbackStaff: ['Alessia', 'Lot', 'Zanna'],
+        addTask({
+          title: `${step.name} ${plan.horseName}`,
+          task_type: step.task_type || 'groom',
+          assigned_to: assignedPerson,
+          start: addMinutes(rideStart, isRide ? 0 : isAfter ? rideMinutes : step.offset_minutes || 0),
+          duration: isRide ? rideMinutes : step.duration_minutes || 10,
+          horse_id: plan.horse_id,
+          notes: isRide ? plan.ride_type || null : `For ${plan.rider_name}`,
+          fallbackStaff: fallbackPeople,
+          fixedPerson: isRide || !terryRide,
+          priority: step.priority || 70,
+        })
       })
     })
 
@@ -551,74 +675,97 @@ export default function OperationsTab() {
 
       if (status.medication) {
         addTask({
-          title: `medication ${horse?.name || 'horse'}`,
+          title: `Medication ${horse?.name || 'Horse'}`,
           task_type: 'medical',
           assigned_to: 'Sofia',
-          start: buildDateTime(date, 8, 0),
+          start: buildDateTime(selectedDate, 8, 0),
           duration: 10,
           horse_id: status.horse_id,
           notes: status.notes || null,
           fixedPerson: true,
+          priority: 100,
         })
       }
 
       if (status.vet_visit) {
         addTask({
-          title: `vet prep ${horse?.name || 'horse'}`,
+          title: `Vet prep ${horse?.name || 'Horse'}`,
           task_type: 'medical',
           assigned_to: 'Sofia',
-          start: buildDateTime(date, 9, 30),
+          start: buildDateTime(selectedDate, 9, 30),
           duration: 15,
           horse_id: status.horse_id,
-          notes: 'stay inside',
+          notes: 'Stay inside',
           fixedPerson: true,
+          priority: 95,
         })
       }
 
       if (status.stay_inside) {
         addTask({
-          title: `keep inside ${horse?.name || 'horse'}`,
+          title: `Keep inside ${horse?.name || 'Horse'}`,
           task_type: 'manual',
           assigned_to: 'Lenne',
-          start: buildDateTime(date, 8, 5),
+          start: buildDateTime(selectedDate, 8, 5),
           duration: 5,
           horse_id: status.horse_id,
-          notes: 'do not turnout',
+          notes: 'Do not turnout',
           fallbackStaff: ['Lenne', 'Alessia'],
+          priority: 95,
         })
       }
     })
 
-    const { error } = await supabase.from('stable_tasks').insert(rows)
+    if (rows.length > 0) {
+      const { error } = await supabase.from('stable_tasks').insert(rows)
+      if (error) alert(`Generate error: ${error.message}`)
+    }
 
-    if (error) alert(`Generate error: ${error.message}`)
+    await supabase.from('planning_days').upsert(
+      {
+        date: selectedDate,
+        status: 'generated',
+        generated_at: new Date().toISOString(),
+      },
+      { onConflict: 'date' },
+    )
 
     setGenerating(false)
     await loadData()
-    setActiveView('board')
+    setActiveView('timeline')
   }
 
   return (
     <section className="ops-page">
-      <div className="ops-hero">
+      <div className="ops-hero ops-hero-clean">
         <div>
           <span className="ops-kicker">Stable Operations</span>
-          <h2>Daily command center</h2>
-          <p>Movement planning, stable routines, riding and staff timeline.</p>
+          <h2>Operations Planner</h2>
+          <p>Plan movements, staff availability, daily tasks and generated timelines.</p>
         </div>
 
         <div className="ops-hero-actions">
-          <button className="ops-generate-btn" type="button" onClick={saveStatuses}>
-            {saving ? 'Saving...' : 'Save today'}
+          <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} />
+
+          <button type="button" onClick={() => setSelectedDate(todayIso())}>
+            Today
           </button>
 
-          <button className="ops-generate-btn" type="button" onClick={generateTasks}>
-            {generating ? 'Generating...' : 'Generate full day'}
+          <button type="button" onClick={() => setSelectedDate(addDaysIso(1))}>
+            Tomorrow
+          </button>
+
+          <button className="ops-generate-btn" type="button" onClick={saveStatuses}>
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+
+          <button className="ops-generate-btn gold" type="button" onClick={generateTasks}>
+            {generating ? 'Generating...' : 'Generate'}
           </button>
         </div>
       </div>
 
-      <div className="ops-tabs">
+      <div className="ops-tabs ops-tabs-clean">
         {views.map((view) => (
           <button
             key={view.key}
@@ -633,9 +780,9 @@ export default function OperationsTab() {
 
       {loading && <div className="ops-loading">Loading operations...</div>}
 
-      {!loading && activeView === 'today' && (
+      {!loading && activeView === 'overview' && (
         <TodayView
-          todayStaff={todayStaff}
+          todayStaff={dayStaff}
           sportHorses={sportHorses}
           ridingPlans={ridingPlansWithHorse}
           getStatus={getStatus}
@@ -643,23 +790,44 @@ export default function OperationsTab() {
         />
       )}
 
-      {!loading && activeView === 'board' && (
-        <TimelineBoard allStaff={staff} tasksByPerson={tasksByPerson} onRefresh={loadData} />
+      {!loading && activeView === 'timeline' && (
+        <TimelineBoard
+          selectedDate={selectedDate}
+          allStaff={staff}
+          staffStatuses={staffStatuses}
+          tasksByPerson={tasksByPerson}
+          onRefresh={loadData}
+        />
       )}
 
       {!loading && activeView === 'movement' && (
         <MovementPlanning
           horses={sportHorses}
-          staff={staff}
-          date={date}
+          date={selectedDate}
           movementPlans={movementPlans}
           onRefresh={loadData}
         />
       )}
 
-      {!loading && activeView === 'staff' && <StaffView staff={staff} />}
+      {!loading && activeView === 'staff' && (
+        <StaffView
+          staff={staff}
+          selectedDate={selectedDate}
+          staffStatuses={staffStatuses}
+          onRefresh={loadData}
+        />
+      )}
 
-      {!loading && activeView === 'rules' && <RulesView />}
+      {!loading && activeView === 'rules' && (
+        <RulesView
+          staff={staff}
+          dailyTasks={dailyTasks}
+          recurringTasks={recurringTasks}
+          workflows={workflows}
+          workflowSteps={workflowSteps}
+          onRefresh={loadData}
+        />
+      )}
     </section>
   )
 }

@@ -172,6 +172,13 @@ function cssTypeClass(type: RideType | null) {
   return type.toLowerCase()
 }
 
+function shortRideType(type: RideType | null) {
+  if (type === 'Flatwork') return 'FL'
+  if (type === 'Showjumping') return 'SJ'
+  if (type === 'Lunging') return 'LU'
+  return ''
+}
+
 function sortAssignments(list: Assignment[]) {
   return [...list].sort((a, b) => a.order - b.order)
 }
@@ -368,6 +375,10 @@ function TableAssignmentCard({
   onOpen: (assignmentId: string) => void
   onDelete: (assignmentId: string) => void
 }) {
+  const label = rider?.isNoRider
+    ? 'NO RIDER'
+    : `${rider?.name ?? '—'} ${shortRideType(assignment.type)}`
+
   return (
     <div
       className={`planner-table-card rider-${rider?.color ?? 'norider'} type-${cssTypeClass(
@@ -376,36 +387,23 @@ function TableAssignmentCard({
     >
       <button
         type="button"
+        className="planner-table-card-main"
+        onClick={() => onOpen(assignment.id)}
+        title={`${rider?.name ?? ''} ${assignment.type ?? ''} ${assignment.minutes} min`}
+      >
+        {label}
+      </button>
+
+      <button
+        type="button"
         className="planner-table-delete"
         onClick={(e) => {
           e.stopPropagation()
           onDelete(assignment.id)
         }}
+        aria-label="Delete assignment"
       >
         ×
-      </button>
-
-      <button
-        type="button"
-        className="planner-table-card-main"
-        onClick={() => onOpen(assignment.id)}
-      >
-        {rider?.isNoRider ? (
-          <>
-            <div className="planner-table-card-only">NO RIDER</div>
-            <div className="planner-table-card-minutes">
-              {assignment.minutes} min
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="planner-table-card-type">{assignment.type}</div>
-            <div className="planner-table-card-rider">{rider?.name}</div>
-            <div className="planner-table-card-minutes">
-              {assignment.minutes} min
-            </div>
-          </>
-        )}
       </button>
     </div>
   )
@@ -1013,7 +1011,7 @@ export default function PlanningTab() {
             <div
               className="planner-table"
               style={{
-                gridTemplateColumns: `180px repeat(${weekDates.length}, minmax(110px, 1fr))`,
+                gridTemplateColumns: `150px repeat(${weekDates.length}, minmax(95px, 1fr))`,
               }}
             >
               <div className="planner-head planner-sticky-left planner-horse-head">

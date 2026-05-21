@@ -728,3 +728,216 @@
     justify-content: flex-end;
   }
 }
+/* === FUNCTIONAL COMPACT PLANNER UPGRADE === */
+.planner-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 12px;
+  align-items: start;
+  height: calc(100vh - 190px);
+  min-height: 620px;
+}
+
+.planner-table-wrap {
+  border-radius: 18px;
+  overflow: auto;
+  height: 100%;
+  max-height: calc(100vh - 190px);
+  overscroll-behavior: contain;
+}
+
+.planner-table {
+  display: grid;
+  min-width: 980px;
+}
+
+.planner-side {
+  height: 100%;
+  min-height: 0;
+}
+
+.planner-side-card {
+  border-radius: 18px;
+  padding: 12px;
+  height: 100%;
+  max-height: calc(100vh - 190px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.planner-riders {
+  display: grid;
+  gap: 10px;
+  overflow-y: auto;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
+.planner-riders::-webkit-scrollbar,
+.planner-table-wrap::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.planner-riders::-webkit-scrollbar-thumb,
+.planner-table-wrap::-webkit-scrollbar-thumb {
+  background: rgba(17, 17, 17, 0.18);
+  border-radius: 999px;
+}
+
+.planner-head {
+  min-height: 38px;
+}
+
+.planner-horse-head {
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: 11px;
+}
+
+.planner-day-head {
+  min-height: 38px;
+}
+
+.planner-day-head strong {
+  font-size: 11px;
+}
+
+.planner-day-head span {
+  font-size: 9px;
+}
+
+.planner-horse {
+  min-height: 32px;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.planner-cell {
+  min-height: 32px;
+  height: 32px;
+  padding: 3px;
+}
+
+.planner-drop {
+  width: 100%;
+  height: 24px;
+  min-height: 24px;
+  border-radius: 7px;
+  font-size: 10px;
+  line-height: 1;
+}
+
+.planner-table-card {
+  position: relative;
+  height: 24px;
+  min-height: 24px;
+  border-radius: 7px;
+  border: 1px solid rgba(18, 18, 18, 0.08);
+  overflow: hidden;
+}
+
+.planner-table-card-main {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  padding: 0 22px 0 7px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 800;
+  line-height: 24px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.planner-table-card-type,
+.planner-table-card-rider,
+.planner-table-card-only,
+.planner-table-card-minutes {
+  display: none;
+}
+
+.planner-table-delete {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 17px;
+  height: 17px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(255, 255, 255, 0.85);
+  color: #111;
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.planner-rider-block {
+  padding: 9px;
+}
+
+.planner-list {
+  max-height: 190px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.planner-day-item-main {
+  padding: 7px 8px;
+}
+
+.planner-day-item-text strong {
+  font-size: 11px;
+}
+
+.planner-day-item-text span {
+  font-size: 9px;
+}
+
+@media (max-width: 1300px) {
+  .planner-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+  }
+
+  .planner-table-wrap {
+    height: 62vh;
+    max-height: 62vh;
+  }
+
+  .planner-side-card {
+    height: 45vh;
+    max-height: 45vh;
+  }
+}
+
+@media (max-width: 900px) {
+  .planner-table {
+    min-width: 860px;
+  }
+
+  .planner-layout {
+    gap: 10px;
+  }
+
+  .planner-table-wrap {
+    height: 58vh;
+    max-height: 58vh;
+  }
+
+  .planner-side-card {
+    height: 42vh;
+    max-height: 42vh;
+  }
+}

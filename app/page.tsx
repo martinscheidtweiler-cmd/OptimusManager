@@ -38,11 +38,21 @@ type MenuItem = {
   subtitle?: string
 }
 
-const sideMenu: MenuItem[] = [
+const menuItems: MenuItem[] = [
   {
     key: 'Horses',
     label: 'Horses',
     subtitle: 'Stable overview',
+  },
+  {
+    key: 'Planning',
+    label: 'Planning',
+    subtitle: 'Riding schedule',
+  },
+  {
+    key: 'Tasks',
+    label: 'Tasks',
+    subtitle: 'Daily operations',
   },
   {
     key: 'Riders',
@@ -50,28 +60,19 @@ const sideMenu: MenuItem[] = [
     subtitle: 'Work & riders',
   },
   {
-    key: 'Tasks',
-    label: 'Tasks',
-    subtitle: 'Daily operations',
-  },
-]
-
-const topMenu: MenuItem[] = [
-  {
-    key: 'Planning',
-    label: 'Planning',
-  },
-  {
     key: 'Vet',
     label: 'Vet',
+    subtitle: 'Medical care',
   },
   {
     key: 'Farrier',
     label: 'Farrier',
+    subtitle: 'Hoof care',
   },
   {
     key: 'Place',
     label: 'Place',
+    subtitle: 'Stable map',
   },
 ]
 
@@ -82,9 +83,7 @@ export default function Home() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const activeLabel = useMemo(() => {
-    const allItems = [...sideMenu, ...topMenu]
-
-    return allItems.find((item) => item.key === activeTab)?.label ?? activeTab
+    return menuItems.find((item) => item.key === activeTab)?.label ?? activeTab
   }, [activeTab])
 
   const handleTabClick = (tab: Tab) => {
@@ -140,23 +139,17 @@ export default function Home() {
             <div className="om-coming-grid">
               <div className="om-coming-card">
                 <strong>Terry</strong>
-                <span>
-                  Main rider · variable start time · sport horses
-                </span>
+                <span>Main rider · variable start time · sport horses</span>
               </div>
 
               <div className="om-coming-card">
                 <strong>Lot & Zanna</strong>
-                <span>
-                  Riding interns · riding support · walker and turnout help
-                </span>
+                <span>Riding interns · riding support · walker and turnout help</span>
               </div>
 
               <div className="om-coming-card">
                 <strong>Lenne</strong>
-                <span>
-                  Morning operations · walker flow · turnout management
-                </span>
+                <span>Morning operations · walker flow · turnout management</span>
               </div>
             </div>
           </div>
@@ -180,17 +173,14 @@ export default function Home() {
         </div>
 
         <nav className="om-side-nav" aria-label="Main navigation">
-          {sideMenu.map((item) => (
+          {menuItems.map((item) => (
             <button
               key={item.key}
-              className={`om-side-link ${
-                activeTab === item.key ? 'active' : ''
-              }`}
+              className={`om-side-link ${activeTab === item.key ? 'active' : ''}`}
               onClick={() => handleTabClick(item.key)}
               type="button"
             >
               <span>{item.label}</span>
-
               {item.subtitle ? <small>{item.subtitle}</small> : null}
             </button>
           ))}
@@ -198,7 +188,7 @@ export default function Home() {
       </aside>
 
       <section className="om-main">
-        <header className="om-topbar">
+        <header className="om-mobile-header">
           <button
             className="om-mobile-toggle"
             type="button"
@@ -213,21 +203,6 @@ export default function Home() {
           <div className="om-mobile-current">
             <span>Current module</span>
             <strong>{activeLabel}</strong>
-          </div>
-
-          <div className="om-top-links" aria-label="Module navigation">
-            {topMenu.map((item) => (
-              <button
-                key={item.key}
-                className={`om-top-link ${
-                  activeTab === item.key ? 'active' : ''
-                }`}
-                onClick={() => handleTabClick(item.key)}
-                type="button"
-              >
-                {item.label}
-              </button>
-            ))}
           </div>
         </header>
 

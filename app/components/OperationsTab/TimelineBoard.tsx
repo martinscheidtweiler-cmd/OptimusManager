@@ -2,20 +2,22 @@
 
 import { useMemo, useState } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
-import type { StableTask, Staff } from './OperationsTab'
+import type { StableTask, Staff, StaffDayStatus } from './OperationsTab'
 
 type Props = {
+  selectedDate: string
   allStaff: Staff[]
+  staffStatuses: Record<string, StaffDayStatus>
   tasksByPerson: Record<string, StableTask[]>
-  onRefresh: () => void
+  onRefresh: () => void | Promise<void>
 }
 
 const START_HOUR = 7
 const END_HOUR = 24
 
-const HOUR_HEIGHT = 140
-const TIME_WIDTH = 92
-const STAFF_WIDTH = 390
+const HOUR_HEIGHT = 420
+const TIME_WIDTH = 86
+const STAFF_WIDTH = 360
 const TASK_GAP = 8
 
 function minutesFromStart(value: string | null) {
@@ -26,7 +28,7 @@ function minutesFromStart(value: string | null) {
 
 function durationMinutes(start: string | null, end: string | null) {
   if (!start || !end) return 30
-  return Math.max(10, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000))
+  return Math.max(5, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000))
 }
 
 function formatTime(value: string | null) {
@@ -76,7 +78,6 @@ function layoutTasks(tasks: StableTask[]) {
 
   for (const task of sorted) {
     const start = getStart(task)
-
     let lane = laneEnds.findIndex((end) => end <= start)
 
     if (lane === -1) {
@@ -102,9 +103,36 @@ function layoutTasks(tasks: StableTask[]) {
   return placed
 }
 
-export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Props) {
+function getStaffStatusClass(status?: StaffDayStatus) {
+  if (!status) return 'available'
+  return status.status || 'available'
+}
+
+export default function TimelineBoard({
+  selectedDate,
+  allStaff,
+  staffStatuses,
+  tasksByPerson,
+  onRefresh,
+}: Props) {
   const [selectedPerson, setSelectedPerson] = useState('all')
   const [selectedTask, setSelectedTask] = useState<StableTask | null>(null)
+
+  const [showCreate, setShowCreate] = useState(false)
+  const [newTitle, setNewTitle] = useState('')
+  const [newTaskType, setNewTaskType] = useState('manual')
+  const [newAssignedTo, setNewAssignedTo] = useState('')
+  const [newStart, setNewStart] = useState('08:00')
+  const [newEnd, setNewEnd] = useState('08:30')
+  const [newPriority, setNewPriority] = useState('50')
+  const [newNotes, setNewNotes] = useState('')
+
+  const [editTitle, setEditTitle] = useState('')
+  const [editAssignedTo, setEditAssignedTo] = useState('')
+  const [editStart, setEditStart] = useState('')
+  const [editEnd, setEditEnd] = useState('')
+  const [editPriority, setEditPriority] = useState('50')
+  const [editNotes, setEditNotes] = useState('')
 
   const people = useMemo(() => {
     const names = new Set<string>()
@@ -130,11 +158,91 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
     }, 0)
   }, [visiblePeople, tasksByPerson])
 
+  function openTask(task: StableTask) {
+    setSelectedTask(task)
+    setEditTitle(task.title || '')
+    setEditAssignedTo(task.assigned_to || '')
+    setEditStart(formatTime(task.starts_at))
+    setEditEnd(formatTime(task.ends_at))
+    setEditPriority(String(task.priority || 50))
+    setEditNotes(task.notes || '')
+  }
+
+  async function createTask() {
+    if (!newTitle.trim()) {
+      alert('Title is required')
+      return
+    }
+
+    const startIso = newStart ? new Date(`${selectedDate}T${newStart}:00`).toISOString() : null
+    const endIso = newEnd ? new Date(`${selectedDate}T${newEnd}:00`).toISOString() : null
+
+    const { error } = await supabase.from('stable_tasks').insert({
+      date: selectedDate,
+      title: newTitle.trim(),
+      task_type: newTaskType,
+      assigned_to: newAssignedTo || null,
+      starts_at: startIso,
+      ends_at: endIso,
+      priority: Number(newPriority || 50),
+      notes: newNotes || null,
+      auto_generated: false,
+      status: 'pending',
+    })
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setShowCreate(false)
+    setNewTitle('')
+    setNewTaskType('manual')
+    setNewAssignedTo('')
+    setNewStart('08:00')
+    setNewEnd('08:30')
+    setNewPriority('50')
+    setNewNotes('')
+
+    await onRefresh()
+  }
+
   async function deleteTask() {
     if (!selectedTask) return
 
     const { error } = await supabase.from('stable_tasks').delete().eq('id', selectedTask.id)
-    if (error) return alert(error.message)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    setSelectedTask(null)
+    await onRefresh()
+  }
+
+  async function saveTask() {
+    if (!selectedTask) return
+
+    const startIso = editStart ? new Date(`${selectedDate}T${editStart}:00`).toISOString() : null
+    const endIso = editEnd ? new Date(`${selectedDate}T${editEnd}:00`).toISOString() : null
+
+    const { error } = await supabase
+      .from('stable_tasks')
+      .update({
+        title: editTitle,
+        assigned_to: editAssignedTo || null,
+        starts_at: startIso,
+        ends_at: endIso,
+        priority: Number(editPriority || 50),
+        notes: editNotes || null,
+      })
+      .eq('id', selectedTask.id)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     setSelectedTask(null)
     await onRefresh()
@@ -152,7 +260,10 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
       })
       .eq('id', selectedTask.id)
 
-    if (error) return alert(error.message)
+    if (error) {
+      alert(error.message)
+      return
+    }
 
     setSelectedTask(null)
     await onRefresh()
@@ -163,8 +274,8 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
       <section className="vtime-shell">
         <div className="vtime-toolbar">
           <div>
-            <span className="vtime-eyebrow">Daily operations</span>
-            <h3>Task timeline</h3>
+            <span className="vtime-eyebrow">Operations timeline</span>
+            <h3>{selectedDate}</h3>
           </div>
 
           <div className="vtime-toolbar-right">
@@ -183,6 +294,10 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
             <div className={`vtime-conflict-counter ${conflictCount > 0 ? 'has-conflicts' : ''}`}>
               {conflictCount > 0 ? `${conflictCount} overlaps` : 'Clean planning'}
             </div>
+
+            <button type="button" className="ops-add-task-btn" onClick={() => setShowCreate(true)}>
+              + Add task
+            </button>
           </div>
         </div>
 
@@ -196,11 +311,26 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
             <div className="vtime-head">
               <div className="vtime-head-time">TIME</div>
 
-              {visiblePeople.map((person) => (
-                <div key={person} className="vtime-head-person">
-                  <span>{person}</span>
-                </div>
-              ))}
+              {visiblePeople.map((person) => {
+                const staffPerson = allStaff.find((s) => s.name === person)
+                const status = staffPerson ? staffStatuses[staffPerson.id] : undefined
+                const statusClass = getStaffStatusClass(status)
+
+                return (
+                  <div key={person} className={`vtime-head-person staff-${statusClass}`}>
+                    <span>{person}</span>
+
+                    {status ? (
+                      <small>
+                        {status.status}
+                        {status.available_from ? ` · ${status.available_from.slice(0, 5)}` : ''}
+                      </small>
+                    ) : (
+                      <small>available</small>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             <div className="vtime-body" style={{ height: boardHeight }}>
@@ -217,12 +347,15 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
               </div>
 
               {visiblePeople.map((person, index) => {
+                const staffPerson = allStaff.find((s) => s.name === person)
+                const status = staffPerson ? staffStatuses[staffPerson.id] : undefined
+                const statusClass = getStaffStatusClass(status)
                 const tasks = layoutTasks(tasksByPerson[person] || [])
 
                 return (
                   <div
                     key={person}
-                    className="vtime-column"
+                    className={`vtime-column staff-${statusClass}`}
                     style={{
                       left: TIME_WIDTH + index * STAFF_WIDTH,
                       width: STAFF_WIDTH,
@@ -237,15 +370,22 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
                       />
                     ))}
 
+                    {(statusClass === 'absent' || statusClass === 'holiday' || statusClass === 'sick') && (
+                      <div className="vtime-unavailable">
+                        {statusClass.toUpperCase()}
+                        {status?.note ? <span>{status.note}</span> : null}
+                      </div>
+                    )}
+
                     {tasks.map((task) => {
                       const top = (getStart(task) / 60) * HOUR_HEIGHT
                       const height = Math.max(
-                        42,
+                        34,
                         (durationMinutes(task.starts_at, task.ends_at) / 60) * HOUR_HEIGHT,
                       )
 
-                      const laneWidth = (STAFF_WIDTH - 28 - (task.lanes - 1) * TASK_GAP) / task.lanes
-                      const left = 14 + task.lane * (laneWidth + TASK_GAP)
+                      const laneWidth = (STAFF_WIDTH - 26 - (task.lanes - 1) * TASK_GAP) / task.lanes
+                      const left = 13 + task.lane * (laneWidth + TASK_GAP)
 
                       return (
                         <button
@@ -260,12 +400,13 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
                             left,
                             width: laneWidth,
                           }}
-                          onClick={() => setSelectedTask(task)}
+                          onClick={() => openTask(task)}
                         >
-                          <strong>
-                            {formatTime(task.starts_at)} - {formatTime(task.ends_at)}{' '}
-                            {task.title.toLowerCase()}
-                          </strong>
+                          <strong>{task.title}</strong>
+                          <span>
+                            {formatTime(task.starts_at)} - {formatTime(task.ends_at)}
+                          </span>
+                          {task.priority ? <em>P{task.priority}</em> : null}
                         </button>
                       )
                     })}
@@ -277,12 +418,95 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
         </div>
       </section>
 
+      {showCreate && (
+        <div className="ops-modal-backdrop" onClick={() => setShowCreate(false)}>
+          <div className="ops-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="ops-modal-top">
+              <div>
+                <span className="ops-kicker">New task</span>
+                <h2>Add manual task</h2>
+              </div>
+
+              <button type="button" className="ops-close" onClick={() => setShowCreate(false)}>
+                ×
+              </button>
+            </div>
+
+            <div className="ops-form-group">
+              <label>Title</label>
+              <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} />
+            </div>
+
+            <div className="ops-form-row">
+              <div className="ops-form-group">
+                <label>Type</label>
+                <select value={newTaskType} onChange={(e) => setNewTaskType(e.target.value)}>
+                  <option value="feed">feed</option>
+                  <option value="walker">walker</option>
+                  <option value="turnout">turnout</option>
+                  <option value="paddock">paddock</option>
+                  <option value="ride">ride</option>
+                  <option value="groom">groom</option>
+                  <option value="medical">medical</option>
+                  <option value="muck">muck</option>
+                  <option value="manual">manual</option>
+                </select>
+              </div>
+
+              <div className="ops-form-group">
+                <label>Priority</label>
+                <input type="number" value={newPriority} onChange={(e) => setNewPriority(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="ops-form-group">
+              <label>Person</label>
+              <select value={newAssignedTo} onChange={(e) => setNewAssignedTo(e.target.value)}>
+                <option value="">Unassigned</option>
+                {people.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="ops-form-row">
+              <div className="ops-form-group">
+                <label>Start</label>
+                <input type="time" value={newStart} onChange={(e) => setNewStart(e.target.value)} />
+              </div>
+
+              <div className="ops-form-group">
+                <label>End</label>
+                <input type="time" value={newEnd} onChange={(e) => setNewEnd(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="ops-form-group">
+              <label>Notes</label>
+              <textarea value={newNotes} onChange={(e) => setNewNotes(e.target.value)} />
+            </div>
+
+            <div className="ops-modal-actions">
+              <button type="button" onClick={() => setShowCreate(false)}>
+                Cancel
+              </button>
+
+              <button type="button" className="ops-save-btn" onClick={createTask}>
+                Save task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedTask && (
         <div className="ops-modal-backdrop" onClick={() => setSelectedTask(null)}>
           <div className="ops-modal" onClick={(e) => e.stopPropagation()}>
             <div className="ops-modal-top">
               <div>
-                <span className="ops-kicker">Task</span>
+                <span className="ops-kicker">Edit task</span>
                 <h2>{selectedTask.title}</h2>
               </div>
 
@@ -292,25 +516,42 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
             </div>
 
             <div className="ops-form-group">
+              <label>Title</label>
+              <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} />
+            </div>
+
+            <div className="ops-form-group">
               <label>Person</label>
-              <input value={selectedTask.assigned_to || ''} readOnly />
+              <select value={editAssignedTo} onChange={(e) => setEditAssignedTo(e.target.value)}>
+                <option value="">Unassigned</option>
+                {people.map((name) => (
+                  <option key={name} value={name}>
+                    {name}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="ops-form-row">
               <div className="ops-form-group">
                 <label>Start</label>
-                <input value={formatTime(selectedTask.starts_at)} readOnly />
+                <input type="time" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
               </div>
 
               <div className="ops-form-group">
                 <label>End</label>
-                <input value={formatTime(selectedTask.ends_at)} readOnly />
+                <input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
               </div>
             </div>
 
             <div className="ops-form-group">
+              <label>Priority</label>
+              <input type="number" value={editPriority} onChange={(e) => setEditPriority(e.target.value)} />
+            </div>
+
+            <div className="ops-form-group">
               <label>Notes</label>
-              <textarea defaultValue={selectedTask.notes || ''} readOnly />
+              <textarea value={editNotes} onChange={(e) => setEditNotes(e.target.value)} />
             </div>
 
             <div className="ops-modal-actions">
@@ -318,12 +559,20 @@ export default function TimelineBoard({ allStaff, tasksByPerson, onRefresh }: Pr
                 Delete
               </button>
 
+              <button type="button" onClick={() => setStatus('pending')}>
+                Pending
+              </button>
+
               <button type="button" onClick={() => setStatus('in_progress')}>
                 Start
               </button>
 
-              <button type="button" className="ops-save-btn" onClick={() => setStatus('done')}>
+              <button type="button" onClick={() => setStatus('done')}>
                 Done
+              </button>
+
+              <button type="button" className="ops-save-btn" onClick={saveTask}>
+                Save
               </button>
             </div>
           </div>

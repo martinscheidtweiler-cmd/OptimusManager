@@ -1,6 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
+import {renderWeeklyPlanner} from './weekly.js';
 const el=id=>document.getElementById(id), html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='';
+let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='',clockToday=null;
 
 let installPrompt=null;
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)').matches||window.navigator.standalone===true}
@@ -63,6 +64,7 @@ async function refresh(resetPage=false){
  const rt=await q;
  if(rt.error){toast(rt.error.message);return}
  tasks=rt.data||[];
+ if(!admin){const record=await db.from('optimus_task_clock_entries').select('*').eq('person_id',me.id).eq('work_date',localToday()).maybeSingle();clockToday=record.data||null}
  if(resetPage)page=admin?'home':'mine';
  render();
 }
@@ -70,26 +72,32 @@ function setPage(p){if(!hasAdmin())return;page=p;render();scrollTo({top:0,behavi
 function renderEmployee(){
  const day=localToday(),arr=currentDayTasks(),open=arr.filter(t=>t.status!=='done'),done=arr.filter(t=>t.status==='done');
  el('boot').hidden=true;el('root').hidden=false;
+ const status=clockToday?.clock_out?'Afgeklokt':clockToday?'Aan het werk':'Nog niet gestart';
+ const time=clockToday?new Date(clockToday.clock_in).toLocaleTimeString('nl-BE',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Brussels'}):'';
  el('root').innerHTML=`<section class="employee-app">
-  <header class="employee-head"><div class="row" style="gap:10px"><div class="logo" style="height:35px;width:35px;font-size:22px">O</div><div><strong>OPTIMUS</strong><div class="muted" style="letter-spacing:1.6px">MIJN TAKEN</div></div></div><button class="btn light small" id="signout">Uitloggen</button></header>
-  <main class="employee-main"><div class="eyebrow">Dagplanning · ${html(me.name)}</div><h1>Mijn taken</h1><p class="muted">${html(fmtDate(day))}</p>
-  <div class="employee-progress"><strong>${done.length} van ${arr.length} afgewerkt</strong><div class="employee-progress-bg"><div style="height:100%;width:${arr.length?Math.round(done.length/arr.length*100):0}%;background:#b39b66;border-radius:100px"></div></div></div>
-  <div class="card"><h2 style="margin-bottom:12px">Nog te doen (${open.length})</h2>${open.length?open.map(taskCard).join(''):'<div class="empty">Alles afgewerkt voor vandaag! ✓</div>'}</div>
-  ${done.length?`<div class="card" style="margin-top:16px"><h2 style="margin-bottom:12px">Afgewerkt (${done.length})</h2>${done.map(taskCard).join('')}</div>`:''}
-  </main></section>`;
+ <header class="employee-head"><div class="row" style="gap:10px"><div class="logo" style="height:35px;width:35px;font-size:22px">O</div><div><strong>OPTIMUS</strong><div class="muted" style="letter-spacing:1.6px">MIJN TAKEN</div></div></div><button class="btn light small" id="signout">Uitloggen</button></header>
+ <main class="employee-main"><div class="eyebrow">Dagplanning · ${html(me.name)}</div><h1>Mijn taken</h1><p class="muted">${html(fmtDate(day))}</p>
+ <div class="employee-clock"><div><span class="eyebrow">Mijn werktijd</span><strong id="workTimer" style="font-size:28px;display:block;margin:4px 0">${clockToday?clockElapsed(): '00:00:00'}</strong><span class="muted">${status}${time?' · gestart '+time:''}</span></div>${!clockToday&&arr.length?'<button class="btn gold" id="clockStart">▶ Start werkdag</button>':''}</div>
+ <div class="employee-progress"><strong>${done.length} van ${arr.length} afgewerkt</strong><div class="employee-progress-bg"><div style="height:100%;width:${arr.length?Math.round(done.length/arr.length*100):0}%;background:#b39b66;border-radius:100px"></div></div></div>
+ <div class="card"><h2 style="margin-bottom:12px">Nog te doen (${open.length})</h2>${open.length?open.map(taskCard).join(''):'<div class="empty">Alles afgewerkt voor vandaag! ✓</div>'}</div>
+ ${done.length?`<div class="card" style="margin-top:16px"><h2 style="margin-bottom:12px">Afgewerkt (${done.length})</h2>${done.map(taskCard).join('')}</div>`:''}
+ <p class="muted small" style="margin-top:20px">De klok stopt automatisch wanneer je laatste taak is afgevinkt. Laat je leidinggevende weten als je langer werkt of geen taken toegewezen krijgt.</p>
+ </main></section>`;
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
+ if(el('clockStart'))el('clockStart').onclick=async()=>{const {error}=await db.rpc('optimus_task_clock_start');if(error)return toast(error.message);await refresh()};
  document.querySelectorAll('[data-done]').forEach(b=>b.onclick=()=>markTask(b.dataset.done));
 }
+function clockElapsed(){if(!clockToday)return '00:00:00';const end=clockToday.clock_out?new Date(clockToday.clock_out):new Date();const secs=Math.max(0,Math.floor((end-new Date(clockToday.clock_in))/1000));return String(Math.floor(secs/3600)).padStart(2,'0')+':'+String(Math.floor(secs%3600/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')}
 function render(){
  if(!me)return;
  if(!hasAdmin()){renderEmployee();return}
- const nav=[['home','▦','Dashboard'],['tasks','☑','Alle taken'],['team','♧','Medewerkers']];
+ const nav=[['home','▦','Dashboard'],['week','▦','Weekplanner'],['tasks','☑','Taken'],['team','♧','Medewerkers']];
  const navButtons=nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('');
  el('boot').hidden=true;el('root').hidden=false;
- el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
+ el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='week'?'Weekplanner':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
  document.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>setPage(x.dataset.nav));
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
- if(page==='team')renderTeam();else if(page==='tasks')renderTaskList();else renderHome();
+ if(page==='team')renderTeam();else if(page==='tasks')renderTaskList();else if(page==='week')renderWeeklyPlanner({db,people,tasks,user,refresh,showModal,closeModal,toast});else renderHome();
  document.querySelectorAll('[data-done]').forEach(x=>x.onclick=()=>markTask(x.dataset.done));
  document.querySelectorAll('[data-edit]').forEach(x=>x.onclick=()=>openTask(tasks.find(t=>t.id===x.dataset.edit)));
 }
@@ -198,7 +206,7 @@ function openPerson(p){
  };
 }
 
-async function markTask(id){const t=tasks.find(x=>x.id===id);if(!t)return;const {error}=await db.rpc('optimus_task_mark',{task_id:id,mark_done:t.status!=='done'});if(error)return toast(error.message);t.status=t.status==='done'?'todo':'done';render()}
+async function markTask(id){const t=tasks.find(x=>x.id===id);if(!t)return;const {error}=await db.rpc('optimus_task_mark',{task_id:id,mark_done:t.status!=='done'});if(error)return toast(error.message);await refresh()}
 function reviewTasks(items){if(!items.length)return toast('Geen taken gevonden');parsed=items.slice(0,25);showModal('AI-taken controleren',`<div class="notice" style="margin-bottom:15px">Controleer namen, datums en omschrijvingen. Er wordt nog niets opgeslagen.</div><form id="reviewForm">${parsed.map((t,i)=>`<div style="border-bottom:1px solid #ecf0eb;padding:9px 0 17px;margin-bottom:13px"><div class="eyebrow">Taak ${i+1}</div><div class="field-group"><input id="rTitle${i}" required maxlength="300" value="${html(t.title||'')}"></div><div class="formgrid"><div class="field-group"><label>Medewerker</label><select id="rPerson${i}" required><option value="">Selecteer iemand</option>${personOptions(t.person_id)}</select></div><div class="field-group"><label>Datum</label><input id="rDate${i}" type="date" required value="${html(t.due_date||chosenDay)}"></div><div class="field-group"><label>Uur</label><input id="rTime${i}" type="time" value="${html(t.due_time||'')}"></div><div class="field-group"><label>Prioriteit</label><select id="rPriority${i}"><option value="normal" ${t.priority!=='high'?'selected':''}>Normaal</option><option value="high" ${t.priority==='high'?'selected':''}>Dringend</option></select></div></div></div>`).join('')}<button class="btn gold" style="width:100%" type="submit">${parsed.length} taken opslaan</button></form>`);el('reviewForm').onsubmit=async e=>{e.preventDefault();const entries=parsed.map((_,i)=>({title:el('rTitle'+i).value.trim(),person_id:el('rPerson'+i).value,due_date:el('rDate'+i).value,due_time:el('rTime'+i).value||null,priority:el('rPriority'+i).value,notes:'',created_by:user.id}));if(entries.some(x=>!x.person_id||!x.title))return toast('Vul alle medewerkers en taken in');const {error}=await db.from('optimus_task_items').insert(entries);if(error)return toast(error.message);closeModal();await refresh();toast(`${entries.length} taken toegevoegd`)}}
-async function start(){try{const res=await fetch('/api/config');if(!res.ok)throw Error('Configuratie ontbreekt');const c=await res.json();db=createClient(c.url,c.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});db.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){me=null;renderLogin()}});await initSession();setInterval(()=>{if(me&&document.visibilityState==='visible')refresh()},45000)}catch(e){el('boot').textContent='Kan de app niet openen: '+e.message}}
+async function start(){try{const res=await fetch('/api/config');if(!res.ok)throw Error('Configuratie ontbreekt');const c=await res.json();db=createClient(c.url,c.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});db.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){me=null;renderLogin()}});await initSession();setInterval(()=>{if(me&&document.visibilityState==='visible'&&page!=='week')refresh()},45000);setInterval(()=>{if(me&&!hasAdmin()&&el('workTimer'))el('workTimer').textContent=clockElapsed()},1000)}catch(e){el('boot').textContent='Kan de app niet openen: '+e.message}}
 start();

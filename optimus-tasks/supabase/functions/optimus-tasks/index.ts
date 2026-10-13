@@ -11,7 +11,7 @@ Deno.serve(async(req)=>{
  // Real voice transcription and AI readiness, available to authorized Optimus admins only.
  if((req.method==='POST' && path==='/api/transcribe')||(req.method==='GET' && path==='/api/ai-status')){
   try{
-   const token=(req.headers.get('authorization')||'').replace(/^Bearer\\s+/i,'');
+   const token=(req.headers.get('authorization')||'').replace(/^Bearer\s+/i,'');
    if(!token)return respond({error:'Login vereist'},401);
    const headers={apikey:key,authorization:'Bearer '+token};
    const a=await fetch(url+'/auth/v1/user',{headers});

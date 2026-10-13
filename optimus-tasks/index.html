@@ -37,6 +37,23 @@
 .wkmini{border:0;background:transparent;color:#8a754a;font-size:11px;text-decoration:underline;padding:4px 2px;display:block;margin:auto}
 .wk-table small{font-size:10px;color:#999}
 @media(max-width:720px){.employee-clock{padding:16px}.wk-table{min-width:820px}.wk-table th:first-child{min-width:110px}}
+
+.simple-home{max-width:960px;margin:0 auto}
+.simple-day{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 18px}
+.simple-day .eyebrow{color:#8b7041}
+.simple-day input[type=date]{border-color:#ddd9cb;font-weight:700;width:190px!important}
+.simple-day .btn{height:41px;width:41px}
+.simple-home .card{margin-bottom:16px}
+.composer-card{padding:22px 24px}
+.composer-card h2{font-size:18px}
+.composer-card .capture{padding:0;background:transparent;border:0}
+.composer-card textarea{background:#fafbf9;border:1px solid #e4e7e0;min-height:108px;margin-bottom:14px;padding:14px}
+.composer-buttons{gap:9px!important}
+.composer-buttons .btn{min-height:43px;padding:11px 16px;font-size:12px}
+.voice-status{margin:13px 0 0;line-height:1.5;font-size:12px;color:#48815b}
+.voice-status.voice-error{color:#a84c3b}
+.simple-task-list{padding:22px 24px}
+@media(max-width:720px){.simple-day{gap:8px}.simple-day input[type=date]{width:156px!important}.composer-card,.simple-task-list{padding:17px}.composer-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px!important}.composer-buttons .btn{width:100%;min-height:44px;padding:9px 10px}.composer-buttons #mic{grid-column:span 2}}
 </style></head><body><div id="boot">Optimus Tasks wordt geladen…</div><div id="root" hidden></div><div id="overlay"></div><script>
 window.addEventListener('error',function(event){
   var boot=document.getElementById('boot');
@@ -47,4 +64,4 @@ setTimeout(function(){
   var boot=document.getElementById('boot');
   if(boot&&!boot.hidden) boot.textContent='De verbinding duurt langer dan verwacht. Vernieuw de pagina (Ctrl+Shift+R) of probeer een andere browser.';
 },15000);
-</script><script type="module" src="/app.js?v=8"></script></body></html>
+</script><script type="module" src="/app.js?v=10"></script></body></html>

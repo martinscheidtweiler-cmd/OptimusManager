@@ -2,7 +2,7 @@ import {createClient} from '@supabase/supabase-js';
 import {renderWeeklyPlanner} from './weekly.js';
 import {renderAvailabilityStaff} from './availability.js';
 const el=id=>document.getElementById(id), html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='',clockToday=null,dayAvailability=[];
+let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='',clockToday=null,dayAvailability=[],captureDraft='',captureBusy=false;
 
 let installPrompt=null;
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)').matches||window.navigator.standalone===true}
@@ -120,75 +120,124 @@ function dayControl(){return `<div class="row wrap"><button class="btn light sma
 function attachDateControls(){el('dayPicker').onchange=e=>{chosenDay=e.target.value;refresh()};el('prevDay').onclick=()=>{let d=new Date(chosenDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-1);chosenDay=d.toISOString().slice(0,10);refresh()};el('nextDay').onclick=()=>{let d=new Date(chosenDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);chosenDay=d.toISOString().slice(0,10);refresh()}}
 
 function renderHome(){
- const arr=currentDayTasks(),done=arr.filter(t=>t.status==='done').length,active=arr.length-done;
- const myTasks=tasks.filter(x=>x.status==='todo'&&x.due_date===chosenDay);
- el('mainContent').innerHTML=`<div class="head"><div><div class="eyebrow">Stal Optimus</div><h1>Teamoverzicht</h1><p class="muted">${html(fmtDate(chosenDay))} · Planning voor het volledige team</p></div><button class="btn gold" id="addTask">＋ Nieuwe taak</button></div>
- <div class="row between wrap" style="margin-bottom:17px">${dayControl()}<button class="btn light small" id="refresh">↻ Vernieuwen</button></div>
- <div class="stats"><div class="stat"><span>Taken vandaag</span><b>${arr.length}</b></div><div class="stat"><span>Openstaand</span><b>${active}</b></div><div class="stat"><span>Afgewerkt</span><b>${done}</b></div><div class="stat"><span>Voortgang</span><b>${arr.length?Math.round(done/arr.length*100):0}%</b></div></div>
- <div class="grid"><div><div class="card"><div class="section-top"><h2>Dagplanning</h2><button class="btn light small" id="viewTasks">Alle taken →</button></div>${arr.length?arr.map(taskCard).join(''):'<div class="empty">Geen taken gepland voor deze dag.</div>'}</div>
- <div class="card" style="margin-top:17px"><div class="section-top"><h2>🎙 Taken inspreken met AI</h2><span class="muted">Automatisch verdelen</span></div>${captureBox()}</div></div>
- <div><div class="card"><div class="section-top"><h2>Medewerkers</h2><button class="btn light small" id="viewPeople">Beheer →</button></div>${people.length?people.map(p=>{let x=myTasks.filter(t=>t.person_id===p.id),all=tasks.filter(t=>t.person_id===p.id&&t.due_date===chosenDay),done=all.filter(t=>t.status==='done').length;const shift=dayAvailability.find(a=>a.person_id===p.id);const total=all.reduce((n,t)=>n+(t.planned_minutes||30),0);const start=shift?.working?Number(shift.start_time.slice(0,2))*60+Number(shift.start_time.slice(3,5)):null;const finish=start===null||!all.length?'':(' · Vroegst klaar ±'+String(Math.floor((start+total+(shift.break_minutes||0))/60)).padStart(2,'0')+':'+String((start+total+(shift.break_minutes||0))%60).padStart(2,'0'));return `<div class="person"><div class="avatar">${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>${html(p.name)}</strong><span>${done}/${all.length} afgewerkt · ${x.length} open · ${total} min gepland${finish} · ${shift?.working?'Aanwezig gepland':'Niet ingepland'}</span></div></div>`}).join(''):'<div class="empty">Voeg je eerste medewerker toe.</div>'}</div></div></div>`;
- attachDateControls();el('refresh').onclick=()=>refresh();el('viewTasks').onclick=()=>setPage('tasks');
- el('addTask').onclick=()=>openTask();el('viewPeople').onclick=()=>setPage('team');attachCapture();
+ const arr=currentDayTasks();
+ el('mainContent').innerHTML=`<div class="simple-home">
+   <div class="simple-day"><span class="eyebrow" style="margin:0">Datum</span>${dayControl()}</div>
+   <div class="card composer-card"><div class="section-top"><h2>Nieuwe taak</h2></div>${captureBox()}</div>
+   <div class="card simple-task-list"><div class="section-top"><h2>Taken</h2><span class="muted">${arr.length?arr.length+' gepland':''}</span></div>
+    ${arr.length?arr.map(taskCard).join(''):'<div class="empty">Geen taken op deze datum.</div>'}
+   </div>
+  </div>`;
+ attachDateControls();
+ el('quickTask').onclick=()=>openTask(null,(el('spoken')?.value||'').trim().slice(0,300));
+ attachCapture();
 }
-
-function captureBox(){return `<div class="capture"><textarea id="spoken" placeholder="Bijvoorbeeld: Morgen moet Terry om 10 uur naar Hurkmans. Sofia wast de camionette en Kobe rijdt de jonge paarden."></textarea><div class="row between wrap"><button id="mic" class="btn light small" type="button">🎙 Inspreken</button><button id="analyze" class="btn gold small" type="button">✦ Maak taken met AI</button></div></div><p class="muted small" style="margin-top:10px"><span id="aiStatus">AI-verbinding controleren…</span> · Controleer altijd de voorgestelde taken vóór het opslaan.</p>`}
-async function sessionToken(){const s=(await db.auth.getSession()).data.session;if(!s?.access_token)throw Error('Log opnieuw in');return s.access_token}
-async function aiStatus(){const target=el('aiStatus');if(!target)return;try{const token=await sessionToken();const res=await fetch(db.supabaseUrl+'/functions/v1/optimus-tasks/api/ai-status',{headers:{Authorization:'Bearer '+token}});const x=await res.json();if(!target.isConnected)return;target.textContent=x.configured?'✓ AI verbonden':x.status==='missing_key'?'⚠ OpenAI-sleutel ontbreekt':'AI-status niet beschikbaar';target.style.color=x.configured?'#417950':'#af6d3b'}catch{if(target.isConnected)target.textContent='AI-status niet beschikbaar'}}
+function captureBox(){
+ return `<div class="capture">
+   <textarea id="spoken" aria-label="Opdracht" placeholder="Typ een taak of spreek je opdrachten in…">${html(captureDraft)}</textarea>
+   <div class="row wrap composer-buttons">
+     <button id="quickTask" class="btn gold" type="button">＋ Nieuwe taak</button>
+     <button id="analyze" class="btn light" type="button">✦ Maak met AI</button>
+     <button id="mic" class="btn light" type="button">🎙 Inspreken</button>
+   </div>
+   <p id="voiceStatus" class="voice-status" role="status" aria-live="polite" hidden></p>
+  </div>`;
+}
+async function sessionToken(){
+ const s=(await db.auth.getSession()).data.session;
+ if(!s?.access_token)throw Error('Je sessie is verlopen. Log opnieuw in.');
+ return s.access_token;
+}
+function voiceMessage(message,isError=false){
+ const p=el('voiceStatus');if(!p)return;
+ p.hidden=!message;p.textContent=message||'';p.classList.toggle('voice-error',isError);
+}
+function micText(label,disabled=false){
+ const b=el('mic');if(b){b.textContent=label;b.disabled=disabled}
+}
 function attachCapture(){
- aiStatus();
- const mic=el('mic');
+ const input=el('spoken'),mic=el('mic'),analyze=el('analyze');
+ input.oninput=()=>{captureDraft=input.value};
+ async function transcribe(chunks,type){
+  captureBusy=true;micText('⏳ Verwerken…',true);voiceMessage('Opname wordt uitgeschreven…');
+  try{
+   const mime=(type||chunks[0]?.type||'').split(';')[0].toLowerCase();
+   if(!['audio/webm','audio/mp4','audio/ogg','audio/wav','audio/mpeg','audio/x-m4a'].includes(mime))throw Error('Dit audioformaat wordt niet ondersteund op je toestel.');
+   const file=new Blob(chunks,{type:mime});
+   if(file.size<150)throw Error('Geen geluid opgenomen. Probeer nog eens.');
+   if(file.size>8000000)throw Error('De opname is te lang. Neem kortere opdrachten op.');
+   const token=await sessionToken();
+   const response=await fetch(db.supabaseUrl+'/functions/v1/optimus-tasks/api/transcribe',{
+    method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':mime},body:file
+   });
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw Error(data.error||'Opname kon niet worden uitgeschreven ('+response.status+').');
+   const text=String(data.text||'').trim();
+   if(!text)throw Error('Ik heb geen woorden herkend. Probeer opnieuw.');
+   captureDraft=(captureDraft.trim()?captureDraft.trim()+' ':'')+text;
+   const area=el('spoken');if(area){area.value=captureDraft;area.focus()}
+   voiceMessage('✓ Opname uitgeschreven. Klik op Maak met AI om taken te verdelen.');
+  }catch(e){
+   voiceMessage('Inspreken mislukt: '+(e instanceof TypeError?'Verbinding met spraakservice mislukt. Controleer je internetverbinding.':e.message),true);
+  }finally{captureBusy=false;micText('🎙 Inspreken')}
+ }
+ function speechFallback(){
+  const Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!Speech){voiceMessage('Deze browser kan geen audio opnemen. Geef microfoontoegang of probeer Safari/Chrome.',true);return}
+  const r=new Speech();r.lang='nl-BE';r.continuous=true;r.interimResults=false;
+  recording=r;micText('⏹ Stop opname');voiceMessage('Luisteren… klik op Stop opname als je klaar bent.');
+  r.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal){captureDraft+=(captureDraft.trim()?' ':'')+e.results[i][0].transcript;const box=el('spoken');if(box)box.value=captureDraft}}};
+  r.onerror=e=>voiceMessage('Spraakherkenning mislukt ('+e.error+'). Controleer de microfoontoegang.',true);
+  r.onend=()=>{if(recording===r)recording=null;micText('🎙 Inspreken');if(captureDraft.trim()&&!el('voiceStatus')?.classList.contains('voice-error'))voiceMessage('✓ Tekst klaar. Klik op Maak met AI.')};
+  try{r.start()}catch(e){recording=null;micText('🎙 Inspreken');voiceMessage('Microfoon kon niet starten: '+e.message,true)}
+ }
  mic.onclick=async()=>{
-  if(recording){if(recording.state!=='inactive')recording.stop();return}
-  if(navigator.mediaDevices?.getUserMedia&&window.MediaRecorder){
-   try{
-    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
-    const types=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'];
-    const preferred=types.find(t=>MediaRecorder.isTypeSupported(t));
-    const chunks=[];const recorder=new MediaRecorder(stream,preferred?{mimeType:preferred}:{});
-    recording=recorder;
-    recorder.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
-    recorder.onerror=()=>{stream.getTracks().forEach(x=>x.stop());recording=null;toast('De opname is mislukt')};
-    recorder.onstop=async()=>{
-      stream.getTracks().forEach(x=>x.stop());recording=null;
-      const button=el('mic');if(button){button.textContent='⏳ Uitschrijven…';button.disabled=true}
-      try{
-        const mime=recorder.mimeType.split(';')[0].toLowerCase();
-        const audio=new Blob(chunks,{type:mime});
-        if(!audio.size)throw Error('De opname was leeg');
-        if(audio.size>8000000)throw Error('Maximaal 8 MB per opname');
-        const token=await sessionToken();
-        const response=await fetch(db.supabaseUrl+'/functions/v1/optimus-tasks/api/transcribe',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':mime},body:audio});
-        const result=await response.json();
-        if(!response.ok)throw Error(result.error||'Kon de opname niet verwerken');
-        const box=el('spoken');if(box){box.value+=(box.value.trim()?' ':'')+result.text;box.focus()}
-        toast('Opname uitgeschreven. Klik nu op Maak taken met AI.');
-      }catch(e){toast(e.message)}finally{if(button?.isConnected){button.textContent='🎙 Inspreken';button.disabled=false}}
-    };
-    recorder.start(1000);mic.textContent='⏹ Stop opname';toast('Microfoon actief. Tik opnieuw om te stoppen.');
-    setTimeout(()=>{if(recording===recorder&&recorder.state==='recording'){recorder.stop();toast('Maximale opnametijd bereikt')}},150000);
-    return;
-   }catch(e){toast(e.name==='NotAllowedError'?'Geef de microfoon toestemming in je browser':e.message);return}
+  if(captureBusy)return;
+  if(recording){
+   try{if(typeof recording.stop==='function')recording.stop()}catch(e){recording=null;voiceMessage('Opname kon niet worden gestopt: '+e.message,true)}
+   return;
   }
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){toast('Deze browser ondersteunt geen microfoonopnames. Typ de opdracht in.');return}
-  const recog=new SR();recog.lang='nl-BE';recog.continuous=true;recog.interimResults=false;recording=recog;mic.textContent='⏹ Stop opname';
-  recog.onresult=e=>{for(let i=e.resultIndex;i<e.results.length;i++)if(e.results[i].isFinal){const box=el('spoken');if(box)box.value+=(box.value?' ':'')+e.results[i][0].transcript}};
-  recog.onerror=e=>toast('Microfoon: '+e.error);
-  recog.onend=()=>{recording=null;const button=el('mic');if(button)button.textContent='🎙 Inspreken'};
-  recog.start();
+  if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){speechFallback();return}
+  let stream;
+  try{
+   voiceMessage('Microfoon wordt gestart…');
+   stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true}});
+   const formats=['audio/mp4','audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus'];
+   const preferred=formats.find(x=>MediaRecorder.isTypeSupported(x));
+   const rec=new MediaRecorder(stream,preferred?{mimeType:preferred}:{});
+   const chunks=[];
+   recording=rec;
+   rec.ondataavailable=e=>{if(e.data?.size)chunks.push(e.data)};
+   rec.onerror=()=>{stream.getTracks().forEach(t=>t.stop());recording=null;micText('🎙 Inspreken');voiceMessage('Opname mislukt. Probeer opnieuw.',true)};
+   rec.onstop=()=>{
+    stream.getTracks().forEach(t=>t.stop());
+    if(recording===rec)recording=null;
+    void transcribe(chunks,rec.mimeType||preferred);
+   };
+   rec.start();
+   micText('⏹ Stop opname');
+   voiceMessage('● Opname loopt… klik opnieuw om te stoppen.');
+   setTimeout(()=>{if(recording===rec&&rec.state==='recording'){rec.stop();voiceMessage('Maximale opnametijd bereikt. Opname wordt uitgeschreven…')}},100000);
+  }catch(e){
+   if(stream)stream.getTracks().forEach(t=>t.stop());
+   recording=null;micText('🎙 Inspreken');
+   voiceMessage(e.name==='NotAllowedError'?'Microfoon geweigerd. Sta microfoontoegang toe in je browserinstellingen.':e.name==='NotFoundError'?'Geen microfoon gevonden op dit toestel.':'Microfoon kon niet starten: '+e.message,true);
+  }
  };
- el('analyze').onclick=async()=>{
-  const input=el('spoken').value.trim();if(!input)return toast('Spreek of typ eerst je opdrachten');
-  const button=el('analyze');button.disabled=true;button.textContent='⏳ Taken voorbereiden…';
+ analyze.onclick=async()=>{
+  const text=(el('spoken')?.value||'').trim();if(!text)return voiceMessage('Typ of spreek eerst een opdracht in.',true);
+  if(recording||captureBusy)return voiceMessage('Stop eerst de opname en wacht op de tekst.',true);
+  captureDraft=text;analyze.disabled=true;analyze.textContent='⏳ Bezig…';voiceMessage('AI maakt een voorstel…');
   try{
    const token=await sessionToken();
-   const response=await fetch('/api/parse',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({text:input})});
-   const data=await response.json();if(!response.ok)throw Error(data.error||'AI-analyse mislukt');
+   const result=await fetch('/api/parse',{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({text})});
+   const data=await result.json().catch(()=>({}));
+   if(!result.ok)throw Error(data.error||'AI-analyse mislukt.');
+   voiceMessage('');
    reviewTasks(data.tasks||[]);
-  }catch(e){toast(e.message)}
-  finally{if(button.isConnected){button.disabled=false;button.textContent='✦ Maak taken met AI'}}
- }
+  }catch(e){voiceMessage('AI mislukt: '+e.message,true)}
+  finally{if(analyze.isConnected){analyze.disabled=false;analyze.textContent='✦ Maak met AI'}}
+ };
 }
 function renderTaskList(){const scoped=currentDayTasks();el('mainContent').innerHTML=`<div class="head"><div><div class="eyebrow">Planning</div><h1>${hasAdmin()?'Alle taken':'Mijn taken'}</h1><p class="muted">${html(fmtDate(chosenDay))}</p></div>${hasAdmin()?'<button class="btn gold" id="addTask">＋ Nieuwe taak</button>':''}</div><div class="row between wrap" style="margin-bottom:19px">${dayControl()}<div class="filterbar"><button class="pill ${filter==='all'?'active':''}" data-filter="all">Alles</button><button class="pill ${filter==='todo'?'active':''}" data-filter="todo">Open</button><button class="pill ${filter==='done'?'active':''}" data-filter="done">Afgewerkt</button></div></div><div class="card">${scoped.filter(x=>filter==='all'||(filter==='today'?true:x.status===filter)).length?scoped.filter(x=>filter==='all'||filter==='today'||x.status===filter).map(taskCard).join(''):'<div class="empty">Geen taken in deze selectie.</div>'}</div>`;attachDateControls();document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;render()});if(hasAdmin())el('addTask').onclick=()=>openTask()}
 
@@ -201,7 +250,7 @@ function renderTeam(){
 }
 
 function personOptions(id){return people.filter(p=>p.active||p.id===id).map(p=>`<option value="${p.id}" ${p.id===id?'selected':''}>${html(p.name)}</option>`).join('')}
-function openTask(t){if(!hasAdmin())return;const edit=!!t;const today=chosenDay;showModal(edit?'Taak bewerken':'Nieuwe taak',`<form id="taskForm"><div class="field-group"><label>Taak</label><input required maxlength="300" id="title" value="${html(t?.title||'')}" placeholder="Wat moet gebeuren?"></div><div class="field-group"><label>Details (optioneel)</label><textarea id="notes">${html(t?.notes||'')}</textarea></div><div class="formgrid"><div class="field-group"><label>Wie?</label><select id="person" required>${personOptions(t?.person_id||people[0]?.id)}</select></div><div class="field-group"><label>Datum</label><input type="date" required id="date" value="${html(t?.due_date||today)}"></div><div class="field-group"><label>Uur (optioneel)</label><input type="time" id="time" value="${html(t?.due_time?.slice(0,5)||'')}"></div><div class="field-group"><label>Prioriteit</label><select id="priority"><option value="normal" ${t?.priority!=='high'&&t?.priority!=='low'?'selected':''}>Normaal</option><option value="low" ${t?.priority==='low'?'selected':''}>Niet dringend</option><option value="high" ${t?.priority==='high'?'selected':''}>Dringend</option></select></div><div class="field-group"><label>Geschatte tijd (min)</label><input type="number" min="1" max="720" id="taskMinutes" value="${t?.planned_minutes||30}" required></div><div class="field-group"><label>Afdeling / locatie</label><input id="taskDepartment" value="${html(t?.department||'Stal')}"></div></div><div class="modal-footer">${edit?'<button type="button" class="btn red" id="deleteTask">Verwijderen</button>':'<span></span>'}<button type="submit" class="btn gold">${edit?'Opslaan':'Taak aanmaken'}</button></div></form>`);el('taskForm').onsubmit=async e=>{e.preventDefault();const payload={title:el('title').value.trim(),notes:el('notes').value.trim(),person_id:el('person').value,due_date:el('date').value,due_time:el('time').value||null,priority:el('priority').value,planned_minutes:Number(el('taskMinutes').value),department:el('taskDepartment').value.trim()||'Stal'};if(!payload.person_id)return toast('Voeg eerst een medewerker toe');let q=edit?db.from('optimus_task_items').update({...payload,updated_at:new Date().toISOString()}).eq('id',t.id):db.from('optimus_task_items').insert({...payload,created_by:user.id});const {error}=await q;if(error)return toast(error.message);closeModal();await refresh();toast('Taak opgeslagen')};if(edit)el('deleteTask').onclick=async()=>{if(!confirm('Taak definitief verwijderen?'))return;let {error}=await db.from('optimus_task_items').delete().eq('id',t.id);if(error)return toast(error.message);closeModal();await refresh()}}
+function openTask(t,prefill=''){if(!hasAdmin())return;const edit=!!t;const today=chosenDay;showModal(edit?'Taak bewerken':'Nieuwe taak',`<form id="taskForm"><div class="field-group"><label>Taak</label><input required maxlength="300" id="title" value="${html(t?.title||prefill)}" placeholder="Wat moet gebeuren?"></div><div class="field-group"><label>Details (optioneel)</label><textarea id="notes">${html(t?.notes||'')}</textarea></div><div class="formgrid"><div class="field-group"><label>Wie?</label><select id="person" required>${personOptions(t?.person_id||people[0]?.id)}</select></div><div class="field-group"><label>Datum</label><input type="date" required id="date" value="${html(t?.due_date||today)}"></div><div class="field-group"><label>Uur (optioneel)</label><input type="time" id="time" value="${html(t?.due_time?.slice(0,5)||'')}"></div><div class="field-group"><label>Prioriteit</label><select id="priority"><option value="normal" ${t?.priority!=='high'&&t?.priority!=='low'?'selected':''}>Normaal</option><option value="low" ${t?.priority==='low'?'selected':''}>Niet dringend</option><option value="high" ${t?.priority==='high'?'selected':''}>Dringend</option></select></div><div class="field-group"><label>Geschatte tijd (min)</label><input type="number" min="1" max="720" id="taskMinutes" value="${t?.planned_minutes||30}" required></div><div class="field-group"><label>Afdeling / locatie</label><input id="taskDepartment" value="${html(t?.department||'Stal')}"></div></div><div class="modal-footer">${edit?'<button type="button" class="btn red" id="deleteTask">Verwijderen</button>':'<span></span>'}<button type="submit" class="btn gold">${edit?'Opslaan':'Taak aanmaken'}</button></div></form>`);el('taskForm').onsubmit=async e=>{e.preventDefault();const payload={title:el('title').value.trim(),notes:el('notes').value.trim(),person_id:el('person').value,due_date:el('date').value,due_time:el('time').value||null,priority:el('priority').value,planned_minutes:Number(el('taskMinutes').value),department:el('taskDepartment').value.trim()||'Stal'};if(!payload.person_id)return toast('Voeg eerst een medewerker toe');let q=edit?db.from('optimus_task_items').update({...payload,updated_at:new Date().toISOString()}).eq('id',t.id):db.from('optimus_task_items').insert({...payload,created_by:user.id});const {error}=await q;if(error)return toast(error.message);closeModal();await refresh();toast('Taak opgeslagen')};if(edit)el('deleteTask').onclick=async()=>{if(!confirm('Taak definitief verwijderen?'))return;let {error}=await db.from('optimus_task_items').delete().eq('id',t.id);if(error)return toast(error.message);closeModal();await refresh()}}
 
 function openPerson(p){
  if(!hasAdmin())return;
@@ -223,5 +272,5 @@ function openPerson(p){
 async function markTask(id){const t=tasks.find(x=>x.id===id);if(!t)return;const {error}=await db.rpc('optimus_task_mark',{task_id:id,mark_done:t.status!=='done'});if(error)return toast(error.message);await refresh()}
 function reviewTasks(items){if(!items.length)return toast('Geen taken gevonden');parsed=items.slice(0,25);showModal('AI-taken controleren',`<div class="notice" style="margin-bottom:15px">Controleer namen, datums en omschrijvingen. Er wordt nog niets opgeslagen.</div><form id="reviewForm">${parsed.map((t,i)=>`<div style="border-bottom:1px solid #ecf0eb;padding:9px 0 17px;margin-bottom:13px"><div class="eyebrow">Taak ${i+1}</div><div class="field-group"><input id="rTitle${i}" required maxlength="300" value="${html(t.title||'')}"></div><div class="formgrid"><div class="field-group"><label>Medewerker</label><select id="rPerson${i}" required><option value="">Selecteer iemand</option>${personOptions(t.person_id)}</select></div><div class="field-group"><label>Datum</label><input id="rDate${i}" type="date" required value="${html(t.due_date||chosenDay)}"></div><div class="field-group"><label>Uur</label><input id="rTime${i}" type="time" value="${html(t.due_time||'')}"></div><div class="field-group"><label>Geschatte duur (min)</label><input id="rMinutes${i}" type="number" min="1" max="720" value="${t.planned_minutes||30}" required></div><div class="field-group"><label>Prioriteit</label><select id="rPriority${i}"><option value="normal" ${t.priority!=='high'&&t.priority!=='low'?'selected':''}>Normaal</option><option value="low" ${t.priority==='low'?'selected':''}>Niet dringend</option><option value="high" ${t.priority==='high'?'selected':''}>Dringend</option></select></div></div></div>`).join('')}<button class="btn gold" style="width:100%" type="submit">${parsed.length} taken opslaan</button></form>`);el('reviewForm').onsubmit=async e=>{e.preventDefault();const entries=parsed.map((_,i)=>({title:el('rTitle'+i).value.trim(),person_id:el('rPerson'+i).value,due_date:el('rDate'+i).value,due_time:el('rTime'+i).value||null,priority:el('rPriority'+i).value,planned_minutes:Number(el('rMinutes'+i).value),notes:'',created_by:user.id}));if(entries.some(x=>!x.person_id||!x.title))return toast('Vul alle medewerkers en taken in');const {error}=await db.from('optimus_task_items').insert(entries);if(error)return toast(error.message);closeModal();await refresh();toast(`${entries.length} taken toegevoegd`)}}
 window.matchMedia('(max-width: 720px)').addEventListener('change',()=>{if(me&&(page==='week'||me.role==='planner'))render()});
-async function start(){try{const res=await fetch('/api/config');if(!res.ok)throw Error('Configuratie ontbreekt');const c=await res.json();db=createClient(c.url,c.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});db.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){me=null;renderLogin()}});await initSession();setInterval(()=>{if(me&&document.visibilityState==='visible'&&page!=='week'&&page!=='availability')refresh()},45000);setInterval(()=>{if(me&&!hasAdmin()&&el('workTimer'))el('workTimer').textContent=clockElapsed()},1000)}catch(e){el('boot').textContent='Kan de app niet openen: '+e.message}}
+async function start(){try{const res=await fetch('/api/config');if(!res.ok)throw Error('Configuratie ontbreekt');const c=await res.json();db=createClient(c.url,c.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});db.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){me=null;renderLogin()}});await initSession();setInterval(()=>{if(me&&document.visibilityState==='visible'&&page!=='week'&&page!=='availability'&&!(page==='home'&&(recording||captureBusy||captureDraft.trim())))refresh()},45000);setInterval(()=>{if(me&&!hasAdmin()&&el('workTimer'))el('workTimer').textContent=clockElapsed()},1000)}catch(e){el('boot').textContent='Kan de app niet openen: '+e.message}}
 start();

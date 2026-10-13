@@ -1,7 +1,7 @@
 const cors = {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type","Access-Control-Allow-Methods":"GET,POST,OPTIONS"};
 const respond=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store",...cors}});
 Deno.serve(async(req)=>{
- const u=new URL(req.url); const path=u.pathname.replace(/^.*\/functions\/v1\/optimus-tasks/,'')||'/';
+ const u=new URL(req.url); const path=u.pathname.replace(/^.*\/optimus-tasks(?=\/|$)/,'')||'/';
  if(req.method==='OPTIONS')return new Response(null,{headers:cors});
  if(req.method==='GET' && (path==='/'||path===''))return respond({service:'Optimus Tasks backend',status:'active',note:'Gebruik de Vercel-app voor de gebruikersinterface.'});
  

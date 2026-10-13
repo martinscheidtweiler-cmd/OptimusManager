@@ -1,1 +1,19 @@
-{"name":"optimus-tasks","version":"1.0.0","private":true,"description":"Team task management for Optimus","scripts":{"start":"node -e \"console.log('Served by Vercel')\""},"engines":{"node":">=20"}}
+{
+  "name": "optimus-tasks",
+  "version": "1.1.0",
+  "private": true,
+  "description": "Team task management for Optimus",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.99.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.12"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

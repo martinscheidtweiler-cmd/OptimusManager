@@ -1,4 +1,4 @@
-import {createClient} from 'https://esm.sh/@supabase/supabase-js@2.99.1';
+import {createClient} from '@supabase/supabase-js';
 const el=id=>document.getElementById(id), html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='';
 function localToday(days=0){const x=new Date(Date.now()+days*86400000);return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Brussels',year:'numeric',month:'2-digit',day:'2-digit'}).format(x)}

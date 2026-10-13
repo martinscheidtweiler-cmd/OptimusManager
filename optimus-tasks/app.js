@@ -17,7 +17,7 @@ document.addEventListener('click',async(event)=>{
  '<p>Open deze website in <strong>Safari</strong>, tik op <strong>Delen</strong> en kies <strong>Zet op beginscherm</strong>. Tik daarna op <strong>Voeg toe</strong>.</p>':
  '<p>Open deze website in <strong>Chrome</strong>, tik op het menu (⋮) en kies <strong>App installeren</strong> of <strong>Toevoegen aan startscherm</strong>.</p>');
 });
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('/tasks/sw.js',{scope:'/tasks/'}).catch(()=>{}));
 
 function localToday(days=0){const x=new Date(Date.now()+days*86400000);return new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Brussels',year:'numeric',month:'2-digit',day:'2-digit'}).format(x)}
 function fmtDate(s){if(!s)return '';return new Intl.DateTimeFormat('nl-BE',{weekday:'long',day:'numeric',month:'long'},{timeZone:'Europe/Brussels'}).format(new Date(s+'T12:00:00Z'))}
@@ -104,12 +104,12 @@ function render(){
  }
  if(!hasAdmin()){renderEmployee();return}
  if(smallScreen&&page==='week')page='home';
- const nav=[['home','▦','Dashboard'],['week','▦','Weekplanner'],['tasks','☑','Taken'],['team','♧','Medewerkers']];
- const mobileNav=nav.filter(([p])=>p!=='week');
+ const nav=[['home','▦','Dashboard'],['week','▦','Weekplanner'],['tasks','☑','Taken'],['team','♧','Medewerkers'],['manager','◫','Manager']];
+ const mobileNav=nav.filter(([p])=>p!=='week'&&p!=='manager');
  const navButtons=nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('');
  el('boot').hidden=true;el('root').hidden=false;
  el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='week'?'Weekplanner':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${mobileNav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
- document.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>setPage(x.dataset.nav));
+ document.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>x.dataset.nav==='manager'?window.location.assign('/manager'):setPage(x.dataset.nav));
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
  if(page==='team')renderTeam();else if(page==='tasks')renderTaskList();else if(page==='week')renderWeeklyPlanner({db,people,tasks,user,refresh,showModal,closeModal,toast});else renderHome();
  document.querySelectorAll('[data-done]').forEach(x=>x.onclick=()=>markTask(x.dataset.done));

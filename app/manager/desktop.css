@@ -1,0 +1,23 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap');
+.td-app{display:flex;min-height:100vh;background:#f7f8f5;color:#272c29;font:14px 'DM Sans',sans-serif}
+.td-app *{box-sizing:border-box}
+.td-sidebar{width:239px;flex:0 0 239px;background:#1b201c;color:white;padding:30px 17px;display:flex;flex-direction:column;gap:28px;max-height:100vh;position:sticky;top:0;overflow-y:auto}
+.td-brandline{display:flex;gap:12px;align-items:center;padding:0 11px}
+.td-logo{height:38px;width:38px;display:grid;place-items:center;border:1px solid #bba778;border-radius:10px;color:#bba778;font:25px Georgia,serif}
+.td-brand{font:800 14px Manrope,sans-serif;letter-spacing:1.8px}
+.td-brandline small{display:block;color:#a4ada3;font-size:9px;letter-spacing:2px;margin-top:5px}
+.td-nav{display:flex;flex-direction:column;gap:5px;flex:1}
+.td-nav button,.td-nav a{border:0;background:transparent;color:#9ea89e;text-decoration:none;border-radius:8px;padding:12px 14px;text-align:left;display:flex;gap:12px;align-items:center;font:inherit;min-height:43px;cursor:pointer}
+.td-nav button.active,.td-nav button:hover,.td-nav a:hover{background:#343c34;color:white}
+.td-nav span{width:15px;display:inline-flex;justify-content:center;align-items:center;flex-shrink:0}
+.td-sidefoot{margin-top:auto;border-top:1px solid #363e36;padding:17px 11px 0;display:flex;flex-direction:column;gap:6px;font-size:12px}
+.td-sidefoot small{font-size:11px;color:#9ea89e}
+.td-logout{border:1px solid #62695e;background:transparent;color:white;border-radius:9px;font:inherit;font-size:11px;padding:8px 11px;align-self:flex-start;cursor:pointer;margin-top:8px}
+.td-shell{flex:1;min-width:0}
+.td-topbar{height:76px;background:#fff;border-bottom:1px solid #e6e9e3;display:flex;align-items:center;justify-content:space-between;padding:0 36px;color:#969e95;font-size:12px}
+.td-user{display:flex;align-items:center;gap:12px;color:#58615a}
+.td-avatar{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:#e9ebdf;color:#82714e;font-weight:800}
+.td-container{max-width:1600px;margin:auto;padding:30px 36px 80px}
+.td-container h1,.td-container h2,.td-container h3{font-family:Manrope,sans-serif}
+.td-loading{min-height:100vh;display:grid;place-items:center;background:#f7f8f5;font:14px 'DM Sans',sans-serif}
+@media(max-width:720px){.td-app{display:none}.td-loading{display:none}}

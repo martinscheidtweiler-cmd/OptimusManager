@@ -1,0 +1,1 @@
+{"name":"optimus-tasks","version":"1.0.0","private":true,"description":"Team task management for Optimus","scripts":{"start":"node -e \"console.log('Served by Vercel')\""},"engines":{"node":">=20"}}

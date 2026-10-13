@@ -71,7 +71,7 @@ async function refresh(resetPage=false){
  if(resetPage)page=admin?'home':'mine';
  render();
 }
-function setPage(p){if(!hasAdmin())return;page=p;render();scrollTo({top:0,behavior:'smooth'})}
+function setPage(p){if(!hasAdmin())return;if(p==='week'&&window.matchMedia('(max-width: 720px)').matches)return;page=p;render();scrollTo({top:0,behavior:'smooth'})}
 function renderEmployee(){
  const day=localToday(),arr=currentDayTasks(),open=arr.filter(t=>t.status!=='done'),done=arr.filter(t=>t.status==='done');
  el('boot').hidden=true;el('root').hidden=false;
@@ -93,12 +93,22 @@ function renderEmployee(){
 function clockElapsed(){if(!clockToday)return '00:00:00';const end=clockToday.clock_out?new Date(clockToday.clock_out):new Date();const secs=Math.max(0,Math.floor((end-new Date(clockToday.clock_in))/1000));return String(Math.floor(secs/3600)).padStart(2,'0')+':'+String(Math.floor(secs%3600/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')}
 function render(){
  if(!me)return;
- if(me.role==='planner'){renderAvailabilityStaff({db,me,toast});return}
+ const smallScreen=window.matchMedia('(max-width: 720px)').matches;
+ if(me.role==='planner'){
+  if(smallScreen){
+   el('boot').hidden=true;el('root').hidden=false;
+   el('root').innerHTML=`<section class="employee-app"><header class="employee-head"><div class="row"><div class="logo">O</div><strong>OPTIMUS</strong></div><button id="signout" class="btn light small">Uitloggen</button></header><main class="employee-main"><h1>Weekbezetting</h1><div class="card"><p>De uitgebreide personeelsplanning gebruik je op een computer. Open Optimus Tasks op desktop om de bezetting in te vullen.</p></div></main></section>`;
+   el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
+  }else renderAvailabilityStaff({db,me,toast});
+  return;
+ }
  if(!hasAdmin()){renderEmployee();return}
+ if(smallScreen&&page==='week')page='home';
  const nav=[['home','▦','Dashboard'],['week','▦','Weekplanner'],['tasks','☑','Taken'],['team','♧','Medewerkers']];
+ const mobileNav=nav.filter(([p])=>p!=='week');
  const navButtons=nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('');
  el('boot').hidden=true;el('root').hidden=false;
- el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='week'?'Weekplanner':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
+ el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='week'?'Weekplanner':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${mobileNav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
  document.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>setPage(x.dataset.nav));
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
  if(page==='team')renderTeam();else if(page==='tasks')renderTaskList();else if(page==='week')renderWeeklyPlanner({db,people,tasks,user,refresh,showModal,closeModal,toast});else renderHome();
@@ -212,5 +222,6 @@ function openPerson(p){
 
 async function markTask(id){const t=tasks.find(x=>x.id===id);if(!t)return;const {error}=await db.rpc('optimus_task_mark',{task_id:id,mark_done:t.status!=='done'});if(error)return toast(error.message);await refresh()}
 function reviewTasks(items){if(!items.length)return toast('Geen taken gevonden');parsed=items.slice(0,25);showModal('AI-taken controleren',`<div class="notice" style="margin-bottom:15px">Controleer namen, datums en omschrijvingen. Er wordt nog niets opgeslagen.</div><form id="reviewForm">${parsed.map((t,i)=>`<div style="border-bottom:1px solid #ecf0eb;padding:9px 0 17px;margin-bottom:13px"><div class="eyebrow">Taak ${i+1}</div><div class="field-group"><input id="rTitle${i}" required maxlength="300" value="${html(t.title||'')}"></div><div class="formgrid"><div class="field-group"><label>Medewerker</label><select id="rPerson${i}" required><option value="">Selecteer iemand</option>${personOptions(t.person_id)}</select></div><div class="field-group"><label>Datum</label><input id="rDate${i}" type="date" required value="${html(t.due_date||chosenDay)}"></div><div class="field-group"><label>Uur</label><input id="rTime${i}" type="time" value="${html(t.due_time||'')}"></div><div class="field-group"><label>Geschatte duur (min)</label><input id="rMinutes${i}" type="number" min="1" max="720" value="${t.planned_minutes||30}" required></div><div class="field-group"><label>Prioriteit</label><select id="rPriority${i}"><option value="normal" ${t.priority!=='high'&&t.priority!=='low'?'selected':''}>Normaal</option><option value="low" ${t.priority==='low'?'selected':''}>Niet dringend</option><option value="high" ${t.priority==='high'?'selected':''}>Dringend</option></select></div></div></div>`).join('')}<button class="btn gold" style="width:100%" type="submit">${parsed.length} taken opslaan</button></form>`);el('reviewForm').onsubmit=async e=>{e.preventDefault();const entries=parsed.map((_,i)=>({title:el('rTitle'+i).value.trim(),person_id:el('rPerson'+i).value,due_date:el('rDate'+i).value,due_time:el('rTime'+i).value||null,priority:el('rPriority'+i).value,planned_minutes:Number(el('rMinutes'+i).value),notes:'',created_by:user.id}));if(entries.some(x=>!x.person_id||!x.title))return toast('Vul alle medewerkers en taken in');const {error}=await db.from('optimus_task_items').insert(entries);if(error)return toast(error.message);closeModal();await refresh();toast(`${entries.length} taken toegevoegd`)}}
+window.matchMedia('(max-width: 720px)').addEventListener('change',()=>{if(me&&(page==='week'||me.role==='planner'))render()});
 async function start(){try{const res=await fetch('/api/config');if(!res.ok)throw Error('Configuratie ontbreekt');const c=await res.json();db=createClient(c.url,c.publishableKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});db.auth.onAuthStateChange((event)=>{if(event==='SIGNED_OUT'){me=null;renderLogin()}});await initSession();setInterval(()=>{if(me&&document.visibilityState==='visible'&&page!=='week'&&page!=='availability')refresh()},45000);setInterval(()=>{if(me&&!hasAdmin()&&el('workTimer'))el('workTimer').textContent=clockElapsed()},1000)}catch(e){el('boot').textContent='Kan de app niet openen: '+e.message}}
 start();

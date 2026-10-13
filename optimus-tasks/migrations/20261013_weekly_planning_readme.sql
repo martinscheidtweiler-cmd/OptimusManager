@@ -1,0 +1,9 @@
+-- Applied in Supabase migration optimus_tasks_weekly_staff_skills_clock_riderboard.
+-- This file documents the structure. Executing the original migration was performed
+-- through Supabase; do not recreate old tables in another schema.
+-- Added: people.skills/departments/contract_week_minutes,
+-- task_items.planned_minutes/department/source/source_key and priority low.
+-- Tables: optimus_task_templates, optimus_task_availability, optimus_task_clock_entries.
+-- RPCs: optimus_task_clock_start, optimus_task_mark (auto clock out on final task),
+-- optimus_task_riderboard_snapshot (read-only bridge).
+-- Security: RLS restricts staff to own daily tasks/clock data; admins edit schedules.

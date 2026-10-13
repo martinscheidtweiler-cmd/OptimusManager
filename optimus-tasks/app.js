@@ -70,13 +70,13 @@ function setPage(p){if(!hasAdmin())return;page=p;render();scrollTo({top:0,behavi
 function renderEmployee(){
  const day=localToday(),arr=currentDayTasks(),open=arr.filter(t=>t.status!=='done'),done=arr.filter(t=>t.status==='done');
  el('boot').hidden=true;el('root').hidden=false;
- el('root').innerHTML=\`<section class="employee-app">
+ el('root').innerHTML=`<section class="employee-app">
   <header class="employee-head"><div class="row" style="gap:10px"><div class="logo" style="height:35px;width:35px;font-size:22px">O</div><div><strong>OPTIMUS</strong><div class="muted" style="letter-spacing:1.6px">MIJN TAKEN</div></div></div><button class="btn light small" id="signout">Uitloggen</button></header>
-  <main class="employee-main"><div class="eyebrow">Dagplanning · \${html(me.name)}</div><h1>Mijn taken</h1><p class="muted">\${html(fmtDate(day))}</p>
-  <div class="employee-progress"><strong>\${done.length} van \${arr.length} afgewerkt</strong><div class="employee-progress-bg"><div style="height:100%;width:\${arr.length?Math.round(done.length/arr.length*100):0}%;background:#b39b66;border-radius:100px"></div></div></div>
-  <div class="card"><h2 style="margin-bottom:12px">Nog te doen (\${open.length})</h2>\${open.length?open.map(taskCard).join(''):'<div class="empty">Alles afgewerkt voor vandaag! ✓</div>'}</div>
-  \${done.length?\`<div class="card" style="margin-top:16px"><h2 style="margin-bottom:12px">Afgewerkt (\${done.length})</h2>\${done.map(taskCard).join('')}</div>\`:''}
-  </main></section>\`;
+  <main class="employee-main"><div class="eyebrow">Dagplanning · ${html(me.name)}</div><h1>Mijn taken</h1><p class="muted">${html(fmtDate(day))}</p>
+  <div class="employee-progress"><strong>${done.length} van ${arr.length} afgewerkt</strong><div class="employee-progress-bg"><div style="height:100%;width:${arr.length?Math.round(done.length/arr.length*100):0}%;background:#b39b66;border-radius:100px"></div></div></div>
+  <div class="card"><h2 style="margin-bottom:12px">Nog te doen (${open.length})</h2>${open.length?open.map(taskCard).join(''):'<div class="empty">Alles afgewerkt voor vandaag! ✓</div>'}</div>
+  ${done.length?`<div class="card" style="margin-top:16px"><h2 style="margin-bottom:12px">Afgewerkt (${done.length})</h2>${done.map(taskCard).join('')}</div>`:''}
+  </main></section>`;
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
  document.querySelectorAll('[data-done]').forEach(b=>b.onclick=()=>markTask(b.dataset.done));
 }
@@ -84,9 +84,9 @@ function render(){
  if(!me)return;
  if(!hasAdmin()){renderEmployee();return}
  const nav=[['home','▦','Dashboard'],['tasks','☑','Alle taken'],['team','♧','Medewerkers']];
- const navButtons=nav.map(([p,ic,t])=>\`<button data-nav="\${p}" class="\${page===p?'active':''}"><span>\${ic}</span>\${t}</button>\`).join('');
+ const navButtons=nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('');
  el('boot').hidden=true;el('root').hidden=false;
- el('root').innerHTML=\`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">\${navButtons}</div><div class="sidefoot"><div style="font-weight:700">\${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / \${html(page==='home'?'Dashboard':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">\${isStandalone()?'':\`<button type="button" class="btn light small" data-install>📲 App</button>\`}<span class="muted">\${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">\${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">\${nav.map(([p,ic,t])=>\`<button data-nav="\${p}" class="\${page===p?'active':''}"><span>\${ic}</span>\${t}</button>\`).join('')}</nav>\`;
+ el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
  document.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>setPage(x.dataset.nav));
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};
  if(page==='team')renderTeam();else if(page==='tasks')renderTaskList();else renderHome();
@@ -100,12 +100,12 @@ function attachDateControls(){el('dayPicker').onchange=e=>{chosenDay=e.target.va
 function renderHome(){
  const arr=currentDayTasks(),done=arr.filter(t=>t.status==='done').length,active=arr.length-done;
  const myTasks=tasks.filter(x=>x.status==='todo'&&x.due_date===chosenDay);
- el('mainContent').innerHTML=\`<div class="head"><div><div class="eyebrow">Stal Optimus</div><h1>Teamoverzicht</h1><p class="muted">\${html(fmtDate(chosenDay))} · Planning voor het volledige team</p></div><button class="btn gold" id="addTask">＋ Nieuwe taak</button></div>
- <div class="row between wrap" style="margin-bottom:17px">\${dayControl()}<button class="btn light small" id="refresh">↻ Vernieuwen</button></div>
- <div class="stats"><div class="stat"><span>Taken vandaag</span><b>\${arr.length}</b></div><div class="stat"><span>Openstaand</span><b>\${active}</b></div><div class="stat"><span>Afgewerkt</span><b>\${done}</b></div><div class="stat"><span>Voortgang</span><b>\${arr.length?Math.round(done/arr.length*100):0}%</b></div></div>
- <div class="grid"><div><div class="card"><div class="section-top"><h2>Dagplanning</h2><button class="btn light small" id="viewTasks">Alle taken →</button></div>\${arr.length?arr.map(taskCard).join(''):'<div class="empty">Geen taken gepland voor deze dag.</div>'}</div>
- <div class="card" style="margin-top:17px"><div class="section-top"><h2>🎙 Taken inspreken met AI</h2><span class="muted">Automatisch verdelen</span></div>\${captureBox()}</div></div>
- <div><div class="card"><div class="section-top"><h2>Medewerkers</h2><button class="btn light small" id="viewPeople">Beheer →</button></div>\${people.length?people.map(p=>{let x=myTasks.filter(t=>t.person_id===p.id);return \`<div class="person"><div class="avatar">\${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>\${html(p.name)}</strong><span>\${x.length} openstaand · \${p.role==='admin'?'Beheerder':'Medewerker'}</span></div></div>\`}).join(''):'<div class="empty">Voeg je eerste medewerker toe.</div>'}</div></div></div>\`;
+ el('mainContent').innerHTML=`<div class="head"><div><div class="eyebrow">Stal Optimus</div><h1>Teamoverzicht</h1><p class="muted">${html(fmtDate(chosenDay))} · Planning voor het volledige team</p></div><button class="btn gold" id="addTask">＋ Nieuwe taak</button></div>
+ <div class="row between wrap" style="margin-bottom:17px">${dayControl()}<button class="btn light small" id="refresh">↻ Vernieuwen</button></div>
+ <div class="stats"><div class="stat"><span>Taken vandaag</span><b>${arr.length}</b></div><div class="stat"><span>Openstaand</span><b>${active}</b></div><div class="stat"><span>Afgewerkt</span><b>${done}</b></div><div class="stat"><span>Voortgang</span><b>${arr.length?Math.round(done/arr.length*100):0}%</b></div></div>
+ <div class="grid"><div><div class="card"><div class="section-top"><h2>Dagplanning</h2><button class="btn light small" id="viewTasks">Alle taken →</button></div>${arr.length?arr.map(taskCard).join(''):'<div class="empty">Geen taken gepland voor deze dag.</div>'}</div>
+ <div class="card" style="margin-top:17px"><div class="section-top"><h2>🎙 Taken inspreken met AI</h2><span class="muted">Automatisch verdelen</span></div>${captureBox()}</div></div>
+ <div><div class="card"><div class="section-top"><h2>Medewerkers</h2><button class="btn light small" id="viewPeople">Beheer →</button></div>${people.length?people.map(p=>{let x=myTasks.filter(t=>t.person_id===p.id);return `<div class="person"><div class="avatar">${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>${html(p.name)}</strong><span>${x.length} openstaand · ${p.role==='admin'?'Beheerder':'Medewerker'}</span></div></div>`}).join(''):'<div class="empty">Voeg je eerste medewerker toe.</div>'}</div></div></div>`;
  attachDateControls();el('refresh').onclick=()=>refresh();el('viewTasks').onclick=()=>setPage('tasks');
  el('addTask').onclick=()=>openTask();el('viewPeople').onclick=()=>setPage('team');attachCapture();
 }
@@ -171,9 +171,9 @@ function attachCapture(){
 function renderTaskList(){const scoped=currentDayTasks();el('mainContent').innerHTML=`<div class="head"><div><div class="eyebrow">Planning</div><h1>${hasAdmin()?'Alle taken':'Mijn taken'}</h1><p class="muted">${html(fmtDate(chosenDay))}</p></div>${hasAdmin()?'<button class="btn gold" id="addTask">＋ Nieuwe taak</button>':''}</div><div class="row between wrap" style="margin-bottom:19px">${dayControl()}<div class="filterbar"><button class="pill ${filter==='all'?'active':''}" data-filter="all">Alles</button><button class="pill ${filter==='todo'?'active':''}" data-filter="todo">Open</button><button class="pill ${filter==='done'?'active':''}" data-filter="done">Afgewerkt</button></div></div><div class="card">${scoped.filter(x=>filter==='all'||(filter==='today'?true:x.status===filter)).length?scoped.filter(x=>filter==='all'||filter==='today'||x.status===filter).map(taskCard).join(''):'<div class="empty">Geen taken in deze selectie.</div>'}</div>`;attachDateControls();document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.dataset.filter;render()});if(hasAdmin())el('addTask').onclick=()=>openTask()}
 
 function renderTeam(){
- el('mainContent').innerHTML=\`<div class="head"><div><div class="eyebrow">Organisatie</div><h1>Medewerkers</h1><p class="muted">Koppel een e-mailadres zodat iedere medewerker uitsluitend zijn eigen taken kan bekijken.</p></div><button class="btn gold" id="newPerson">＋ Medewerker</button></div>
+ el('mainContent').innerHTML=`<div class="head"><div><div class="eyebrow">Organisatie</div><h1>Medewerkers</h1><p class="muted">Koppel een e-mailadres zodat iedere medewerker uitsluitend zijn eigen taken kan bekijken.</p></div><button class="btn gold" id="newPerson">＋ Medewerker</button></div>
  <div class="card"><div class="notice" style="margin-bottom:14px">Iedere medewerker gebruikt zijn eigen geverifieerde e-mailadres. Zonder gekoppeld account is er geen toegang tot taken.</div>
- \${people.map(p=>\`<div class="person"><div class="avatar">\${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>\${html(p.name)} \${!p.active?'(inactief)':''}</strong><span>\${html(p.email||'Nog geen e-mail')} · \${p.user_id?'Account gekoppeld':'Niet gekoppeld'}</span></div><button class="btn light small" data-person="\${p.id}">Bewerken</button></div>\`).join('')}</div>\`;
+ ${people.map(p=>`<div class="person"><div class="avatar">${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>${html(p.name)} ${!p.active?'(inactief)':''}</strong><span>${html(p.email||'Nog geen e-mail')} · ${p.user_id?'Account gekoppeld':'Niet gekoppeld'}</span></div><button class="btn light small" data-person="${p.id}">Bewerken</button></div>`).join('')}</div>`;
  el('newPerson').onclick=()=>openPerson();
  document.querySelectorAll('[data-person]').forEach(b=>b.onclick=()=>openPerson(people.find(p=>p.id===b.dataset.person)));
 }
@@ -184,11 +184,11 @@ function openTask(t){if(!hasAdmin())return;const edit=!!t;const today=chosenDay;
 function openPerson(p){
  if(!hasAdmin())return;
  const edit=!!p;
- showModal(edit?'Medewerker bewerken':'Medewerker toevoegen',\`<form id="personForm">
-  <div class="field-group"><label>Naam</label><input id="pName" required maxlength="120" value="\${html(p?.name||'')}"></div>
-  <div class="field-group"><label>E-mailadres voor eigen login</label><input type="email" id="pEmail" value="\${html(p?.email||'')}" placeholder="naam@voorbeeld.be"></div>
-  <div class="field-group"><label class="row" style="font-size:12px"><input type="checkbox" id="pActive" style="width:auto" \${p?.active!==false?'checked':''}> Actieve medewerker</label></div>
-  <div class="modal-footer"><span class="muted">\${edit&&p.user_id?'Login gekoppeld':'Koppel via eigen registratie'}</span><button type="submit" class="btn gold">Opslaan</button></div></form>\`);
+ showModal(edit?'Medewerker bewerken':'Medewerker toevoegen',`<form id="personForm">
+  <div class="field-group"><label>Naam</label><input id="pName" required maxlength="120" value="${html(p?.name||'')}"></div>
+  <div class="field-group"><label>E-mailadres voor eigen login</label><input type="email" id="pEmail" value="${html(p?.email||'')}" placeholder="naam@voorbeeld.be"></div>
+  <div class="field-group"><label class="row" style="font-size:12px"><input type="checkbox" id="pActive" style="width:auto" ${p?.active!==false?'checked':''}> Actieve medewerker</label></div>
+  <div class="modal-footer"><span class="muted">${edit&&p.user_id?'Login gekoppeld':'Koppel via eigen registratie'}</span><button type="submit" class="btn gold">Opslaan</button></div></form>`);
  el('personForm').onsubmit=async e=>{
   e.preventDefault();
   const payload={name:el('pName').value.trim(),email:el('pEmail').value.trim().toLowerCase()||null,active:el('pActive').checked};

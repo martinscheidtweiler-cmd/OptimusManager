@@ -25,6 +25,18 @@
 .employee-app .check{height:31px;width:31px;border-radius:9px;font-size:18px}
 .employee-app .card{padding:24px}
 @media(max-width:720px){.employee-head{padding:14px 18px}.employee-main{padding:26px 15px 90px}.employee-main>h1{font-size:26px}.employee-app .card{padding:18px}.employee-app .task-main strong{font-size:14px}}
+
+.employee-clock{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:20px 22px;margin-bottom:18px;border:1px solid #cfcab8;border-radius:13px;background:#fffefa;flex-wrap:wrap}
+.employee-clock strong{font-variant-numeric:tabular-nums}
+.week-scroll{overflow-x:auto;width:100%;overscroll-behavior-x:contain}
+.wk-table{border-collapse:separate;border-spacing:0;min-width:850px;width:100%;font-size:12px}
+.wk-table th{position:sticky;top:0;background:#f8f9f6;color:#5b625a;font-weight:700;padding:12px 9px;border-bottom:1px solid #e7e9e3;text-align:center}
+.wk-table td{text-align:center;padding:11px 8px;border-bottom:1px solid #edf0eb;vertical-align:middle;min-width:88px}
+.wk-table th:first-child{left:0;text-align:left;position:sticky;z-index:2;min-width:130px}
+.wk-table input[type=checkbox]{width:18px;height:18px;accent-color:#ad9666}
+.wkmini{border:0;background:transparent;color:#8a754a;font-size:11px;text-decoration:underline;padding:4px 2px;display:block;margin:auto}
+.wk-table small{font-size:10px;color:#999}
+@media(max-width:720px){.employee-clock{padding:16px}.wk-table{min-width:820px}.wk-table th:first-child{min-width:110px}}
 </style></head><body><div id="boot">Optimus Tasks wordt geladen…</div><div id="root" hidden></div><div id="overlay"></div><script>
 window.addEventListener('error',function(event){
   var boot=document.getElementById('boot');
@@ -35,4 +47,4 @@ setTimeout(function(){
   var boot=document.getElementById('boot');
   if(boot&&!boot.hidden) boot.textContent='De verbinding duurt langer dan verwacht. Vernieuw de pagina (Ctrl+Shift+R) of probeer een andere browser.';
 },15000);
-</script><script type="module" src="/app.js?v=7"></script></body></html>
+</script><script type="module" src="/app.js?v=8"></script></body></html>

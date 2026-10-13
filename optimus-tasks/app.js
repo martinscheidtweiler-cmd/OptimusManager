@@ -1,7 +1,7 @@
 import {createClient} from '@supabase/supabase-js';
 import {renderWeeklyPlanner} from './weekly.js';
 const el=id=>document.getElementById(id), html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='',clockToday=null;
+let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='',clockToday=null,dayAvailability=[];
 
 let installPrompt=null;
 function isStandalone(){return window.matchMedia?.('(display-mode: standalone)').matches||window.navigator.standalone===true}
@@ -64,6 +64,7 @@ async function refresh(resetPage=false){
  const rt=await q;
  if(rt.error){toast(rt.error.message);return}
  tasks=rt.data||[];
+ if(admin){const a=await db.from('optimus_task_availability').select('*').eq('work_date',chosenDay);dayAvailability=a.data||[]}
  if(!admin){const record=await db.from('optimus_task_clock_entries').select('*').eq('person_id',me.id).eq('work_date',localToday()).maybeSingle();clockToday=record.data||null}
  if(resetPage)page=admin?'home':'mine';
  render();
@@ -103,7 +104,7 @@ function render(){
 }
 
 function dayControl(){return `<div class="row wrap"><button class="btn light small" id="prevDay">←</button><input id="dayPicker" aria-label="Dag kiezen" type="date" style="width:155px" value="${html(chosenDay)}"><button class="btn light small" id="nextDay">→</button></div>`}
-function attachDateControls(){el('dayPicker').onchange=e=>{chosenDay=e.target.value;render()};el('prevDay').onclick=()=>{let d=new Date(chosenDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-1);chosenDay=d.toISOString().slice(0,10);render()};el('nextDay').onclick=()=>{let d=new Date(chosenDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);chosenDay=d.toISOString().slice(0,10);render()}}
+function attachDateControls(){el('dayPicker').onchange=e=>{chosenDay=e.target.value;refresh()};el('prevDay').onclick=()=>{let d=new Date(chosenDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()-1);chosenDay=d.toISOString().slice(0,10);refresh()};el('nextDay').onclick=()=>{let d=new Date(chosenDay+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+1);chosenDay=d.toISOString().slice(0,10);refresh()}}
 
 function renderHome(){
  const arr=currentDayTasks(),done=arr.filter(t=>t.status==='done').length,active=arr.length-done;
@@ -113,7 +114,7 @@ function renderHome(){
  <div class="stats"><div class="stat"><span>Taken vandaag</span><b>${arr.length}</b></div><div class="stat"><span>Openstaand</span><b>${active}</b></div><div class="stat"><span>Afgewerkt</span><b>${done}</b></div><div class="stat"><span>Voortgang</span><b>${arr.length?Math.round(done/arr.length*100):0}%</b></div></div>
  <div class="grid"><div><div class="card"><div class="section-top"><h2>Dagplanning</h2><button class="btn light small" id="viewTasks">Alle taken →</button></div>${arr.length?arr.map(taskCard).join(''):'<div class="empty">Geen taken gepland voor deze dag.</div>'}</div>
  <div class="card" style="margin-top:17px"><div class="section-top"><h2>🎙 Taken inspreken met AI</h2><span class="muted">Automatisch verdelen</span></div>${captureBox()}</div></div>
- <div><div class="card"><div class="section-top"><h2>Medewerkers</h2><button class="btn light small" id="viewPeople">Beheer →</button></div>${people.length?people.map(p=>{let x=myTasks.filter(t=>t.person_id===p.id);return `<div class="person"><div class="avatar">${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>${html(p.name)}</strong><span>${x.length} openstaand · ${p.role==='admin'?'Beheerder':'Medewerker'}</span></div></div>`}).join(''):'<div class="empty">Voeg je eerste medewerker toe.</div>'}</div></div></div>`;
+ <div><div class="card"><div class="section-top"><h2>Medewerkers</h2><button class="btn light small" id="viewPeople">Beheer →</button></div>${people.length?people.map(p=>{let x=myTasks.filter(t=>t.person_id===p.id);return `<div class="person"><div class="avatar">${html(p.name.slice(0,2).toUpperCase())}</div><div class="person-name"><strong>${html(p.name)}</strong><span>${x.length} open · ${myTasks.filter(t=>t.person_id===p.id).reduce((n,t)=>n+(t.planned_minutes||30),0)} min gepland · ${dayAvailability.find(a=>a.person_id===p.id)?.working?'Werkt vandaag':'Beschikbaarheid onbekend/vrij'}</span></div></div>`}).join(''):'<div class="empty">Voeg je eerste medewerker toe.</div>'}</div></div></div>`;
  attachDateControls();el('refresh').onclick=()=>refresh();el('viewTasks').onclick=()=>setPage('tasks');
  el('addTask').onclick=()=>openTask();el('viewPeople').onclick=()=>setPage('team');attachCapture();
 }

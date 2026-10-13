@@ -22,5 +22,16 @@ De database-URL, publieke publishable key en beveiligde `CRON_SECRET` zijn inges
 3. Laat bij Meta een **utility template** goedkeuren met `{{1}}` als naam en `{{2}}` als takenlijst. Vraag expliciete WhatsApp-opt-in per medewerker, met geldig E.164 telefoonnummer (`+32...`). De cron is `0 5,6 * * *` (UTC), de API controleert zelf of het 07:00 in België is.
 4. Koppel voor medewerkers in de adminapp het correcte e-mailadres aan hun profiel. Medewerkers melden zich aan met dat e-mailadres en bevestigen hun mailbox.
 
+
+## Mobiele app (PWA)
+De website is installeerbaar op **iPhone (Safari: Delen → Zet op beginscherm)** en **Android (Chrome: Installeer app / Toevoegen aan startscherm)**. De app krijgt een eigen icoon en opent zonder adresbalk. Er is geen native App Store- of Play Store-publicatie.
+- `manifest.webmanifest`: naam, kleuren, start-url en iconen.
+- `sw.js`: cachet uitsluitend de publieke app-shell en afbeeldingen. Nooit persoonlijke taken, Supabase-antwoorden of API-resultaten.
+- `build.mjs`: genereert PNG-app-iconen op 180, 192 en 512 pixels; ook een maskable icoon.
+- `app.js`: installatieknop en ondersteuning voor mobiele microfoon via MediaRecorder, transcriptie op Supabase en AI-taakvoorstellen na expliciete bevestiging.
+- Supabase Edge `optimus-tasks/api/parse` en `optimus-tasks/api/transcribe` vereisen een aangemelde beheerder, gebruiken server-side `OPENAI_API_KEY` en beperken audio tot 8 MB. De sleutel is op 13 oktober 2026 als aanwezig bevestigd via het endpoint (401 zonder login).
+- `api/ai-status` toont aan aangemelde beheerders of de AI-sleutel is ingesteld.
+- Opname, transcriptie en AI-aanmaak met echte login moeten nog in de browser worden getest. Medewerkers kunnen de app installeren om hun persoonlijke taken te zien en af te vinken.
+
 ## Techniek
 Vercel web `index.html` en `app.js` gebruiken Supabase Auth rechtstreeks. Afvinken loopt via een streng scoped RPC; alleen admins mogen taken en medewerkers beheren. De AI route `/api/parse` proxyt naar Supabase Edge `optimus-tasks/api/parse`. Er is geen database service-role key nodig in de browser. De database SQL staat in `migrations/20261013_optimus_tasks.sql` en is al toegepast: niet opnieuw zonder reden uitvoeren.

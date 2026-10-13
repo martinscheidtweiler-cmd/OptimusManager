@@ -1,5 +1,6 @@
 import {createClient} from '@supabase/supabase-js';
 import {renderWeeklyPlanner} from './weekly.js';
+import {renderAvailabilityStaff} from './availability.js';
 const el=id=>document.getElementById(id), html=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let db,user,me,people=[],tasks=[],page='home',chosenDay=localToday(),filter='today',mode='login',recording=null,parsed=[],activeModal='',waPerson='',clockToday=null,dayAvailability=[];
 
@@ -53,6 +54,7 @@ function renderActivation(){
 
 async function refresh(resetPage=false){
  if(!me)return;
+ if(me.role==='planner'){people=[me];tasks=[];page='availability';render();return}
  const admin=hasAdmin();
  if(admin){
   const rp=await db.from('optimus_task_people').select('*').order('name');
@@ -91,6 +93,7 @@ function renderEmployee(){
 function clockElapsed(){if(!clockToday)return '00:00:00';const end=clockToday.clock_out?new Date(clockToday.clock_out):new Date();const secs=Math.max(0,Math.floor((end-new Date(clockToday.clock_in))/1000));return String(Math.floor(secs/3600)).padStart(2,'0')+':'+String(Math.floor(secs%3600/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0')}
 function render(){
  if(!me)return;
+ if(me.role==='planner'){renderAvailabilityStaff({db,me,toast});return}
  if(!hasAdmin()){renderEmployee();return}
  const nav=[['home','▦','Dashboard'],['week','▦','Weekplanner'],['tasks','☑','Taken'],['team','♧','Medewerkers']];
  const navButtons=nav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('');
@@ -195,12 +198,12 @@ function openPerson(p){
  const edit=!!p;
  showModal(edit?'Medewerker bewerken':'Medewerker toevoegen',`<form id="personForm">
   <div class="field-group"><label>Naam</label><input id="pName" required maxlength="120" value="${html(p?.name||'')}"></div>
-  <div class="field-group"><label>E-mailadres voor eigen login</label><input type="email" id="pEmail" value="${html(p?.email||'')}" placeholder="naam@voorbeeld.be"></div><div class="field-group"><label>Vaardigheden (gescheiden door komma's)</label><textarea id="pSkills" placeholder="Auto rijden, Hengsten buitenzetten, Paarden rijden">${html((p?.skills||[]).join(', '))}</textarea></div><div class="field-group"><label>Afdelingen (komma's)</label><input id="pDepartments" value="${html((p?.departments||[]).join(', '))}" placeholder="Ruiterbord, Stal, Weide"></div><div class="field-group"><label>Contracturen per week</label><input type="number" id="pHours" min="0" max="168" value="${Math.round((p?.contract_week_minutes??2400)/60)}"></div>
+  <div class="field-group"><label>E-mailadres voor eigen login</label><input type="email" id="pEmail" value="${html(p?.email||'')}" placeholder="naam@voorbeeld.be"></div><div class="field-group"><label>Rechten</label><select id="pRole"><option value="member" ${!p||p.role==='member'?'selected':''}>Medewerker (enkel eigen taken)</option><option value="planner" ${p?.role==='planner'?'selected':''}>Weekbeschikbaarheid invullen</option><option value="admin" ${p?.role==='admin'?'selected':''}>Beheerder</option></select></div><div class="field-group"><label>Vaardigheden (gescheiden door komma's)</label><textarea id="pSkills" placeholder="Auto rijden, Hengsten buitenzetten, Paarden rijden">${html((p?.skills||[]).join(', '))}</textarea></div><div class="field-group"><label>Afdelingen (komma's)</label><input id="pDepartments" value="${html((p?.departments||[]).join(', '))}" placeholder="Ruiterbord, Stal, Weide"></div><div class="field-group"><label>Contracturen per week</label><input type="number" id="pHours" min="0" max="168" value="${Math.round((p?.contract_week_minutes??2400)/60)}"></div>
   <div class="field-group"><label class="row" style="font-size:12px"><input type="checkbox" id="pActive" style="width:auto" ${p?.active!==false?'checked':''}> Actieve medewerker</label></div>
   <div class="modal-footer"><span class="muted">${edit&&p.user_id?'Login gekoppeld':'Koppel via eigen registratie'}</span><button type="submit" class="btn gold">Opslaan</button></div></form>`);
  el('personForm').onsubmit=async e=>{
   e.preventDefault();
-  const parseSkills=s=>[...new Set(s.split(',').map(x=>x.trim()).filter(Boolean))];const payload={name:el('pName').value.trim(),email:el('pEmail').value.trim().toLowerCase()||null,active:el('pActive').checked,skills:parseSkills(el('pSkills').value),departments:parseSkills(el('pDepartments').value),contract_week_minutes:Math.round(Number(el('pHours').value)*60)};
+  const parseSkills=s=>[...new Set(s.split(',').map(x=>x.trim()).filter(Boolean))];const payload={name:el('pName').value.trim(),email:el('pEmail').value.trim().toLowerCase()||null,active:el('pActive').checked,role:el('pRole').value,skills:parseSkills(el('pSkills').value),departments:parseSkills(el('pDepartments').value),contract_week_minutes:Math.round(Number(el('pHours').value)*60)};
   const q=edit?db.from('optimus_task_people').update(payload).eq('id',p.id):db.from('optimus_task_people').insert(payload);
   const {error}=await q;if(error)return toast(error.message);
   closeModal();await refresh();toast('Medewerker opgeslagen');

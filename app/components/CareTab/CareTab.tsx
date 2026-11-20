@@ -6,7 +6,7 @@ import VetCasesPanel from './VetCasesPanel'
 
 type Horse={id:string;name:string}
 type Event={id:string;horse_id:string;category:string;performed_on:string;result:string|null;notes:string|null;next_due_on:string|null;veterinarian:string|null}
-const categories=[['scan','Echo / scan'],['insemination','Inseminatie'],['pregnancy','Drachtcontrole'],['foaling','Geboorte'],['flush','Embryospoeling'],['vaccination','Vaccinatie'],['deworming','Ontworming'],['farrier','Hoefsmid'],['veterinary','Dierenarts'],['other','Overige zorg']] as const
+const categories=[['scan','Echo / scan'],['insemination','Inseminatie'],['pregnancy','Drachtcontrole'],['foaling','Geboorte'],['flush','Embryospoeling'],['veterinary','Dierenarts'],['other','Overige zorg']] as const
 const today=()=>new Date().toLocaleDateString('en-CA')
 export default function CareTab(){
  const [horses,setHorses]=useState<Horse[]>([])
@@ -59,6 +59,7 @@ export default function CareTab(){
   <header className="care-head"><span>GEZONDHEID & FOKKERIJ</span><h1>Zorgregistratie</h1><p>Scan, inseminatie, dracht, geboorte, vaccinatie en behandelingen op één plaats.</p></header>
   {error?<p className="care-alert" role="alert">{error}</p>:null}
   {success?<p className="care-success" role="status">{success}</p>:null}
+  <p className="care-legacy-note">Vaccinaties, ontwormingen en hoefsmidbezoeken blijven geregistreerd in hun bestaande modules, zodat de oude historiek behouden blijft. <a href="/manager?tab=Vet">Dierenarts & vaccinaties</a> · <a href="/manager?tab=Farrier">Hoefsmid</a></p>
   <div className="care-layout">
    <form className="care-card" onSubmit={e=>void save(e)}>
     <h2>Nieuwe registratie</h2>

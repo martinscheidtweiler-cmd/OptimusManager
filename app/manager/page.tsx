@@ -15,23 +15,21 @@ import './desktop.css'
 type Module = 'Horses'|'Planning'|'Vet'|'Place'|'Farrier'|'Operations'
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
- {key:'Horses',label:'Horses',symbol:'♞'},
- {key:'Planning',label:'Planning',symbol:'▤'},
- {key:'Vet',label:'Vet',symbol:'✚'},
- {key:'Place',label:'Place',symbol:'⌖'},
- {key:'Farrier',label:'Farrier',symbol:'∷'},
- {key:'Operations',label:'Ruiterbord',symbol:'▦'}
+ {key:'Horses',label:'Paarden',symbol:'♞'},
+ {key:'Vet',label:'Dierenarts',symbol:'✚'},
+ {key:'Place',label:'Locaties',symbol:'⌖'},
+ {key:'Farrier',label:'Hoefsmid',symbol:'∷'},
 ]
 const validModules=new Set<Module>(modules.map(m=>m.key))
 
 function initialModule():Module{
  if(typeof window==='undefined')return 'Horses'
  const value=new URLSearchParams(window.location.search).get('tab') as Module|null
- return value&&validModules.has(value)?value:'Horses'
+ return value&&validModules.has(value)?value:'Place'
 }
 
 export default function ManagerModules(){
- const [active,setActive]=useState<Module>('Horses')
+ const [active,setActive]=useState<Module>('Place')
  const [name,setName]=useState('')
  const [ready,setReady]=useState(false)
  const [vetKey,setVetKey]=useState(0)
@@ -40,7 +38,6 @@ export default function ManagerModules(){
  useEffect(()=>{
   let live=true
   const verify=async()=>{
-   if(window.matchMedia('(max-width: 720px)').matches){window.location.replace('/tasks');return}
    const session=(await supabase.auth.getSession()).data.session
    if(!session){window.location.replace('/tasks');return}
    const {data:profile,error}=await supabase.rpc('optimus_task_my_profile')
@@ -80,18 +77,15 @@ export default function ManagerModules(){
 
  return <div className="td-app">
    <aside className="td-sidebar">
-     <div className="td-brandline"><div className="td-logo">O</div><div><div className="td-brand">OPTIMUS</div><small>TASKS</small></div></div>
+     <div className="td-brandline"><div className="td-logo">O</div><div><div className="td-brand">OPTIMUS</div><small>STALMANAGER</small></div></div>
      <nav className="td-nav" aria-label="Optimus modules">
-       <a href="/tasks/index.html?view=home"><span>▦</span> Dashboard</a>
-       <a href="/tasks/index.html?view=week"><span>▦</span> Weekplanner</a>
-       <a href="/tasks/index.html?view=tasks"><span>☑</span> Taken</a>
-       <a href="/tasks/index.html?view=team"><span>♧</span> Medewerkers</a>
        {modules.map(m=><button type="button" key={m.key} className={active===m.key?'active':''} onClick={()=>selectTab(m.key)}><span>{m.symbol}</span>{m.label}</button>)}
      </nav>
      <div className="td-sidefoot"><strong>{name}</strong><small>Beheerder</small><button className="td-logout" type="button" onClick={()=>void signOut()}>Uitloggen</button></div>
    </aside>
    <div className="td-shell">
-     <header className="td-topbar"><span>OPTIMUS / {activeLabel}</span><div className="td-user"><span>{name}</span><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div></div></header>
+     <header className="td-topbar"><span>Stalbeheer / {activeLabel}</span><div className="td-user"><span>{name}</span><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div></div></header>
+     <nav className="td-mobile-nav" aria-label="Mobiele navigatie">{modules.map(m=><button key={m.key} type="button" className={active===m.key?'active':''} onClick={()=>selectTab(m.key)}><span>{m.symbol}</span><small>{m.label}</small></button>)}</nav>
      <main className="td-container">{renderModule()}</main>
    </div>
  </div>

@@ -7,7 +7,7 @@ import VetCasesPanel from './VetCasesPanel'
 type Horse={id:string;name:string}
 type Event={id:string;horse_id:string;category:string;performed_on:string;result:string|null;notes:string|null;next_due_on:string|null;veterinarian:string|null}
 const categories=[['scan','Echo / scan'],['insemination','Inseminatie'],['pregnancy','Drachtcontrole'],['foaling','Geboorte'],['flush','Embryospoeling'],['veterinary','Dierenarts'],['other','Overige zorg']] as const
-const today=()=>new Date().toLocaleDateString('en-CA')
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 export default function CareTab(){
  const [horses,setHorses]=useState<Horse[]>([])
  const [events,setEvents]=useState<Event[]>([])

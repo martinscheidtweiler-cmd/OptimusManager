@@ -209,3 +209,23 @@
     flex: 1;
   }
 }
+/* Stable Manager refresh: preserve maps and data, improve touch navigation. */
+.place-tab-shell{gap:18px}
+.place-tab-hero{background:#fff;border:1px solid #e4e8e0;border-radius:20px;padding:22px}
+.place-tab-title{font-family:inherit;font-size:clamp(30px,4vw,40px);letter-spacing:-.05em}
+.place-tab-kicker{color:#55745a}
+.place-tab-layout{grid-template-columns:minmax(180px,235px) minmax(0,1fr);gap:16px}
+.place-tab-site-card{border-radius:13px;padding:13px;box-shadow:none}
+.place-tab-site-card.active{border-color:#3d6746;background:#f0f5ee;box-shadow:none}
+.place-tab-site-card:hover{transform:none}
+@media(max-width:900px){
+ .place-tab-layout{grid-template-columns:minmax(0,1fr)}
+ .place-tab-hero{padding:16px}
+ .place-tab-site-list{display:flex;flex-direction:row;overflow-x:auto;scroll-snap-type:x mandatory;padding:2px 0 10px;gap:8px}
+ .place-tab-site-card{min-width:155px;width:155px;flex-shrink:0;scroll-snap-align:start;min-height:95px}
+ .place-tab-sidebar{gap:9px}
+ .place-tab-site-drop-note{display:none}
+ .place-tab-hero-stats{width:100%}
+ .place-tab-stat-card{padding:11px}
+ .place-tab-main{overflow-x:auto}
+}

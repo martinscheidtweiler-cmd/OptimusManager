@@ -173,6 +173,7 @@ export default function PlaceManager({
   const [quickMoveUnitId, setQuickMoveUnitId] = useState('')
   const [quickMoveConfirm, setQuickMoveConfirm] = useState(false)
   const [moveResult, setMoveResult] = useState('')
+  const [horseIdDraft, setHorseIdDraft] = useState('')
   const [draggingHorseIds, setDraggingHorseIds] = useState<string[]>([])
 
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -544,7 +545,12 @@ export default function PlaceManager({
       setQuickMoveConfirm(false)
       setQuickMoveUnitId('')
       await loadData()
-      setMoveResult(`${selected.length} paard(en) verplaatst naar ${unit.name}.${crossSite ? ' Let op: controleer of een HorseID-melding nodig is. Er is geen melding verzonden.' : ''}`)
+      const destinationName = allSites.find((site) => site.id === unit.site_id)?.name ?? 'Onbekende site'
+      const summary = origins.filter((origin) => origin?.site_id !== unit.site_id).map((origin) =>
+        `${origin?.horse_name ?? 'Onbekend paard'} | van ${origin?.site_name ?? 'Onbekend'} naar ${destinationName} / ${unit.name}`
+      )
+      setHorseIdDraft(summary.length ? `CONCEPT — NIET VERZONDEN\\nAan: veronique@dsf.be\\nOnderwerp: Te controleren verplaatsingen ${new Date().toLocaleDateString('nl-BE')}\\n\\nControleer of deze verplaatsingen tussen verschillende geregistreerde HorseID-inrichtingen vallen. De huidige app kent de officiële inrichtingsnummers en chipnummers nog niet; vul deze in na verificatie.\\n\\n${summary.join('\\n')}\\n\\nHorseID: https://www.horseid.be` : '')
+      setMoveResult(`${selected.length} paard(en) verplaatst naar ${unit.name}.${crossSite ? ' Controleer het HorseID-concept hieronder. Er is geen mail verzonden.' : ''}`)
     } catch (err) {
       setError(err instanceof Error ? err.message + ' Controleer welke paarden al verplaatst zijn.' : 'Verplaatsing mislukt')
       setQuickMoveConfirm(false)
@@ -927,6 +933,7 @@ export default function PlaceManager({
               </select>
               <button type="button" className="optimus-move-button" disabled={!selectedHorseIds.length || !quickMoveUnitId || bulkBusy} onClick={() => setQuickMoveConfirm(true)}>Verplaats {selectedHorseIds.length || ''} paard(en)</button>
               {moveResult ? <p role="status" className="optimus-move-result">{moveResult}</p> : null}
+              {horseIdDraft ? <div className="optimus-horseid-draft"><strong>HorseID — concept voor controle</strong><textarea readOnly aria-label="HorseID concept" value={horseIdDraft} rows={8}/><button type="button" onClick={() => void navigator.clipboard.writeText(horseIdDraft)}>Kopieer concept</button></div> : null}
             </section>
             <div className="vremde-panel">
               <h3>Geselecteerde plaats</h3>

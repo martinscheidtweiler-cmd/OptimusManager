@@ -66,6 +66,27 @@ export default function HorseIdTab(){
    }catch(e){setError(e instanceof Error?e.message:String(e))}
    finally{setBusy(false)}
  }
+ async function markReviewed(row:Review){
+  if(busy)return
+  if(!row.chip_number?.trim()||!row.from_establishment?.trim()||!row.to_establishment?.trim()){
+    setError('Vul eerst chipnummer en beide officiële inrichtingsnummers in en sla deze op.')
+    return
+  }
+  if(!window.confirm('Alleen de interne HorseID-controle afsluiten? Er wordt geen e-mail verzonden of HorseID-record aangepast.'))return
+  setBusy(true);setError('');setSuccess('')
+  try{
+   const {data:profile,error:profileError}=await supabase.rpc('optimus_task_my_profile')
+   if(profileError||!profile?.active||profile.role!=='admin')throw new Error('Geen beheerdersrechten.')
+   const {error}=await supabase.from('optimus_horseid_outbox').update({
+    chip_number:row.chip_number.trim(),from_establishment:row.from_establishment.trim(),
+    to_establishment:row.to_establishment.trim(),status:'reviewed'
+   }).eq('id',row.id).eq('status','draft')
+   if(error)throw error
+   await load()
+   setSuccess('Interne controle gemarkeerd als nagekeken. Er is geen e-mail verzonden.')
+  }catch(e){setError(e instanceof Error?e.message:String(e))}
+  finally{setBusy(false)}
+ }
  async function copy(){
   setError('');setSuccess('')
   if(!active.length)return
@@ -89,7 +110,7 @@ export default function HorseIdTab(){
       <div className="horseid-fields"><label>Chipnummer<input value={row.chip_number||''} onChange={e=>change(row.id,'chip_number',e.target.value)} placeholder="Officieel chipnummer"/></label>
       <label>Inrichting van<input value={row.from_establishment||''} onChange={e=>change(row.id,'from_establishment',e.target.value)} placeholder="Officieel nummer"/></label>
       <label>Inrichting naar<input value={row.to_establishment||''} onChange={e=>change(row.id,'to_establishment',e.target.value)} placeholder="Officieel nummer"/></label></div>
-      <button type="button" className="horseid-save" disabled={busy} onClick={()=>void save(row)}>{busy?'Opslaan…':'Bewaar controlegegevens'}</button>
+      <div className="horseid-row-actions"><button type="button" className="horseid-save" disabled={busy} onClick={()=>void save(row)}>{busy?'Opslaan…':'Bewaar controlegegevens'}</button><button type="button" disabled={busy} onClick={()=>void markReviewed(row)}>Controle afronden (niet verzonden)</button></div>
      </article>)}</div>}
    </section>
    <section className="horseid-panel horseid-preview"><h2>Gecombineerd e-mailconcept</h2>

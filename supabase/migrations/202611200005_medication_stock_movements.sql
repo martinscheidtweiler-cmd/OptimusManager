@@ -20,6 +20,7 @@ declare
  v_remaining integer;
  v_horse_name text;
  v_notes text;
+ v_previous public.medicine_usage%rowtype;
 begin
  if (select auth.uid()) is null then raise exception 'Login required'; end if;
  v_profile := public.optimus_task_my_profile();
@@ -35,7 +36,14 @@ begin
  end if;
  select * into strict v_batch from public.medicine_issuances
    where id=p_issuance_id for update;
- if exists(select 1 from public.medicine_usage where id=p_request_id) then
+ select * into v_previous from public.medicine_usage where id=p_request_id;
+ if found then
+   if v_previous.issuance_id is distinct from p_issuance_id or
+      v_previous.quantity <> p_quantity or
+      (p_horse_id is null and pg_catalog.cardinality(v_previous.horse_ids)>0) or
+      (p_horse_id is not null and not(p_horse_id=any(v_previous.horse_ids))) then
+      raise exception 'Request ID has already been used for another medicine movement';
+   end if;
    select coalesce(sum(quantity),0) into v_used
      from public.medicine_usage where issuance_id=p_issuance_id;
    return v_batch.quantity-v_used;

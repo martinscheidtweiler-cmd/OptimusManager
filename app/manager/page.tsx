@@ -5,15 +5,13 @@ import {supabase} from '@/app/lib/supabaseClient'
 
 import TodayTab from '@/app/components/TodayTab/TodayTab'
 import HorsesTab from '@/app/components/HorsesTab/HorsesTab'
-import PlanningTab from '@/app/components/PlanningTab/PlanningTab'
 import VetTab from '@/app/components/VetTab/VetTab'
 import PlaceTab from '@/app/components/PlaceTab/PlaceTab'
 import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
-import OperationsTab from '@/app/components/OperationsTab/OperationsTab'
 
 import './desktop.css'
 
-type Module = 'Today'|'Horses'|'Planning'|'Vet'|'Place'|'Farrier'|'Operations'
+type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
  {key:'Today',label:'Vandaag',symbol:'◫'},
@@ -25,7 +23,7 @@ const modules:NavItem[]=[
 const validModules=new Set<Module>(modules.map(m=>m.key))
 
 function initialModule():Module{
- if(typeof window==='undefined')return 'Horses'
+ if(typeof window==='undefined')return 'Today'
  const value=new URLSearchParams(window.location.search).get('tab') as Module|null
  return value&&validModules.has(value)?value:'Place'
 }
@@ -69,11 +67,9 @@ export default function ManagerModules(){
   switch(active){
    case 'Today':return <TodayTab/>
    case 'Horses':return <HorsesTab/>
-   case 'Planning':return <PlanningTab/>
    case 'Vet':return <VetTab key={vetKey}/>
    case 'Place':return <PlaceTab/>
    case 'Farrier':return <FarrierTab key={farrierKey}/>
-   case 'Operations':return <OperationsTab/>
   }
  }
  if(!ready)return <main className="td-loading">Optimus wordt geladen…</main>

@@ -2,6 +2,7 @@
 import {useCallback,useEffect,useState} from 'react'
 import {supabase} from '@/app/lib/supabaseClient'
 import './CareTab.css'
+import VetCasesPanel from './VetCasesPanel'
 
 type Horse={id:string;name:string}
 type Event={id:string;horse_id:string;category:string;performed_on:string;result:string|null;notes:string|null;next_due_on:string|null;veterinarian:string|null}
@@ -80,5 +81,6 @@ export default function CareTab(){
      </article>)}</div>}
    </div>
   </div>
+  <VetCasesPanel horses={horses}/>
  </section>
 }

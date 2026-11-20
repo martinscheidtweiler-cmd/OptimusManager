@@ -1160,3 +1160,6 @@
 @media(max-width:900px){.optimus-quick-move{padding:14px}.optimus-move-actions button{flex:1}}
 
 .optimus-horseid-draft{display:flex;flex-direction:column;gap:9px;margin-top:10px;padding:12px;border:1px solid #d7e2d4;border-radius:12px;background:#fff}.optimus-horseid-draft strong{font-size:13px}.optimus-horseid-draft textarea{width:100%;min-height:150px;padding:10px;border:1px solid #d7e2d4;border-radius:9px;resize:vertical;color:#33463a;background:#f9fbf8;font:12px/1.5 monospace}.optimus-horseid-draft button{background:#e7efe4;color:#23432d;border:1px solid #c8dac5;padding:10px}
+
+.optimus-horseid-link{display:block;text-align:center;padding:11px 14px;border-radius:11px;background:#e7efe4;color:#254a30;text-decoration:none;font-size:13px;font-weight:800}
+.optimus-horseid-link:focus-visible{outline:3px solid #77a47b;outline-offset:3px}

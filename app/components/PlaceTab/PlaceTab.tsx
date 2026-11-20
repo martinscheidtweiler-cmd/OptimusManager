@@ -94,11 +94,12 @@ export default function PlaceTab() {
     <div className="place-tab-shell">
       <div className="place-tab-hero">
         <div>
-          <span className="place-tab-kicker">Facility management</span>
-          <h2 className="place-tab-title">Place</h2>
+          <span className="place-tab-kicker">STAL & WEIDES</span>
+          <h2 className="place-tab-title">Locaties</h2>
           <p className="place-tab-subtitle">
-            Beheer je sites, weides, gebouwen en paarden vanuit één omgeving.
+            Waar staan de paarden? Bekijk de weides, stallen en actuele bezetting.
           </p>
+          <a className="place-quick-link" href="/move">Paarden snel verplaatsen</a>
         </div>
 
         <div className="place-tab-hero-stats">
@@ -143,14 +144,14 @@ export default function PlaceTab() {
                       site.status === 'active' ? 'active' : 'setup'
                     }`}
                   >
-                    {site.status === 'active' ? 'live' : 'setup'}
+                    {site.status === 'active' ? 'Beschikbaar' : 'Later'}
                   </span>
                 </div>
 
                 <p>{site.subtitle}</p>
 
                 <div className="place-tab-site-drop-note">
-                  Sleep paarden hierheen
+                  Sleep hierheen of gebruik Snel verplaatsen
                 </div>
               </button>
             ))}

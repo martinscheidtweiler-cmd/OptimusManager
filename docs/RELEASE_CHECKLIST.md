@@ -17,6 +17,7 @@ This branch is a **staging candidate**, not a confirmed production release. Do n
 3. `202611200003_manager_care_rls.sql` — admin-only clinical data access
 4. `202611200004_harden_legacy_location_access.sql` — remove unsafe public writes and replace legacy move RPC
 5. `202611200005_medication_stock_movements.sql` — transactional stock ledger and read-only history
+6. `202611200006_harden_legacy_medical_records.sql` — secure existing vet, deworming, vaccination and medicine tables; switch medicine views to security invoker
 
 The old live Supabase installation has permissive location RLS policies and an `anon`-executable `move_horse_v2` SECURITY DEFINER function. It MUST be remediated in a planned, tested migration. Never use this API unprotected in production.
 
@@ -31,7 +32,9 @@ The old live Supabase installation has permissive location RLS policies and an `
 - Cross-site movement creates one **unsent** outbox row per moved horse; same-site moves do not
 - Site changes do NOT imply official HorseID-establishment changes; verify establishment IDs and chip numbers manually
 - A failed stock adjustment rolls back both stock and history; negatives never leave a negative balance
-- Run RLS/security advisors and inspect foreign keys, ownership and production dependencies before migration 0004
+- Run RLS/security advisors and inspect foreign keys, ownership and production dependencies before migrations 0004 and 0006
+- Verify legacy vet medicine register, vaccination, deworming, farrier and X-ray screens after 0006: administrator works, staff/anon cannot read clinical data
+- Audit the remaining unrelated `riding_sessions` RLS issue separately; training screens are intentionally deferred
 - Do not delete/rename existing horse data, polygons, photos or movement history
 
 ## Frontend CI

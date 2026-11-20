@@ -15,7 +15,7 @@ do $$
 declare t text;
 begin
  foreach t in array array[
-  'optimus_care_events','optimus_medication_stock','optimus_medication_movements',
+  'optimus_care_events','optimus_medicine_thresholds',
   'optimus_vet_cases','optimus_horseid_outbox'
  ] loop
   execute format('create policy %I on public.%I for select to authenticated using ((select public.optimus_is_manager_admin()))',t||'_admin_select',t);
@@ -23,5 +23,5 @@ begin
   execute format('create policy %I on public.%I for update to authenticated using ((select public.optimus_is_manager_admin())) with check ((select public.optimus_is_manager_admin()))',t||'_admin_update',t);
  end loop;
 end $$;
-grant select,insert,update on public.optimus_care_events,public.optimus_medication_stock,public.optimus_medication_movements,public.optimus_vet_cases,public.optimus_horseid_outbox to authenticated;
+grant select,insert,update on public.optimus_care_events,public.optimus_medicine_thresholds,public.optimus_vet_cases,public.optimus_horseid_outbox to authenticated;
 -- No DELETE policy. No automatic email sending.

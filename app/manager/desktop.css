@@ -20,4 +20,21 @@
 .td-container{max-width:1600px;margin:auto;padding:30px 36px 80px}
 .td-container h1,.td-container h2,.td-container h3{font-family:Manrope,sans-serif}
 .td-loading{min-height:100vh;display:grid;place-items:center;background:#f7f8f5;font:14px 'DM Sans',sans-serif}
-@media(max-width:720px){.td-app{display:none}.td-loading{display:none}}
+/* Mobile-first access to the existing manager modules. */
+.td-mobile-nav{display:none}
+@media(max-width:900px){
+ .td-app{display:block;min-height:100dvh;background:#f7f7f3}
+ .td-sidebar{display:none}
+ .td-shell{width:100%;min-width:0}
+ .td-topbar{height:58px;padding:0 16px;font-weight:700;color:#222a23}
+ .td-user>span{display:none}
+ .td-container{padding:16px 12px 100px;max-width:100%;overflow-x:auto}
+ .td-container button,.td-container select{min-height:42px}
+ .td-mobile-nav{position:fixed;display:flex;bottom:0;left:0;right:0;z-index:100;background:#fff;border-top:1px solid #e1e4de;padding:7px 6px max(7px,env(safe-area-inset-bottom));gap:3px;justify-content:space-around;box-shadow:0 -8px 28px #1b201c10}
+ .td-mobile-nav button{flex:1;min-width:0;border:0;border-radius:12px;background:transparent;color:#6c756c;display:flex;align-items:center;flex-direction:column;gap:4px;padding:8px 2px;cursor:pointer;font:inherit}
+ .td-mobile-nav button.active{background:#e8ece5;color:#203b2c;font-weight:700}
+ .td-mobile-nav button span{font-size:19px;line-height:1}
+ .td-mobile-nav button small{font-size:10px;white-space:nowrap}
+}
+@media(min-width:901px){.td-container{padding:24px 28px 80px}.td-sidebar{background:#17271f}.td-nav button.active{background:#dbe8d8;color:#17271f}}
+

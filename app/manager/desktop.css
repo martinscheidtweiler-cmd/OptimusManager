@@ -38,3 +38,6 @@
  .td-mobile-nav button span{font-size:21px;line-height:1}.td-mobile-nav button small{font-size:10px;white-space:nowrap}
 }
 @media(prefers-reduced-motion:reduce){.td-app *{scroll-behavior:auto!important;transition:none!important}}
+
+/* Six modules: keep bottom navigation accessible on narrow phones. */
+@media(max-width:600px){.td-mobile-nav{overflow-x:auto;justify-content:flex-start;scrollbar-width:thin}.td-mobile-nav button{flex:0 0 74px}.td-mobile-nav button small{font-size:9px}.td-container{padding-bottom:calc(120px + env(safe-area-inset-bottom))}}

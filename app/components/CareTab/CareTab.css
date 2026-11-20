@@ -10,3 +10,6 @@
 .care-case-actions{display:flex;gap:8px;margin-top:14px}
 .care-card .care-case-actions button{flex:1;width:auto;background:#ecf3e9;border:1px solid #d7e5d4;color:#264b33;padding:9px;min-height:40px}
 .care-card .care-case-actions button:last-child{background:#24442e;color:#fff;border-color:#24442e}
+
+.care-legacy-note{padding:13px 16px;border:1px solid #dce5db;border-radius:13px;background:#f3f7f1;color:#486550;font-size:13px;line-height:1.55;margin:0 0 20px}
+.care-legacy-note a{color:#255337;font-weight:800;text-decoration:underline;text-underline-offset:3px}

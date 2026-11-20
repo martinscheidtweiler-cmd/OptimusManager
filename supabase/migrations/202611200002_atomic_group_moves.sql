@@ -42,9 +42,11 @@ begin
    raise exception 'Active stable staff account required';
  end if;
  if p_request_id is null or p_destination_unit is null or
-    p_horse_ids is null or pg_catalog.cardinality(p_horse_ids) between 1 and 200 is not true or
+    coalesce(pg_catalog.cardinality(p_horse_ids),0)<1 or
+    coalesce(pg_catalog.cardinality(p_horse_ids),0)>200 or
     pg_catalog.array_position(p_horse_ids,null) is not null or
-    (select count(distinct v) from pg_catalog.unnest(p_horse_ids) v) <> pg_catalog.cardinality(p_horse_ids)
+    (select count(distinct chosen.horse_id) from pg_catalog.unnest(p_horse_ids) as chosen(horse_id))
+      <> pg_catalog.cardinality(p_horse_ids)
  then
   raise exception 'Invalid group move request';
  end if;

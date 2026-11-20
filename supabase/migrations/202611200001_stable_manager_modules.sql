@@ -55,13 +55,18 @@ create table if not exists public.optimus_horseid_outbox (
  horse_id uuid not null references public.horses(id),
  horse_name text not null,
  chip_number text,
- from_establishment text not null,
- to_establishment text not null,
+ from_establishment text,
+ to_establishment text,
+ from_site_id uuid references public.sites(id),
+ to_site_id uuid references public.sites(id),
+ from_site_name text not null,
+ to_site_name text not null,
  movement_at timestamptz not null,
  status text not null default 'draft' check(status in ('draft','approved','sent','cancelled')),
  created_by uuid not null default auth.uid(),
  created_at timestamptz not null default now()
 );
+create index if not exists optimus_horseid_outbox_review on public.optimus_horseid_outbox(status,created_at desc);
 -- Fail-closed: RLS is enabled, but no policies are created until the existing
 -- Optimus roles and user mapping are verified on a staging database.
 -- Do not expose clinical records to every authenticated user.

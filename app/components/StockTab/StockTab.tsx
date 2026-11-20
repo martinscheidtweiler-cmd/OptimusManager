@@ -9,7 +9,7 @@ type Batch={id:string;medicine_id:string;medicine_name:string;lot_number:string|
 type Entry={id:string;entry_type:'issuance'|'usage';medicine_name:string;entry_date:string;quantity:number;lot_number:string|null;notes:string|null}
 type Threshold={medicine_id:string;minimum_quantity:number}
 type Horse={id:string;name:string}
-const today=()=>new Date().toLocaleDateString('en-CA')
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 export default function StockTab(){
  const [medicines,setMedicines]=useState<Medicine[]>([])
  const [stock,setStock]=useState<Stock[]>([])

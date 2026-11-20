@@ -10,10 +10,11 @@ import PlaceTab from '@/app/components/PlaceTab/PlaceTab'
 import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
 import CareTab from '@/app/components/CareTab/CareTab'
 import StockTab from '@/app/components/StockTab/StockTab'
+import HorseIdTab from '@/app/components/HorseIdTab/HorseIdTab'
 
 import './desktop.css'
 
-type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Care'|'Stock'
+type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Care'|'Stock'|'HorseID'
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
  {key:'Today',label:'Vandaag',symbol:'◫'},
@@ -23,6 +24,7 @@ const modules:NavItem[]=[
  {key:'Farrier',label:'Hoefsmid',symbol:'∷'},
  {key:'Care',label:'Zorg & fokkerij',symbol:'✦'},
  {key:'Stock',label:'Medicatie',symbol:'▤'},
+ {key:'HorseID',label:'HorseID',symbol:'✉'},
 ]
 const validModules=new Set<Module>(modules.map(m=>m.key))
 
@@ -79,6 +81,7 @@ export default function ManagerModules(){
    case 'Farrier':return <FarrierTab key={farrierKey}/>
    case 'Care':return <CareTab/>
    case 'Stock':return <StockTab/>
+   case 'HorseID':return <HorseIdTab/>
   }
  }
  if(!ready)return <main className="td-loading">Optimus wordt geladen…</main>

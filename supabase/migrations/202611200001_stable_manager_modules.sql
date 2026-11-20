@@ -62,20 +62,12 @@ create table if not exists public.optimus_horseid_outbox (
  created_by uuid not null default auth.uid(),
  created_at timestamptz not null default now()
 );
--- Existing user roles must be checked before granting write access.
--- Until that audit is complete, these tables are readable only by authenticated users,
--- and writes require an admin profile via the existing Optimus profile RPC.
-create or replace function public.optimus_is_manager() returns boolean language sql stable security definer set search_path=public as $$
- select exists(select 1 from public.optimus_task_my_profile() p where p.role='admin' and p.active=true)
-$$;
-revoke all on function public.optimus_is_manager() from public;
-grant execute on function public.optimus_is_manager() to authenticated;
+-- Fail-closed: RLS is enabled, but no policies are created until the existing
+-- Optimus roles and user mapping are verified on a staging database.
+-- Do not expose clinical records to every authenticated user.
 do $$ declare t text; begin
  foreach t in array array['optimus_care_events','optimus_medication_stock','optimus_medication_movements','optimus_vet_cases','optimus_horseid_outbox'] loop
   execute format('alter table public.%I enable row level security',t);
-  execute format('create policy manager_read on public.%I for select to authenticated using (public.optimus_is_manager())',t);
-  execute format('create policy manager_insert on public.%I for insert to authenticated with check (public.optimus_is_manager())',t);
-  execute format('create policy manager_update on public.%I for update to authenticated using (public.optimus_is_manager()) with check (public.optimus_is_manager())',t);
  end loop;
 end $$;
 -- No automatic email sending or direct HorseID mutation.

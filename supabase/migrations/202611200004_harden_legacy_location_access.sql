@@ -98,6 +98,40 @@ revoke all on function public.move_horse_v2(uuid,uuid,uuid,uuid,text,text,timest
 grant execute on function public.move_horse_v2(uuid,uuid,uuid,uuid,text,text,timestamptz)
  to authenticated;
 
+-- Preserve the old bulk-RPC signature but execute one atomic group transaction.
+-- Otherwise the legacy loop would circumvent group-level idempotency and batching.
+create or replace function public.bulk_move_horses_v2(
+ p_horse_ids uuid[],
+ p_site_id uuid,
+ p_area_id uuid default null,
+ p_unit_id uuid default null,
+ p_moved_by text default null,
+ p_move_note text default null,
+ p_assigned_at timestamptz default now()
+) returns void
+language plpgsql security invoker set search_path=''
+as $
+declare v_site uuid; v_area uuid;
+begin
+ if p_unit_id is null then
+  raise exception 'Choose a destination weide/stal before moving a group';
+ end if;
+ select site_id,area_id into strict v_site,v_area
+   from public.place_units where id=p_unit_id and active is true;
+ if p_site_id is distinct from v_site or
+    (p_area_id is not null and p_area_id is distinct from v_area) then
+  raise exception 'Destination site/area mismatch';
+ end if;
+ perform public.optimus_move_group(
+  p_horse_ids,p_unit_id,pg_catalog.gen_random_uuid()
+ );
+end
+$;
+revoke all on function public.bulk_move_horses_v2(uuid[],uuid,uuid,uuid,text,text,timestamptz)
+ from public,anon,authenticated;
+grant execute on function public.bulk_move_horses_v2(uuid[],uuid,uuid,uuid,text,text,timestamptz)
+ to authenticated;
+
 -- Tests required before production: anonymous writes/legacy RPC rejected,
 -- active member can use optimus_move_group, direct writes limited to admin,
 -- admin maps/blocks/group editing still works, old unauthenticated clients

@@ -46,7 +46,7 @@ begin
  end if;
  if p_action='use' and v_batch.horse_scope='selected' and
     pg_catalog.cardinality(v_batch.horse_ids)>0 and
-    not (p_horse_id=any(v_batch.horse_ids)) then
+    (p_horse_id is null or not (p_horse_id=any(v_batch.horse_ids))) then
   raise exception 'Selected medicine batch is not allocated to this horse';
  end if;
  if p_horse_id is not null then

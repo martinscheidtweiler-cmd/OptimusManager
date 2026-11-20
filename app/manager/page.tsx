@@ -8,10 +8,11 @@ import HorsesTab from '@/app/components/HorsesTab/HorsesTab'
 import VetTab from '@/app/components/VetTab/VetTab'
 import PlaceTab from '@/app/components/PlaceTab/PlaceTab'
 import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
+import CareTab from '@/app/components/CareTab/CareTab'
 
 import './desktop.css'
 
-type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'
+type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Care'
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
  {key:'Today',label:'Vandaag',symbol:'◫'},
@@ -19,6 +20,7 @@ const modules:NavItem[]=[
  {key:'Vet',label:'Dierenarts',symbol:'✚'},
  {key:'Place',label:'Locaties',symbol:'⌖'},
  {key:'Farrier',label:'Hoefsmid',symbol:'∷'},
+ {key:'Care',label:'Zorg & fokkerij',symbol:'✦'},
 ]
 const validModules=new Set<Module>(modules.map(m=>m.key))
 
@@ -71,6 +73,7 @@ export default function ManagerModules(){
    case 'Vet':return <VetTab key={vetKey}/>
    case 'Place':return <PlaceTab/>
    case 'Farrier':return <FarrierTab key={farrierKey}/>
+   case 'Care':return <CareTab/>
   }
  }
  if(!ready)return <main className="td-loading">Optimus wordt geladen…</main>

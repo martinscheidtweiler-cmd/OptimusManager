@@ -48,7 +48,7 @@ create table if not exists public.optimus_horseid_outbox (
  from_site_name text not null,
  to_site_name text not null,
  movement_at timestamptz not null,
- status text not null default 'draft' check(status in ('draft','approved','sent','cancelled')),
+ status text not null default 'draft' check(status in ('draft','reviewed','cancelled')),
  created_by uuid not null default auth.uid(),
  created_at timestamptz not null default now()
 );

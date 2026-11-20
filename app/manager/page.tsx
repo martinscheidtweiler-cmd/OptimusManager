@@ -3,6 +3,7 @@
 import {useEffect,useState} from 'react'
 import {supabase} from '@/app/lib/supabaseClient'
 
+import TodayTab from '@/app/components/TodayTab/TodayTab'
 import HorsesTab from '@/app/components/HorsesTab/HorsesTab'
 import PlanningTab from '@/app/components/PlanningTab/PlanningTab'
 import VetTab from '@/app/components/VetTab/VetTab'
@@ -12,9 +13,10 @@ import OperationsTab from '@/app/components/OperationsTab/OperationsTab'
 
 import './desktop.css'
 
-type Module = 'Horses'|'Planning'|'Vet'|'Place'|'Farrier'|'Operations'
+type Module = 'Today'|'Horses'|'Planning'|'Vet'|'Place'|'Farrier'|'Operations'
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
+ {key:'Today',label:'Vandaag',symbol:'◫'},
  {key:'Horses',label:'Paarden',symbol:'♞'},
  {key:'Vet',label:'Dierenarts',symbol:'✚'},
  {key:'Place',label:'Locaties',symbol:'⌖'},
@@ -29,7 +31,7 @@ function initialModule():Module{
 }
 
 export default function ManagerModules(){
- const [active,setActive]=useState<Module>('Place')
+ const [active,setActive]=useState<Module>('Today')
  const [name,setName]=useState('')
  const [ready,setReady]=useState(false)
  const [vetKey,setVetKey]=useState(0)
@@ -65,6 +67,7 @@ export default function ManagerModules(){
 
  function renderModule(){
   switch(active){
+   case 'Today':return <TodayTab/>
    case 'Horses':return <HorsesTab/>
    case 'Planning':return <PlanningTab/>
    case 'Vet':return <VetTab key={vetKey}/>

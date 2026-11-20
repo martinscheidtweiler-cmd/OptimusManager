@@ -58,7 +58,7 @@ export default function MoveHorses(){
  const destinationUnit=units.find(u=>u.id===destination)
  const sourceUnit=units.find(u=>u.id===source)
  const crossSite=Boolean(sourceUnit&&destinationUnit&&sourceUnit.site_id!==destinationUnit.site_id)
- function selectSource(value:string){setSource(value);setExcluded([]);setMessage('');setError('')}
+ function selectSource(value:string){setSource(value);setDestination('');setExcluded([]);setMessage('');setError('')}
  function toggleExclude(id:string){setExcluded(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])}
  async function submit(){
   if(busy||!sourceUnit||!destinationUnit||source===destination||!selected.length)return

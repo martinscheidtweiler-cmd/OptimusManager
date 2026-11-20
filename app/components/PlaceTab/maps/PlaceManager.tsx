@@ -478,51 +478,16 @@ export default function PlaceManager({
       .filter(Boolean)
   }
 
-  async function moveHorseIdsToUnit(horseIds: string[], unit: UnitRow) {
-    const { data: userResult, error: userError } = await supabase.auth.getUser()
-    if (userError || !userResult.user) throw new Error('Log opnieuw in voordat je paarden verplaatst.')
-    const { data: profile, error: profileError } = await supabase.rpc('optimus_task_my_profile')
-    if (profileError || !profile?.active || profile.role !== 'admin') {
-      throw new Error('Je hebt geen toegang om paarden te verplaatsen.')
-    }
-    const { data: currentRows, error: currentError } = await supabase
-      .from('horse_current_places_v2')
-      .select('horse_id,site_id,unit_id')
-      .in('horse_id', [...new Set(horseIds)])
-    if (currentError) throw currentError
-    const byId = new Map((currentRows ?? []).map((p) => [p.horse_id, p]))
-    if (horseIds.some((id) => !byId.has(id))) throw new Error('Niet alle paarden hebben een actuele locatie.')
-    const movingIds = [...new Set(horseIds)].filter((id) => byId.get(id)?.unit_id !== unit.id)
-    if (!movingIds.length) throw new Error('De geselecteerde paarden staan al op deze plaats.')
-    const { data: activeBlocks, error: blockError } = await supabase
-      .from('place_current_blocks_v2')
-      .select('unit_id,ends_at,active')
-      .eq('unit_id', unit.id)
-      .eq('active', true)
-    if (blockError) throw blockError
-    if ((activeBlocks ?? []).some((block) => new Date(block.ends_at).getTime() > Date.now())) {
-      throw new Error(`${unit.name} is tijdelijk afgesloten.`)
-    }
-    const movedBy = String(profile.name || userResult.user.email || userResult.user.id)
-    const moved: string[] = []
-    for (const horseId of movingIds) {
-      const { error: moveError } = await supabase.rpc('move_horse_v2', {
-        p_horse_id: horseId,
-        p_site_id: unit.site_id,
-        p_area_id: unit.area_id,
-        p_unit_id: unit.id,
-        p_moved_by: movedBy,
-        p_move_note: `Verplaatst naar ${unit.name} via Place manager`,
-        p_assigned_at: new Date().toISOString(),
-      })
-      if (moveError) throw new Error(`${moved.length} van ${movingIds.length} paarden verplaatst. ${moveError.message}`)
-      moved.push(horseId)
-      try {
-        await syncHorseRowLocation(horseId, unit)
-      } catch (syncError) {
-        throw new Error(`${moved.length} paarden verplaatst, maar synchronisatie met paardenfiche mislukt: ${syncError instanceof Error ? syncError.message : 'onbekend'}`)
-      }
-    }
+  async function moveHorseIdsToUnit(horseIds: string[], unit: UnitRow): Promise<number> {
+    const ids = [...new Set(horseIds)]
+    if (!ids.length) throw new Error('Selecteer minstens één paard.')
+    const { data, error: moveError } = await supabase.rpc('optimus_move_group', {
+      p_horse_ids: ids,
+      p_destination_unit: unit.id,
+      p_request_id: crypto.randomUUID(),
+    })
+    if (moveError) throw new Error('Groepsverplaatsing niet uitgevoerd: ' + moveError.message)
+    return Number(data ?? 0)
   }
 
   async function confirmQuickMove() {
@@ -540,7 +505,7 @@ export default function PlaceManager({
       setBulkBusy(true)
       setError(null)
       setMoveResult('')
-      await moveHorseIdsToUnit(selected, unit)
+      const movedCount = await moveHorseIdsToUnit(selected, unit)
       setSelectedHorseIds([])
       setQuickMoveConfirm(false)
       setQuickMoveUnitId('')
@@ -549,10 +514,10 @@ export default function PlaceManager({
       const summary = origins.filter((origin) => origin?.site_id !== unit.site_id).map((origin) =>
         `${origin?.horse_name ?? 'Onbekend paard'} | van ${origin?.site_name ?? 'Onbekend'} naar ${destinationName} / ${unit.name}`
       )
-      setHorseIdDraft(summary.length ? `CONCEPT — NIET VERZONDEN\\nAan: veronique@dsf.be\\nOnderwerp: Te controleren verplaatsingen ${new Date().toLocaleDateString('nl-BE')}\\n\\nControleer of deze verplaatsingen tussen verschillende geregistreerde HorseID-inrichtingen vallen. De huidige app kent de officiële inrichtingsnummers en chipnummers nog niet; vul deze in na verificatie.\\n\\n${summary.join('\\n')}\\n\\nHorseID: https://www.horseid.be` : '')
-      setMoveResult(`${selected.length} paard(en) verplaatst naar ${unit.name}.${crossSite ? ' Controleer het HorseID-concept hieronder. Er is geen mail verzonden.' : ''}`)
+      setHorseIdDraft(summary.length ? `CONCEPT — NIET VERZONDEN\nAan: veronique@dsf.be\nOnderwerp: Te controleren verplaatsingen ${new Date().toLocaleDateString('nl-BE')}\n\nControleer of deze verplaatsingen tussen verschillende geregistreerde HorseID-inrichtingen vallen. De huidige app kent de officiële inrichtingsnummers en chipnummers nog niet; vul deze in na verificatie.\n\n${summary.join('\n')}\n\nHorseID: https://www.horseid.be` : '')
+      setMoveResult(`${movedCount} paard(en) verplaatst naar ${unit.name}.${crossSite ? ' Controleer het HorseID-concept hieronder. Er is geen mail verzonden.' : ''}`)
     } catch (err) {
-      setError(err instanceof Error ? err.message + ' Controleer welke paarden al verplaatst zijn.' : 'Verplaatsing mislukt')
+      setError(err instanceof Error ? err.message : 'Verplaatsing mislukt')
       setQuickMoveConfirm(false)
       await loadData()
     } finally {

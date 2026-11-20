@@ -29,7 +29,7 @@ const validModules=new Set<Module>(modules.map(m=>m.key))
 function initialModule():Module{
  if(typeof window==='undefined')return 'Today'
  const value=new URLSearchParams(window.location.search).get('tab') as Module|null
- return value&&validModules.has(value)?value:'Place'
+ return value&&validModules.has(value)?value:'Today'
 }
 
 export default function ManagerModules(){
@@ -43,11 +43,13 @@ export default function ManagerModules(){
  useEffect(()=>{
   let live=true
   const verify=async()=>{
-   const session=(await supabase.auth.getSession()).data.session
-   if(!session){setAuthError('Log in om Optimus Manager te gebruiken.');setReady(true);return}
+   const {data:{user},error:userError}=await supabase.auth.getUser()
+   if(userError||!user){setAuthError('Log in om Optimus Manager te gebruiken.');setReady(true);return}
    const {data:profile,error}=await supabase.rpc('optimus_task_my_profile')
    if(!live)return
-   if(error||!profile||profile.role!=='admin'||!profile.active){setAuthError('Geen toegang. Een actief beheerdersaccount is vereist.');setReady(true);return}
+   if(error||!profile||!profile.active){setAuthError('Geen toegang. Een actief Optimus-account is vereist.');setReady(true);return}
+   if(['member','planner'].includes(profile.role)){window.location.replace('/move');return}
+   if(profile.role!=='admin'){setAuthError('Geen toegang tot beheer.');setReady(true);return}
    setName(String(profile.name||'Beheerder'))
    setActive(initialModule())
    setReady(true)
@@ -80,7 +82,7 @@ export default function ManagerModules(){
   }
  }
  if(!ready)return <main className="td-loading">Optimus wordt geladen…</main>
- if(authError)return <main className="td-auth"><div><div className="td-auth-logo">O</div><h1>Optimus Manager</h1><p>{authError}</p><a href="/tasks/index.html">Aanmelden via bestaande toegang</a></div></main>
+ if(authError)return <main className="td-auth"><div><div className="td-auth-logo">O</div><h1>Optimus Manager</h1><p>{authError}</p><a href="/login">Aanmelden</a></div></main>
 
  return <div className="td-app">
    <aside className="td-sidebar">
@@ -91,7 +93,7 @@ export default function ManagerModules(){
      <div className="td-sidefoot"><strong>{name}</strong><small>Beheerder</small><button className="td-logout" type="button" onClick={()=>void signOut()}>Uitloggen</button></div>
    </aside>
    <div className="td-shell">
-     <header className="td-topbar"><div className="td-topbar-title"><span className="td-topbar-eyebrow">STAL OPTIMUS / BEHEER</span><strong>{activeLabel}</strong></div><div className="td-user"><span>{name}</span><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div></div></header>
+     <header className="td-topbar"><div className="td-topbar-title"><span className="td-topbar-eyebrow">STAL OPTIMUS / BEHEER</span><strong>{activeLabel}</strong></div><div className="td-user"><a className="td-quick-action" href="/move">Paarden verplaatsen</a><span>{name}</span><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div></div></header>
      <nav className="td-mobile-nav" aria-label="Mobiele navigatie">{modules.map(m=><button key={m.key} type="button" className={active===m.key?'active':''} onClick={()=>selectTab(m.key)}><span>{m.symbol}</span><small>{m.label}</small></button>)}</nav>
      <main className="td-container">{renderModule()}</main>
    </div>

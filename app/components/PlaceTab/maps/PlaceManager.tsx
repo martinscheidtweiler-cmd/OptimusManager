@@ -170,6 +170,9 @@ export default function PlaceManager({
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null)
 
   const [selectedHorseIds, setSelectedHorseIds] = useState<string[]>([])
+  const [quickMoveUnitId, setQuickMoveUnitId] = useState('')
+  const [quickMoveConfirm, setQuickMoveConfirm] = useState(false)
+  const [moveResult, setMoveResult] = useState('')
   const [draggingHorseIds, setDraggingHorseIds] = useState<string[]>([])
 
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -295,24 +298,6 @@ export default function PlaceManager({
     }
   }, [siteSlug])
 
-  async function syncHorseRowLocation(horseId: string, unit: UnitRow) {
-    const destinationSite = allSites.find((s) => s.id === unit.site_id) ?? null
-    const siteName = destinationSite?.name ?? siteLabel
-    const isStable = unit.unit_type === 'stable'
-    const unitName = unit.name?.trim() || ''
-
-    const { error: updateHorseError } = await supabase
-      .from('horses')
-      .update({
-        stable_location: siteName,
-        box_number: isStable ? unitName.replace(/^stable\s*/i, '').trim() || unitName : null,
-        pasture_name: !isStable ? unitName : null,
-      })
-      .eq('id', horseId)
-
-    if (updateHorseError) throw updateHorseError
-  }
-
   const zonesWithData = useMemo(() => {
     const sourceZones = hasMap && currentMap ? currentMap.zones : null
 
@@ -406,6 +391,10 @@ export default function PlaceManager({
     return horsePlaces.filter((item) => item.site_id === site.id && !item.unit_id)
   }, [horsePlaces, site])
 
+  const quickMoveTarget = allUnits.find((u) => u.id === quickMoveUnitId)
+  const quickMoveOrigins = selectedHorseIds.map((id) => horsePlaces.find((p) => p.horse_id === id))
+  const quickMoveCrossSite = !!quickMoveTarget && quickMoveOrigins.some((p) => p && p.site_id !== quickMoveTarget.site_id)
+
   const pendingDropTargetSite = useMemo(() => {
     if (!pendingSiteDrop) return null
     return allSites.find((s) => s.slug === pendingSiteDrop.targetSiteSlug) ?? null
@@ -470,30 +459,45 @@ export default function PlaceManager({
       .filter(Boolean)
   }
 
-  async function moveHorseIdsToUnit(horseIds: string[], unit: UnitRow) {
-    const activeBlock =
-      blocks.find(
-        (block) =>
-          block.unit_id === unit.id &&
-          block.active === true &&
-          new Date(block.ends_at).getTime() > Date.now()
-      ) ?? null
+  async function moveHorseIdsToUnit(horseIds: string[], unit: UnitRow): Promise<number> {
+    const ids = [...new Set(horseIds)]
+    if (!ids.length) throw new Error('Selecteer minstens één paard.')
+    const { data, error: moveError } = await supabase.rpc('optimus_move_group', {
+      p_horse_ids: ids,
+      p_destination_unit: unit.id,
+      p_request_id: crypto.randomUUID(),
+    })
+    if (moveError) throw new Error('Groepsverplaatsing niet uitgevoerd: ' + moveError.message)
+    return Number(data ?? 0)
+  }
 
-    if (activeBlock) throw new Error(`${unit.name} is tijdelijk afgesloten.`)
-
-    for (const horseId of horseIds) {
-      const { error: moveError } = await supabase.rpc('move_horse_v2', {
-        p_horse_id: horseId,
-        p_site_id: unit.site_id,
-        p_area_id: unit.area_id,
-        p_unit_id: unit.id,
-        p_moved_by: 'Martin',
-        p_move_note: `Verplaatst naar ${unit.name} via Place manager`,
-        p_assigned_at: new Date().toISOString(),
-      })
-
-      if (moveError) throw moveError
-      await syncHorseRowLocation(horseId, unit)
+  async function confirmQuickMove() {
+    const unit = allUnits.find((item) => item.id === quickMoveUnitId)
+    if (!unit || !selectedHorseIds.length || bulkBusy) return
+    const selected = [...new Set(selectedHorseIds)]
+    const origins = selected.map((id) => horsePlaces.find((p) => p.horse_id === id))
+    if (origins.some((p) => !p)) {
+      setError('Een geselecteerd paard heeft geen actuele locatie. Vernieuw eerst de gegevens.')
+      setQuickMoveConfirm(false)
+      return
+    }
+    const crossSite = origins.some((p) => p?.site_id !== unit.site_id)
+    try {
+      setBulkBusy(true)
+      setError(null)
+      setMoveResult('')
+      const movedCount = await moveHorseIdsToUnit(selected, unit)
+      setSelectedHorseIds([])
+      setQuickMoveConfirm(false)
+      setQuickMoveUnitId('')
+      await loadData()
+      setMoveResult(`${movedCount} paard(en) verplaatst naar ${unit.name}.${crossSite ? ' De HorseID-concepten staan onder HorseID. Er is geen mail verzonden.' : ''}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Verplaatsing mislukt')
+      setQuickMoveConfirm(false)
+      await loadData()
+    } finally {
+      setBulkBusy(false)
     }
   }
 
@@ -857,6 +861,21 @@ export default function PlaceManager({
           </div>
 
           <aside className="vremde-sidebar">
+            <section className="optimus-quick-move" aria-label="Paarden snel verplaatsen">
+              <div className="optimus-quick-move-head"><strong>Snel verplaatsen</strong><span>{selectedHorseIds.length} geselecteerd</span></div>
+              <p>Selecteer paarden in de lijst en kies hun nieuwe plaats. Werkt ook zonder slepen op je telefoon.</p>
+              <button type="button" className="optimus-select-all" onClick={() => setSelectedHorseIds(horsesInSelectedZone.map((h) => h.horse_id))} disabled={!horsesInSelectedZone.length || bulkBusy}>Selecteer alle paarden van deze plaats</button>
+              <label htmlFor="optimus-quick-destination">Bestemming</label>
+              <select id="optimus-quick-destination" value={quickMoveUnitId} onChange={(e) => {setQuickMoveUnitId(e.target.value);setQuickMoveConfirm(false)}} disabled={bulkBusy}>
+                <option value="">Kies locatie en weide / stal</option>
+                {allSites.map((s) => <optgroup key={s.id} label={s.name}>
+                  {allUnits.filter((u) => u.site_id === s.id).map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </optgroup>)}
+              </select>
+              <button type="button" className="optimus-move-button" disabled={!selectedHorseIds.length || !quickMoveUnitId || bulkBusy} onClick={() => setQuickMoveConfirm(true)}>Verplaats {selectedHorseIds.length || ''} paard(en)</button>
+              {moveResult ? <p role="status" className="optimus-move-result">{moveResult}</p> : null}
+              {moveResult.includes('HorseID') ? <a className="optimus-horseid-link" href="/manager?tab=HorseID">Open HorseID-controles</a> : null}
+            </section>
             <div className="vremde-panel">
               <h3>Geselecteerde plaats</h3>
 
@@ -1093,6 +1112,17 @@ export default function PlaceManager({
         </div>
       </div>
 
+      {quickMoveConfirm && quickMoveTarget ? (
+        <div className="place-modal-backdrop" onClick={() => !bulkBusy && setQuickMoveConfirm(false)}>
+          <div className="place-modal-card" role="dialog" aria-modal="true" aria-labelledby="optimus-move-title" onClick={(e) => e.stopPropagation()}>
+            <h3 id="optimus-move-title">Verplaatsing bevestigen</h3>
+            <p>{selectedHorseIds.length} paard(en) naar <strong>{allSites.find((s) => s.id === quickMoveTarget.site_id)?.name} / {quickMoveTarget.name}</strong>.</p>
+            <ul>{selectedHorseIds.map((id) => <li key={id}>{horsePlaces.find((p) => p.horse_id === id)?.horse_name ?? id}</li>)}</ul>
+            {quickMoveCrossSite ? <p className="optimus-move-warning">Andere site: controleer de geregistreerde HorseID-inrichtingen. Deze actie verstuurt geen melding.</p> : null}
+            <div className="optimus-move-actions"><button type="button" disabled={bulkBusy} onClick={() => setQuickMoveConfirm(false)}>Annuleren</button><button type="button" disabled={bulkBusy} onClick={() => void confirmQuickMove()}>{bulkBusy ? 'Verplaatsen…' : 'Bevestigen'}</button></div>
+          </div>
+        </div>
+      ) : null}
       {pendingSiteDrop && pendingDropTargetSite ? (
         <div className="place-modal-backdrop" onClick={onClearPendingSiteDrop}>
           <div className="place-modal-card" onClick={(e) => e.stopPropagation()}>

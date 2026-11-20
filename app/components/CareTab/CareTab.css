@@ -1,0 +1,15 @@
+.care-page{color:#203629}.care-head{margin-bottom:25px}.care-head>span{font-size:11px;letter-spacing:.16em;font-weight:800;color:#7b947c}.care-head h1{font-size:clamp(27px,3vw,38px);letter-spacing:-.05em;margin:9px 0}.care-head p{color:#78877a}.care-layout{display:grid;grid-template-columns:minmax(280px,420px) minmax(300px,1fr);gap:22px;align-items:start}.care-card{background:#fff;border:1px solid #e0e8df;border-radius:20px;padding:24px;box-shadow:0 5px 20px #1d392309}.care-card h2{margin:0 0 20px;font-size:18px}.care-card label{display:flex;flex-direction:column;gap:7px;margin-bottom:14px;font-size:12px;font-weight:700;color:#526857}.care-card input,.care-card select,.care-card textarea{border:1px solid #d6e1d5;border-radius:11px;padding:12px;background:#fff;color:#233b2a;min-height:44px;font:14px 'DM Sans',sans-serif;width:100%}.care-card textarea{resize:vertical}.care-card button{background:#24442e;color:#fff;border:0;border-radius:12px;padding:13px 20px;min-height:46px;font-weight:800;cursor:pointer;width:100%}.care-card button:disabled{opacity:.5}.care-alert,.care-success{padding:14px 16px;border-radius:12px}.care-alert{background:#fff0e9;color:#a43e24}.care-success{background:#e5f3e5;color:#2c6739}.care-events{display:grid;gap:11px}.care-events article{padding:15px 16px;border:1px solid #e8eee6;border-radius:13px}.care-events article>div{display:flex;justify-content:space-between;gap:12px}.care-events article span,.care-events article small{color:#819081;font-size:12px}.care-events article p{margin:8px 0;color:#425748}.care-events article small{display:block;margin-top:6px}@media(max-width:900px){.care-layout{grid-template-columns:1fr}.care-card{padding:18px}.care-head{margin-bottom:18px}}
+.care-cases{margin-top:42px}
+.care-cases-head{margin-bottom:20px}
+.care-cases-head span{font-size:11px;letter-spacing:.16em;font-weight:800;color:#789479}
+.care-cases-head h2{font-size:27px;letter-spacing:-.04em;margin:8px 0}
+.care-cases-head p{font-size:13px;color:#728576}
+.care-case-filter{display:flex;gap:14px;justify-content:space-between;align-items:center;margin-bottom:17px}
+.care-case-filter h2{margin:0}
+.care-case-filter select{width:auto;min-width:125px}
+.care-case-actions{display:flex;gap:8px;margin-top:14px}
+.care-card .care-case-actions button{flex:1;width:auto;background:#ecf3e9;border:1px solid #d7e5d4;color:#264b33;padding:9px;min-height:40px}
+.care-card .care-case-actions button:last-child{background:#24442e;color:#fff;border-color:#24442e}
+
+.care-legacy-note{padding:13px 16px;border:1px solid #dce5db;border-radius:13px;background:#f3f7f1;color:#486550;font-size:13px;line-height:1.55;margin:0 0 20px}
+.care-legacy-note a{color:#255337;font-weight:800;text-decoration:underline;text-underline-offset:3px}

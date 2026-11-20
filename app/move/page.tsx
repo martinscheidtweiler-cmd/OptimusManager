@@ -6,7 +6,7 @@ import './move.css'
 
 type Site={id:string;name:string}
 type Unit={id:string;name:string;site_id:string;active:boolean;unit_type:string}
-type CurrentHorse={horse_id:string;horse_name:string;horse_active:boolean|null;site_id:string;unit_id:string|null}
+type CurrentHorse={horse_id:string;horse_name:string;horse_active:boolean|null;site_id:string;unit_id:string|null;site_name:string;unit_name:string|null;assigned_at:string;moved_by:string|null}
 type Profile={name:string;role:string;active:boolean}
 
 export default function MoveHorses(){
@@ -26,7 +26,7 @@ export default function MoveHorses(){
   const [siteResult,unitResult,horseResult]=await Promise.all([
    supabase.from('sites').select('id,name').eq('active',true).order('name'),
    supabase.from('place_units').select('id,name,site_id,active,unit_type').eq('active',true).order('name'),
-   supabase.from('horse_current_places_v2').select('horse_id,horse_name,horse_active,site_id,unit_id'),
+   supabase.from('horse_current_places_v2').select('horse_id,horse_name,horse_active,site_id,unit_id,site_name,unit_name,assigned_at,moved_by'),
   ])
   if(siteResult.error)throw siteResult.error
   if(unitResult.error)throw unitResult.error
@@ -56,6 +56,7 @@ export default function MoveHorses(){
  const current=useMemo(()=>horses.filter(h=>h.unit_id===source),[horses,source])
  const selected=useMemo(()=>current.filter(h=>!excluded.includes(h.horse_id)),[current,excluded])
  const destinationUnit=units.find(u=>u.id===destination)
+ const recent=useMemo(()=>[...horses].sort((a,b)=>b.assigned_at.localeCompare(a.assigned_at)).slice(0,12),[horses])
  const sourceUnit=units.find(u=>u.id===source)
  const crossSite=Boolean(sourceUnit&&destinationUnit&&sourceUnit.site_id!==destinationUnit.site_id)
  function selectSource(value:string){setSource(value);setDestination('');setExcluded([]);setMessage('');setError('')}
@@ -88,7 +89,7 @@ export default function MoveHorses(){
    {message?<p role="status" className="quick-move-success">{message}</p>:null}
    <div className="quick-move-grid">
     <section className="quick-move-card"><div className="quick-move-step">01 <span>VAN</span></div><h2>Huidige plaats</h2><label htmlFor="quick-move-from">Kies weide of stal</label><select id="quick-move-from" value={source} disabled={busy} onChange={e=>selectSource(e.target.value)}><option value="">Selecteer huidige plaats</option>
-    {sites.map(site=><optgroup key={site.id} label={site.name}>{units.filter(u=>u.site_id===site.id).map(u=><option key={u.id} value={u.id}>{u.name}</option>)}</optgroup>)}
+    {sites.map(site=><optgroup key={site.id} label={site.name}>{units.filter(u=>u.site_id===site.id).map(u=><option key={u.id} value={u.id}>{u.name} · {horses.filter(h=>h.unit_id===u.id).length} paarden</option>)}</optgroup>)}
     </select>
     {source?<div className="quick-move-horses"><div className="quick-move-horse-heading"><strong>{selected.length} van {current.length} geselecteerd</strong><button type="button" onClick={()=>setExcluded([])} disabled={busy}>Selecteer alles</button></div>{current.length?current.map(h=><label key={h.horse_id} className="quick-move-horse"><input type="checkbox" checked={!excluded.includes(h.horse_id)} disabled={busy} onChange={()=>toggleExclude(h.horse_id)}/>{h.horse_name}</label>):<p>Geen paarden op deze plaats.</p>}</div>:null}
     </section>
@@ -100,5 +101,8 @@ export default function MoveHorses(){
     <button type="button" className="quick-move-confirm" disabled={busy||!source||!destination||source===destination||!selected.length} onClick={()=>void submit()}>{busy?'Verplaatsen…':`Bevestig verplaatsing (${selected.length})`}</button>
     </section>
    </div>
+   <section className="quick-move-recent"><h2>Laatste geregistreerde plaatsen</h2><p>Actuele locaties met de laatst bekende verplaatsing en verantwoordelijke.</p>
+    <div>{recent.map(h=><article key={h.horse_id}><strong>{h.horse_name}</strong><span>{h.site_name} / {h.unit_name||'Zonder stal of weide'}</span><small>{new Date(h.assigned_at).toLocaleString('nl-BE')} · {h.moved_by||'Niet opgegeven'}</small></article>)}</div>
+   </section>
  </main>
 }

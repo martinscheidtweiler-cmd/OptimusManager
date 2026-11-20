@@ -299,24 +299,6 @@ export default function PlaceManager({
     }
   }, [siteSlug])
 
-  async function syncHorseRowLocation(horseId: string, unit: UnitRow) {
-    const destinationSite = allSites.find((s) => s.id === unit.site_id) ?? null
-    const siteName = destinationSite?.name ?? siteLabel
-    const isStable = unit.unit_type === 'stable'
-    const unitName = unit.name?.trim() || ''
-
-    const { error: updateHorseError } = await supabase
-      .from('horses')
-      .update({
-        stable_location: siteName,
-        box_number: isStable ? unitName.replace(/^stable\s*/i, '').trim() || unitName : null,
-        pasture_name: !isStable ? unitName : null,
-      })
-      .eq('id', horseId)
-
-    if (updateHorseError) throw updateHorseError
-  }
-
   const zonesWithData = useMemo(() => {
     const sourceZones = hasMap && currentMap ? currentMap.zones : null
 

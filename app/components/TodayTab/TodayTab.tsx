@@ -4,7 +4,8 @@ import {supabase} from '@/app/lib/supabaseClient'
 import './TodayTab.css'
 type Horse={id:string;name:string;horse_type:string|null;stable_location:string|null;pasture_name:string|null;pregnant:boolean|null;farrier_last_done:string|null;farrier_interval_weeks:number|null;last_in_heat_date:string|null}
 type Event={id:string;horse_id:string;category:string;next_due_on:string;result:string|null}
-type Stock={id:string;name:string;quantity:number;minimum_quantity:number;expires_on:string|null}
+type Stock={id:string;name:string;current_stock:number;next_expiry_date:string|null}
+type Threshold={medicine_id:string;minimum_quantity:number}
 type Task={id:string;name:string;detail:string;category:string;priority:number;date?:string}
 function daysBetween(date:string){return Math.floor((Date.now()-new Date(date+'T12:00:00').getTime())/86400000)}
 const categoryLabels:Record<string,string>={scan:'Echo',insemination:'Inseminatie',pregnancy:'Drachtcontrole',foaling:'Geboorte',flush:'Embryospoeling',vaccination:'Vaccinatie',deworming:'Ontworming',farrier:'Hoefsmid',veterinary:'Dierenarts',other:'Zorg'}
@@ -12,6 +13,7 @@ export default function TodayTab(){
  const [horses,setHorses]=useState<Horse[]>([])
  const [events,setEvents]=useState<Event[]>([])
  const [stock,setStock]=useState<Stock[]>([])
+ const [thresholds,setThresholds]=useState<Threshold[]>([])
  const [loading,setLoading]=useState(true)
  const [error,setError]=useState('')
  const [careAvailable,setCareAvailable]=useState(false)
@@ -20,16 +22,18 @@ export default function TodayTab(){
  useEffect(()=>{
   let mounted=true
   async function load(){
-    const [h,c,s]=await Promise.all([
+    const [h,c,s,t]=await Promise.all([
       supabase.from('horses').select('id,name,horse_type,stable_location,pasture_name,pregnant,farrier_last_done,farrier_interval_weeks,last_in_heat_date').eq('active',true).order('name'),
       supabase.from('optimus_care_events').select('id,horse_id,category,next_due_on,result').not('next_due_on','is',null).order('next_due_on',{ascending:true}).limit(500),
-      supabase.from('optimus_medication_stock').select('id,name,quantity,minimum_quantity,expires_on').limit(500)
+      supabase.from('medicine_stock_view').select('id,name,current_stock,next_expiry_date').limit(500),
+      supabase.from('optimus_medicine_thresholds').select('medicine_id,minimum_quantity').limit(500)
     ])
     if(!mounted)return
     if(h.error)setError(h.error.message)
     else setHorses((h.data||[]) as Horse[])
     if(!c.error){setEvents((c.data||[]) as Event[]);setCareAvailable(true)}
     if(!s.error)setStock((s.data||[]) as Stock[])
+    if(!t.error)setThresholds((t.data||[]) as Threshold[])
     setLoading(false)
   }
   void load().catch(e=>{if(mounted){setError(e instanceof Error?e.message:'Laden mislukt');setLoading(false)}})
@@ -59,7 +63,8 @@ export default function TodayTab(){
   }
   return result.sort((a,b)=>a.priority-b.priority||(a.date||'').localeCompare(b.date||''))
  },[horses,events])
- const lowStock=stock.filter(x=>Number(x.quantity)<=Number(x.minimum_quantity))
+ const thresholdByProduct=new Map(thresholds.map(t=>[t.medicine_id,Number(t.minimum_quantity)]))
+ const lowStock=stock.filter(x=>thresholdByProduct.has(x.id)&&Number(x.current_stock)<=Number(thresholdByProduct.get(x.id)))
  const visible=tasks.filter(t=>(filter==='Alles'||t.category===filter)&&(t.name+' '+t.detail).toLowerCase().includes(query.toLowerCase()))
  return <section className="today-page">
   <header className="today-heading"><div><span className="today-eyebrow">STAL OPTIMUS</span><h1>Vandaag</h1><p>Wat vraagt je aandacht? Eén overzicht, zonder overbodige planning.</p></div><a className="today-primary" href="/move">Paarden verplaatsen</a></header>

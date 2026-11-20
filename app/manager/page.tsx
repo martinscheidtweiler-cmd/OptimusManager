@@ -39,7 +39,7 @@ export default function ManagerModules(){
   let live=true
   const verify=async()=>{
    const session=(await supabase.auth.getSession()).data.session
-   if(!session){window.location.replace('/tasks');return}
+   if(!session){setReady(true);return}
    const {data:profile,error}=await supabase.rpc('optimus_task_my_profile')
    if(!live)return
    if(error||!profile||profile.role!=='admin'||!profile.active){window.location.replace('/tasks');return}

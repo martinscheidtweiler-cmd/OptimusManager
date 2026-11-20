@@ -30,6 +30,8 @@ declare
  v_old_unit uuid;
  v_old_site_name text;
  v_moved integer := 0;
+ v_occupied integer;
+ v_incoming integer;
  v_previous public.optimus_move_batches%rowtype;
  v_now timestamptz := pg_catalog.now();
  v_name text;
@@ -59,7 +61,7 @@ begin
    then raise exception 'Request ID already used'; end if;
    return v_previous.moved_count;
  end if;
- select * into strict v_unit from public.place_units where id=p_destination_unit and active is true;
+ select * into strict v_unit from public.place_units where id=p_destination_unit and active is true for update;
  select * into strict v_site from public.sites where id=v_unit.site_id and active is true;
  if public.is_place_blocked(v_unit.site_id,v_unit.area_id,v_unit.id,v_now)
  then raise exception 'Destination blocked'; end if;
@@ -67,6 +69,22 @@ begin
  perform 1 from public.horses where id=any(p_horse_ids) order by id for update;
  if (select count(*) from public.horses where id=any(p_horse_ids) and active is true) <> pg_catalog.cardinality(p_horse_ids)
  then raise exception 'One or more horses are missing or inactive'; end if;
+ -- A unit's positive capacity is an enforced maximum. Zero/NULL means unspecified.
+ if v_unit.capacity is not null and v_unit.capacity > 0 then
+   select count(*) into v_occupied
+     from public.horse_place_assignments
+     where unit_id=v_unit.id and left_at is null;
+   select count(*) into v_incoming
+     from public.horses h
+     where h.id=any(p_horse_ids) and not exists(
+       select 1 from public.horse_place_assignments a
+       where a.horse_id=h.id and a.unit_id=v_unit.id and a.left_at is null
+     );
+   if v_occupied+v_incoming > v_unit.capacity then
+     raise exception 'Destination capacity exceeded (max %, current %, incoming %)',
+       v_unit.capacity,v_occupied,v_incoming;
+   end if;
+ end if;
  v_name := coalesce(nullif(v_profile->>'name',''),(select auth.uid())::text);
  foreach v_id in array p_horse_ids loop
    v_old_site:=null;

@@ -1,0 +1,81 @@
+-- Additive schema for Optimus Stable Manager. Review on a staging database first.
+create extension if not exists pgcrypto;
+create table if not exists public.optimus_care_events (
+ id uuid primary key default gen_random_uuid(),
+ horse_id uuid not null references public.horses(id),
+ category text not null check(category in ('scan','insemination','pregnancy','foaling','flush','vaccination','deworming','farrier','veterinary','other')),
+ performed_on date not null default current_date,
+ result text,
+ notes text,
+ next_due_on date,
+ veterinarian text,
+ medication_name text,
+ medication_quantity numeric,
+ created_by uuid not null default auth.uid(),
+ created_at timestamptz not null default now()
+);
+create index if not exists optimus_care_events_horse_date on public.optimus_care_events(horse_id,performed_on desc);
+create table if not exists public.optimus_medication_stock (
+ id uuid primary key default gen_random_uuid(),
+ name text not null,
+ lot_number text,
+ expires_on date,
+ quantity numeric not null default 0 check(quantity>=0),
+ unit text not null default 'stuks',
+ minimum_quantity numeric not null default 0 check(minimum_quantity>=0),
+ notes text,
+ updated_at timestamptz not null default now()
+);
+create table if not exists public.optimus_medication_movements (
+ id uuid primary key default gen_random_uuid(),
+ stock_id uuid not null references public.optimus_medication_stock(id),
+ horse_id uuid references public.horses(id),
+ care_event_id uuid references public.optimus_care_events(id),
+ delta numeric not null check(delta<>0),
+ reason text not null,
+ authorized_by text,
+ performed_by uuid not null default auth.uid(),
+ created_at timestamptz not null default now()
+);
+create table if not exists public.optimus_vet_cases (
+ id uuid primary key default gen_random_uuid(),
+ horse_id uuid not null references public.horses(id),
+ title text not null,
+ status text not null default 'open' check(status in ('open','monitoring','closed')),
+ veterinarian text,
+ diagnosis text,
+ treatment_plan text,
+ next_check_on date,
+ opened_at timestamptz not null default now(),
+ created_by uuid not null default auth.uid()
+);
+create table if not exists public.optimus_horseid_outbox (
+ id uuid primary key default gen_random_uuid(),
+ movement_key text not null unique,
+ horse_id uuid not null references public.horses(id),
+ horse_name text not null,
+ chip_number text,
+ from_establishment text not null,
+ to_establishment text not null,
+ movement_at timestamptz not null,
+ status text not null default 'draft' check(status in ('draft','approved','sent','cancelled')),
+ created_by uuid not null default auth.uid(),
+ created_at timestamptz not null default now()
+);
+-- Existing user roles must be checked before granting write access.
+-- Until that audit is complete, these tables are readable only by authenticated users,
+-- and writes require an admin profile via the existing Optimus profile RPC.
+create or replace function public.optimus_is_manager() returns boolean language sql stable security definer set search_path=public as $$
+ select exists(select 1 from public.optimus_task_my_profile() p where p.role='admin' and p.active=true)
+$$;
+revoke all on function public.optimus_is_manager() from public;
+grant execute on function public.optimus_is_manager() to authenticated;
+do $$ declare t text; begin
+ foreach t in array array['optimus_care_events','optimus_medication_stock','optimus_medication_movements','optimus_vet_cases','optimus_horseid_outbox'] loop
+  execute format('alter table public.%I enable row level security',t);
+  execute format('create policy manager_read on public.%I for select to authenticated using (public.optimus_is_manager())',t);
+  execute format('create policy manager_insert on public.%I for insert to authenticated with check (public.optimus_is_manager())',t);
+  execute format('create policy manager_update on public.%I for update to authenticated using (public.optimus_is_manager()) with check (public.optimus_is_manager())',t);
+ end loop;
+end $$;
+-- No automatic email sending or direct HorseID mutation.

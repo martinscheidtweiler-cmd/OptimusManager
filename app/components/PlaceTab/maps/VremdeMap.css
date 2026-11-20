@@ -1158,3 +1158,5 @@
 .optimus-move-warning{padding:12px;background:#fff3e6;border:1px solid #f0d6b4;border-radius:10px;color:#7d4e1f}
 .optimus-move-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.optimus-move-actions button{padding:12px 18px;border:1px solid #cbd6ca;background:#fff;border-radius:10px;cursor:pointer}.optimus-move-actions button:last-child{background:#24432d;color:white;border-color:#24432d}.optimus-move-actions button:disabled{opacity:.5}
 @media(max-width:900px){.optimus-quick-move{padding:14px}.optimus-move-actions button{flex:1}}
+
+.optimus-horseid-draft{display:flex;flex-direction:column;gap:9px;margin-top:10px;padding:12px;border:1px solid #d7e2d4;border-radius:12px;background:#fff}.optimus-horseid-draft strong{font-size:13px}.optimus-horseid-draft textarea{width:100%;min-height:150px;padding:10px;border:1px solid #d7e2d4;border-radius:9px;resize:vertical;color:#33463a;background:#f9fbf8;font:12px/1.5 monospace}.optimus-horseid-draft button{background:#e7efe4;color:#23432d;border:1px solid #c8dac5;padding:10px}

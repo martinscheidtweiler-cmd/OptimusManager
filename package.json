@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build-tasks.mjs && next build",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
@@ -25,7 +25,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
-    "typescript": "^5",
-    "esbuild": "0.25.12"
+    "typescript": "^5"
   }
 }

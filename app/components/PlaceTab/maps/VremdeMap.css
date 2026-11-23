@@ -1147,3 +1147,19 @@
   background:rgba(193, 126, 25, 0.16);
   border-color:rgba(193, 126, 25, 0.38);
 }
+
+/* Mobile quick moves: no drag-and-drop required. */
+.optimus-quick-move{border:1px solid #dbe5da;background:#f4f8f2;border-radius:18px;padding:18px;display:flex;flex-direction:column;gap:12px;color:#243b2b}
+.optimus-quick-move-head{display:flex;justify-content:space-between;align-items:center;gap:12px}.optimus-quick-move-head strong{font-size:17px}.optimus-quick-move-head span{font-size:12px;color:#56705a}
+.optimus-quick-move p{margin:0;color:#66776a;line-height:1.5;font-size:13px}
+.optimus-quick-move label{font-size:12px;font-weight:700}.optimus-quick-move select{width:100%;min-height:46px;border:1px solid #cddacb;background:white;border-radius:11px;padding:10px;color:#233c2a}
+.optimus-quick-move button{min-height:44px;border-radius:11px;cursor:pointer;font-weight:700}.optimus-select-all{border:1px solid #bfd0bf;background:#fff;color:#24432d}.optimus-move-button{border:0;background:#24432d;color:white}
+.optimus-quick-move button:disabled{opacity:.5;cursor:not-allowed}.optimus-quick-move .optimus-move-result{color:#255c34;font-weight:700}
+.optimus-move-warning{padding:12px;background:#fff3e6;border:1px solid #f0d6b4;border-radius:10px;color:#7d4e1f}
+.optimus-move-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}.optimus-move-actions button{padding:12px 18px;border:1px solid #cbd6ca;background:#fff;border-radius:10px;cursor:pointer}.optimus-move-actions button:last-child{background:#24432d;color:white;border-color:#24432d}.optimus-move-actions button:disabled{opacity:.5}
+@media(max-width:900px){.optimus-quick-move{padding:14px}.optimus-move-actions button{flex:1}}
+
+.optimus-horseid-draft{display:flex;flex-direction:column;gap:9px;margin-top:10px;padding:12px;border:1px solid #d7e2d4;border-radius:12px;background:#fff}.optimus-horseid-draft strong{font-size:13px}.optimus-horseid-draft textarea{width:100%;min-height:150px;padding:10px;border:1px solid #d7e2d4;border-radius:9px;resize:vertical;color:#33463a;background:#f9fbf8;font:12px/1.5 monospace}.optimus-horseid-draft button{background:#e7efe4;color:#23432d;border:1px solid #c8dac5;padding:10px}
+
+.optimus-horseid-link{display:block;text-align:center;padding:11px 14px;border-radius:11px;background:#e7efe4;color:#254a30;text-decoration:none;font-size:13px;font-weight:800}
+.optimus-horseid-link:focus-visible{outline:3px solid #77a47b;outline-offset:3px}

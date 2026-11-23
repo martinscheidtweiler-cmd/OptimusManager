@@ -80,11 +80,14 @@ export default function MoveHorses(){
   setBusy(true);setError('');setMessage('')
   try{
    // A single transaction handles every selected horse, plus HorseID review drafts.
-   const {data,error:moveError}=await supabase.rpc('optimus_move_group',{
-    p_horse_ids:selected.map(h=>h.horse_id),
-    p_destination_unit:destinationUnit.id,
-    p_request_id:crypto.randomUUID(),
-   })
+   const firstPlacement=source==='__unassigned__'
+   const {data,error:moveError}=await supabase.rpc(
+    firstPlacement?'optimus_first_place_group':'optimus_move_group_from',{
+     p_horse_ids:selected.map(h=>h.horse_id),
+     p_destination_unit:destinationUnit.id,
+     p_request_id:crypto.randomUUID(),
+     ...(firstPlacement?{}:{p_expected_source_unit:sourceUnit!.id})
+    })
    if(moveError)throw new Error(moveError.message)
    const moved=Number(data??0)
    setSource('');setDestination('');setExcluded([]);setIncluded([])

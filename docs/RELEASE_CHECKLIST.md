@@ -55,4 +55,4 @@ Set server-only environment variables `OPTIMUS_INVOICING_API_TOKEN` (32+ random 
 ## Deferred (intentional)
 Training schedules, rider/competition screens and personnel schedules are not part of this phase.
 
-<!-- Manual one-time GitHub push to trigger Vercel preview, requested 2026-11-23. -->
+<!-- Vercel Git connection confirmed in user's dashboard on 2026-11-23; one preview trigger commit after connection. -->

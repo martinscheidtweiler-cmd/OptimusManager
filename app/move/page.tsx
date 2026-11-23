@@ -103,7 +103,7 @@ export default function MoveHorses(){
    <header className="quick-move-header"><div className="quick-move-brand"><span>O</span><div><strong>OPTIMUS</strong><small>PAARDEN VERPLAATSEN</small></div></div><div className="quick-move-user"><span>{profile?.name}</span>{profile?.role==='admin'?<a href="/manager?tab=Place">Beheer</a>:null}<button type="button" onClick={()=>void signOut()}>Uitloggen</button></div></header>
    <section className="quick-move-intro"><span>SNELLE REGISTRATIE</span><h1>Verplaats een groep.</h1><p>Kies waar de paarden nu staan en waar ze naartoe gaan. Alle paarden van de huidige weide worden automatisch geselecteerd.</p></section>
    {error?<p role="alert" className="quick-move-error">{error}</p>:null}
-   {message?<p role="status" className="quick-move-success">{message}</p>:null}
+   {message?<p role="status" aria-live="polite" className="quick-move-success">{message}</p>:null}
    <div className="quick-move-grid">
     <section className="quick-move-card"><div className="quick-move-step">01 <span>VAN</span></div><h2>Huidige plaats</h2><label htmlFor="quick-move-from">Kies weide of stal</label><select id="quick-move-from" value={source} disabled={busy} onChange={e=>selectSource(e.target.value)}><option value="">Selecteer huidige plaats</option><option value="__unassigned__">Nog niet ingedeeld · {unassigned.length} paarden</option>
     {sites.map(site=><optgroup key={site.id} label={site.name}>{units.filter(u=>u.site_id===site.id).map(u=><option key={u.id} value={u.id}>{u.name} · {horses.filter(h=>h.unit_id===u.id).length} paarden</option>)}</optgroup>)}

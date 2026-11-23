@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useLocale } from '../LanguageProvider'
 import styles from './XraysTab.module.css'
-
-const XRAY_PASSWORD = 'Vero6565'
 
 type XrayType = 'general' | '2yo' | '6yo'
 
@@ -35,7 +34,9 @@ type Props = {
 }
 
 function todayISO() {
-  return new Date().toISOString().slice(0, 10)
+  const date = new Date()
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+  return date.toISOString().slice(0, 10)
 }
 
 function errorMessage(err: unknown) {
@@ -47,8 +48,7 @@ function errorMessage(err: unknown) {
 }
 
 export default function XraysTab({ onBack }: Props) {
-  const [unlocked, setUnlocked] = useState(false)
-  const [password, setPassword] = useState('')
+  useLocale()
 
   const [horses, setHorses] = useState<Horse[]>([])
   const [records, setRecords] = useState<XrayRecord[]>([])
@@ -80,7 +80,6 @@ export default function XraysTab({ onBack }: Props) {
             .from('horses')
             .select('id, name, active, horse_type, birth_date')
             .eq('active', true)
-            .in('horse_type', ['Sport horse', 'Young horse', 'Foal'])
             .order('name', { ascending: true }),
 
           supabase
@@ -98,7 +97,7 @@ export default function XraysTab({ onBack }: Props) {
       setRecords((recordsData || []) as XrayRecord[])
     } catch (err) {
       console.error('XRAY LOAD ERROR:', err)
-      alert(`Laden mislukt: ${errorMessage(err)}`)
+      alert(`Could not load records: ${errorMessage(err)}`)
       setHorses([])
       setRecords([])
     } finally {
@@ -106,9 +105,7 @@ export default function XraysTab({ onBack }: Props) {
     }
   }
 
-  useEffect(() => {
-    if (unlocked) loadData()
-  }, [unlocked])
+  useEffect(() => { void loadData() }, [])
 
   const filteredHorses = useMemo(() => {
     return horses.filter((horse) =>
@@ -201,13 +198,13 @@ export default function XraysTab({ onBack }: Props) {
 
     if (uploadError) {
       console.error('XRAY UPLOAD ERROR:', uploadError)
-      throw new Error(`Upload ${type} mislukt: ${uploadError.message}`)
+      throw new Error(`Could not upload ${type}: ${uploadError.message}`)
     }
 
     const { data } = supabase.storage.from('horse-xrays').getPublicUrl(path)
 
     if (!data.publicUrl) {
-      throw new Error(`Geen public URL gekregen voor ${type}.`)
+      throw new Error(`No public URL was returned for ${type}.`)
     }
 
     return data.publicUrl
@@ -215,12 +212,12 @@ export default function XraysTab({ onBack }: Props) {
 
   const saveRecord = async () => {
     if (!selectedHorseId) {
-      alert('Selecteer eerst een paard.')
+      alert('Choose a horse first.')
       return
     }
 
     if (!takenOn) {
-      alert('Kies een x-ray datum.')
+      alert('Choose an X-ray date.')
       return
     }
 
@@ -295,7 +292,7 @@ export default function XraysTab({ onBack }: Props) {
       await loadData()
     } catch (err) {
       console.error('XRAY SAVE ERROR:', err)
-      alert(`Opslaan mislukt: ${errorMessage(err)}`)
+      alert(`Could not save: ${errorMessage(err)}`)
     } finally {
       setSaving(false)
     }
@@ -309,7 +306,7 @@ export default function XraysTab({ onBack }: Props) {
 
     if (error) {
       console.error('XRAY SURGERY UPDATE ERROR:', error)
-      alert(`Aanpassen mislukt: ${error.message}`)
+      alert(`Could not update: ${error.message}`)
       return
     }
 
@@ -317,13 +314,13 @@ export default function XraysTab({ onBack }: Props) {
   }
 
   const deleteRecord = async (id: string) => {
-    if (!confirm('Deze x-ray record verwijderen?')) return
+    if (!confirm('Delete this X-ray record?')) return
 
     const { error } = await supabase.from('horse_xray_records').delete().eq('id', id)
 
     if (error) {
       console.error('XRAY DELETE ERROR:', error)
-      alert(`Verwijderen mislukt: ${error.message}`)
+      alert(`Could not delete: ${error.message}`)
       return
     }
 
@@ -336,55 +333,13 @@ export default function XraysTab({ onBack }: Props) {
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return '—'
 
-    return date.toLocaleDateString('nl-BE')
+    return date.toLocaleDateString(typeof document === 'undefined' ? 'en-GB' : document.documentElement.lang || 'en-GB')
   }
 
   const formatXrayType = (type: XrayType | null) => {
     if (type === '2yo') return '2Y X-ray'
     if (type === '6yo') return '6Y X-ray'
     return 'General X-ray'
-  }
-
-  if (!unlocked) {
-    return (
-      <div className={styles.lockPage}>
-        <div className={styles.lockCard}>
-          <span className={styles.xrayKicker}>Protected area</span>
-          <h2>X-rays & Reports</h2>
-          <p>Enter the password to access medical imaging records.</p>
-
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                if (password === XRAY_PASSWORD) setUnlocked(true)
-                else alert('Wrong password.')
-              }
-            }}
-          />
-
-          <div className={styles.lockActions}>
-            <button type="button" className={styles.xrayBack} onClick={onBack}>
-              ← Back
-            </button>
-
-            <button
-              type="button"
-              className={styles.xraySave}
-              onClick={() => {
-                if (password === XRAY_PASSWORD) setUnlocked(true)
-                else alert('Wrong password.')
-              }}
-            >
-              Enter
-            </button>
-          </div>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -397,7 +352,7 @@ export default function XraysTab({ onBack }: Props) {
         <div>
           <span className={styles.xrayKicker}>Diagnostics</span>
           <h2>X-rays & Reports</h2>
-          <p>Only active sport horses, young horses and foals.</p>
+          <p>Search every active horse and keep imaging, reports, and follow-up together.</p>
         </div>
       </div>
 

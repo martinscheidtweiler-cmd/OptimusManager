@@ -1,171 +1,83 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import type { DragEvent } from 'react'
+import { supabase } from '@/app/lib/supabaseClient'
 import PlaceManager from './maps/PlaceManager'
 import './PlaceTab.css'
 
-type SiteKey =
-  | 'vremde'
-  | 'sint-katelijne-waver'
-  | 'paddock-paradise'
-  | 'oostmalse-steenweg'
-  | '47b'
-  | '50'
-  | 'goossens'
-  | 'serre'
-  | 'bevel'
-
-type Site = {
-  id: SiteKey
-  name: string
-  subtitle: string
-  status: 'active' | 'setup'
+type Site = { id:string; slug:string; name:string }
+type DragPayload = { horseIds:string[] }
+const mappedSites = new Set(['vremde','sint-katelijne-waver','bevel'])
+function getDraggedHorseIds(e:DragEvent):string[]{
+ try{
+  const raw=e.dataTransfer.getData('application/json')
+  if(raw){
+   const decoded=JSON.parse(raw) as DragPayload
+   if(Array.isArray(decoded.horseIds))return decoded.horseIds.filter(x=>typeof x==='string')
+  }
+ }catch{/* ignore invalid drag data */}
+ return e.dataTransfer.getData('text/plain').split(',').map(x=>x.trim()).filter(Boolean)
 }
 
-type DragPayload = {
-  horseIds: string[]
-}
-
-const SITES: Site[] = [
-  { id: 'vremde', name: 'Vremde', subtitle: 'Interactieve kaart', status: 'active' },
-  { id: 'sint-katelijne-waver', name: 'Sint-Katelijne-Waver', subtitle: 'Plaatsbeheer', status: 'active' },
-  { id: 'bevel', name: 'Bevel', subtitle: 'Plaatsbeheer', status: 'active' },
-  { id: 'paddock-paradise', name: 'Paddock Paradise', subtitle: 'Later', status: 'setup' },
-  { id: 'oostmalse-steenweg', name: 'Oostmalse Steenweg', subtitle: 'Later', status: 'setup' },
-  { id: '47b', name: '47B', subtitle: 'Later', status: 'setup' },
-  { id: '50', name: '50', subtitle: 'Later', status: 'setup' },
-  { id: 'goossens', name: 'Goossens', subtitle: 'Later', status: 'setup' },
-  { id: 'serre', name: 'Serre', subtitle: 'Later', status: 'setup' },
-]
-
-function getDraggedHorseIdsFromEvent(e: React.DragEvent) {
-  try {
-    const raw = e.dataTransfer.getData('application/json')
-
-    if (raw) {
-      const parsed = JSON.parse(raw) as DragPayload
-      return parsed.horseIds ?? []
-    }
-  } catch {
-    //
+export default function PlaceTab(){
+ const [sites,setSites]=useState<Site[]>([])
+ const [activeSlug,setActiveSlug]=useState('')
+ const [loading,setLoading]=useState(true)
+ const [error,setError]=useState('')
+ const [pendingSiteDrop,setPendingSiteDrop]=useState<{horseIds:string[];targetSiteSlug:string}|null>(null)
+ useEffect(()=>{
+  let mounted=true
+  async function refresh(){
+   const {data,error:siteError}=await supabase.from('sites').select('id,slug,name').eq('active',true).order('sort_order',{ascending:true}).order('name')
+   if(!mounted)return
+   if(siteError)setError(siteError.message)
+   else{
+    const valid=(data||[]) as Site[]
+    setSites(valid)
+    setActiveSlug(prev=>valid.some(x=>x.slug===prev)?prev:(valid.find(x=>x.slug==='vremde')||valid[0])?.slug||'')
+   }
+   setLoading(false)
   }
-
-  const fallback = e.dataTransfer.getData('text/plain')
-  if (!fallback) return []
-
-  return fallback
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean)
-}
-
-export default function PlaceTab() {
-  const [activeSiteId, setActiveSiteId] = useState<SiteKey>('vremde')
-
-  const [pendingSiteDrop, setPendingSiteDrop] = useState<{
-    horseIds: string[]
-    targetSiteSlug: SiteKey
-  } | null>(null)
-
-  const activeSite = useMemo(
-    () => SITES.find((site) => site.id === activeSiteId) ?? SITES[0],
-    [activeSiteId]
-  )
-
-  function allowDrop(e: React.DragEvent) {
-    e.preventDefault()
-  }
-
-  function handleDropOnSite(siteId: SiteKey, e: React.DragEvent) {
-    e.preventDefault()
-
-    const horseIds = getDraggedHorseIdsFromEvent(e)
-    if (!horseIds.length) return
-
-    setPendingSiteDrop({
-      horseIds,
-      targetSiteSlug: siteId,
-    })
-
-    setActiveSiteId(siteId)
-  }
-
-  return (
-    <div className="place-tab-shell">
-      <div className="place-tab-hero">
-        <div>
-          <span className="place-tab-kicker">Facility management</span>
-          <h2 className="place-tab-title">Place</h2>
-          <p className="place-tab-subtitle">
-            Beheer je sites, weides, gebouwen en paarden vanuit één omgeving.
-          </p>
-        </div>
-
-        <div className="place-tab-hero-stats">
-          <div className="place-tab-stat-card">
-            <span>Sites</span>
-            <strong>{SITES.length}</strong>
-          </div>
-
-          <div className="place-tab-stat-card">
-            <span>Actieve locatie</span>
-            <strong>{activeSite.name}</strong>
-          </div>
-        </div>
-      </div>
-
-      <div className="place-tab-layout">
-        <aside className="place-tab-sidebar">
-          <div className="place-tab-panel-head">
-            <div>
-              <p className="place-tab-eyebrow">Sites</p>
-              <h3>Locaties</h3>
-            </div>
-          </div>
-
-          <div className="place-tab-site-list">
-            {SITES.map((site) => (
-              <button
-                key={site.id}
-                type="button"
-                className={`place-tab-site-card ${
-                  activeSiteId === site.id ? 'active' : ''
-                }`}
-                onClick={() => setActiveSiteId(site.id)}
-                onDragOver={allowDrop}
-                onDrop={(e) => handleDropOnSite(site.id, e)}
-              >
-                <div className="place-tab-site-top">
-                  <h4>{site.name}</h4>
-
-                  <span
-                    className={`place-tab-site-badge ${
-                      site.status === 'active' ? 'active' : 'setup'
-                    }`}
-                  >
-                    {site.status === 'active' ? 'live' : 'setup'}
-                  </span>
-                </div>
-
-                <p>{site.subtitle}</p>
-
-                <div className="place-tab-site-drop-note">
-                  Sleep paarden hierheen
-                </div>
-              </button>
-            ))}
-          </div>
-        </aside>
-
-        <section className="place-tab-main">
-          <PlaceManager
-            siteSlug={activeSite.id}
-            siteLabel={activeSite.name}
-            pendingSiteDrop={pendingSiteDrop}
-            onClearPendingSiteDrop={() => setPendingSiteDrop(null)}
-          />
-        </section>
-      </div>
-    </div>
-  )
+  void refresh().catch(e=>{if(mounted){setLoading(false);setError(e instanceof Error?e.message:'Locaties laden mislukt')}})
+  return()=>{mounted=false}
+ },[])
+ const activeSite=useMemo(()=>sites.find(s=>s.slug===activeSlug)||null,[sites,activeSlug])
+ function onDrop(slug:string,e:DragEvent){
+  e.preventDefault()
+  const ids=getDraggedHorseIds(e)
+  if(!ids.length)return
+  setPendingSiteDrop({horseIds:[...new Set(ids)],targetSiteSlug:slug})
+  setActiveSlug(slug)
+ }
+ if(loading)return <section className="place-tab-shell"><p>Locaties laden…</p></section>
+ if(error)return <section className="place-tab-shell"><p role="alert">Locaties kunnen niet worden geladen: {error}</p></section>
+ if(!activeSite)return <section className="place-tab-shell"><p>Er zijn geen actieve locaties in de database.</p></section>
+ return <div className="place-tab-shell">
+  <div className="place-tab-hero">
+   <div><span className="place-tab-kicker">STAL & WEIDES</span><h2 className="place-tab-title">Locaties</h2><p className="place-tab-subtitle">Waar staan de paarden? Bekijk de weides, stallen en actuele bezetting.</p>
+    <a className="place-quick-link" href="/move">Paarden snel verplaatsen</a>
+   </div>
+   <div className="place-tab-hero-stats">
+    <div className="place-tab-stat-card"><span>Actieve sites</span><strong>{sites.length}</strong></div>
+    <div className="place-tab-stat-card"><span>Geselecteerd</span><strong>{activeSite.name}</strong></div>
+   </div>
+  </div>
+  <div className="place-tab-layout">
+   <aside className="place-tab-sidebar"><div className="place-tab-panel-head"><div><p className="place-tab-eyebrow">STAL OPTIMUS</p><h3>Sites</h3></div></div>
+    <div className="place-tab-site-list">{sites.map(site=>
+     <button key={site.id} type="button" className={`place-tab-site-card ${activeSlug===site.slug?'active':''}`}
+      onClick={()=>{setActiveSlug(site.slug);setPendingSiteDrop(null)}}
+      onDragOver={e=>e.preventDefault()} onDrop={e=>onDrop(site.slug,e)}>
+      <div className="place-tab-site-top"><h4>{site.name}</h4><span className="place-tab-site-badge active">Beschikbaar</span></div>
+      <p>{mappedSites.has(site.slug)?'Interactieve kaart':'Stallen en weides'}</p>
+      <div className="place-tab-site-drop-note">Sleep hierheen of gebruik Snel verplaatsen</div>
+     </button>)}</div>
+   </aside>
+   <section className="place-tab-main">
+    <PlaceManager key={activeSite.id} siteSlug={activeSite.slug} siteLabel={activeSite.name}
+     pendingSiteDrop={pendingSiteDrop} onClearPendingSiteDrop={()=>setPendingSiteDrop(null)}/>
+   </section>
+  </div>
+ </div>
 }

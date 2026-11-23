@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useLocale } from '../LanguageProvider'
+import VetCasesPanel from '../CareTab/VetCasesPanel'
 import styles from './VetVisitsTab.module.css'
 
 type Horse = {
@@ -38,6 +40,8 @@ type VetVisitItem = {
 
 type Props = {
   onBack: () => void
+  initialHorseId?: string
+  initialDate?: string
 }
 
 function todayISO() {
@@ -60,7 +64,7 @@ function toISO(date: Date) {
 }
 
 function monthTitle(date: Date) {
-  return date.toLocaleDateString('en-GB', {
+  return date.toLocaleDateString(typeof document === 'undefined' ? 'en-GB' : document.documentElement.lang || 'en-GB', {
     month: 'long',
     year: 'numeric',
   })
@@ -70,7 +74,7 @@ function formatDate(value: string | null) {
   if (!value) return '—'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '—'
-  return date.toLocaleDateString('nl-BE')
+  return date.toLocaleDateString(typeof document === 'undefined' ? 'en-GB' : document.documentElement.lang || 'en-GB')
 }
 
 function daysSince(value: string | null) {
@@ -85,7 +89,8 @@ function daysSince(value: string | null) {
   return Math.floor((today.getTime() - start.getTime()) / 86400000)
 }
 
-export default function VetVisitsTab({ onBack }: Props) {
+export default function VetVisitsTab({ onBack, initialHorseId, initialDate }: Props) {
+  useLocale()
   const [horses, setHorses] = useState<Horse[]>([])
   const [visits, setVisits] = useState<VetVisit[]>([])
   const [items, setItems] = useState<VetVisitItem[]>([])
@@ -93,13 +98,13 @@ export default function VetVisitsTab({ onBack }: Props) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  const [selectedHorseId, setSelectedHorseId] = useState('')
+  const [selectedHorseId, setSelectedHorseId] = useState(initialHorseId || '')
   const [complaintDate, setComplaintDate] = useState(todayISO())
   const [complaint, setComplaint] = useState('')
 
-  const [monthDate, setMonthDate] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState(todayISO())
-  const [calendarOpen, setCalendarOpen] = useState(false)
+  const [monthDate, setMonthDate] = useState(() => initialDate ? new Date(`${initialDate}T12:00:00`) : new Date())
+  const [selectedDate, setSelectedDate] = useState(initialDate || todayISO())
+  const [calendarOpen, setCalendarOpen] = useState(Boolean(initialDate))
 
   const [visitTitle, setVisitTitle] = useState('Vet visit')
 
@@ -118,8 +123,6 @@ export default function VetVisitsTab({ onBack }: Props) {
         supabase
           .from('horses')
           .select('id, name, active, horse_type, birth_date')
-          .eq('active', true)
-          .in('horse_type', ['Sport horse', 'Young horse', 'Foal'])
           .order('name', { ascending: true }),
 
         supabase
@@ -144,14 +147,15 @@ export default function VetVisitsTab({ onBack }: Props) {
       setItems((itemsData || []) as VetVisitItem[])
     } catch (err) {
       console.error('Error loading vet visits:', err)
-      alert('Laden mislukt.')
+      alert('Could not load vet care records.')
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    loadData()
+    const frame = window.requestAnimationFrame(() => { void loadData() })
+    return () => window.cancelAnimationFrame(frame)
   }, [])
 
   const horseById = useMemo(() => {
@@ -249,12 +253,12 @@ export default function VetVisitsTab({ onBack }: Props) {
 
   const addComplaint = async () => {
     if (!selectedHorseId) {
-      alert('Selecteer eerst een paard.')
+      alert('Choose a horse first.')
       return
     }
 
     if (!complaint.trim()) {
-      alert('Schrijf eerst een klacht/probleem.')
+      alert('Enter a concern or problem first.')
       return
     }
 
@@ -280,7 +284,7 @@ export default function VetVisitsTab({ onBack }: Props) {
       await loadData()
     } catch (err) {
       console.error('Error adding complaint:', err)
-      alert('Opslaan mislukt.')
+      alert('Could not save the record.')
     } finally {
       setSaving(false)
     }
@@ -303,7 +307,7 @@ export default function VetVisitsTab({ onBack }: Props) {
       await loadData()
     } catch (err) {
       console.error('Error booking visit:', err)
-      alert('Afspraak maken mislukt.')
+      alert('Could not save the appointment.')
     } finally {
       setSaving(false)
     }
@@ -315,11 +319,11 @@ export default function VetVisitsTab({ onBack }: Props) {
       vetComment: string
       requiredTreatment: string
       followupOn: string
+      isDone: boolean
     }
   ) => {
     setSaving(true)
 
-    const autoDone = values.vetComment.trim().length > 0
     const autoActionRequired = values.requiredTreatment.trim().length > 0
 
     try {
@@ -330,7 +334,7 @@ export default function VetVisitsTab({ onBack }: Props) {
           required_treatment: values.requiredTreatment.trim() || null,
           followup_on: values.followupOn || null,
           action_required: autoActionRequired,
-          is_done: autoDone,
+          is_done: values.isDone,
         })
         .eq('id', item.id)
 
@@ -339,24 +343,38 @@ export default function VetVisitsTab({ onBack }: Props) {
       await loadData()
     } catch (err) {
       console.error('Error updating complaint:', err)
-      alert('Opslaan mislukt.')
+      alert('Could not save the update.')
     } finally {
       setSaving(false)
     }
   }
 
   const deleteComplaint = async (id: string) => {
-    if (!confirm('Deze complaint verwijderen?')) return
+    if (!confirm('Remove this concern from the care history?')) return
 
     const { error } = await supabase.from('vet_visit_items').delete().eq('id', id)
 
     if (error) {
       console.error('Error deleting complaint:', error)
-      alert('Verwijderen mislukt.')
+      alert('Could not delete the record.')
       return
     }
 
     await loadData()
+  }
+
+  const updateVisitStatus = async (visit: VetVisit, status: VetVisit['status']) => {
+    setSaving(true)
+    try {
+      const { error } = await supabase.from('vet_visits').update({ status }).eq('id', visit.id)
+      if (error) throw error
+      await loadData()
+    } catch (err) {
+      console.error('Error updating vet appointment:', err)
+      alert('Could not update the appointment.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const selectedDateIsPast = selectedDate < todayISO()
@@ -375,6 +393,8 @@ export default function VetVisitsTab({ onBack }: Props) {
         </div>
       </div>
 
+      {loading && <p className={styles.empty} role="status">Loading veterinary records…</p>}
+
       <div className={styles.grid}>
         <section className={styles.card}>
           <div className={styles.cardHead}>
@@ -391,7 +411,7 @@ export default function VetVisitsTab({ onBack }: Props) {
               Horse
               <select value={selectedHorseId} onChange={(e) => setSelectedHorseId(e.target.value)}>
                 <option value="">Select horse</option>
-                {horses.map((horse) => (
+                {horses.filter((horse) => horse.active !== false).map((horse) => (
                   <option key={horse.id} value={horse.id}>
                     {horse.name}
                   </option>
@@ -579,6 +599,10 @@ export default function VetVisitsTab({ onBack }: Props) {
         </div>
       </section>
 
+      <section className={`${styles.card} ${styles.casesSection}`}>
+        <VetCasesPanel horses={horses.map((horse) => ({ id: horse.id, name: horse.name }))} />
+      </section>
+
       {calendarOpen && (
         <div className={styles.modalOverlay} onClick={() => setCalendarOpen(false)}>
           <div className={styles.modalCard} onClick={(e) => e.stopPropagation()}>
@@ -668,6 +692,16 @@ export default function VetVisitsTab({ onBack }: Props) {
                     </article>
                   )
                 })}
+                {selectedVisit.status === 'planned' && (
+                  <div className={styles.dropActions}>
+                    <button type="button" disabled={saving} onClick={() => void updateVisitStatus(selectedVisit, 'done')}>
+                      Mark visit done
+                    </button>
+                    <button type="button" disabled={saving} onClick={() => void updateVisitStatus(selectedVisit, 'cancelled')}>
+                      Cancel visit
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -691,6 +725,7 @@ function ComplaintEditor({
       vetComment: string
       requiredTreatment: string
       followupOn: string
+      isDone: boolean
     }
   ) => void
   onDelete: (id: string) => void
@@ -699,9 +734,9 @@ function ComplaintEditor({
   const [vetComment, setVetComment] = useState(item.vet_comment || '')
   const [requiredTreatment, setRequiredTreatment] = useState(item.required_treatment || '')
   const [followupOn, setFollowupOn] = useState(item.followup_on || '')
+  const [isDone, setIsDone] = useState(item.is_done)
 
   const since = daysSince(item.complaint_date)
-  const autoDone = vetComment.trim().length > 0
   const autoActionRequired = requiredTreatment.trim().length > 0
 
   return (
@@ -754,8 +789,13 @@ function ComplaintEditor({
             />
           </label>
 
+          <label className={styles.doneToggle}>
+            <input type="checkbox" checked={isDone} onChange={(e) => setIsDone(e.target.checked)} />
+            Concern resolved
+          </label>
+
           <div className={styles.statusPills}>
-            {autoDone && <span className={styles.donePill}>Done</span>}
+            {isDone && <span className={styles.donePill}>Resolved</span>}
             {autoActionRequired && <span className={styles.actionPill}>Action required</span>}
             {followupOn && <span>Follow-up {formatDate(followupOn)}</span>}
           </div>
@@ -768,6 +808,7 @@ function ComplaintEditor({
                   vetComment,
                   requiredTreatment,
                   followupOn,
+                  isDone,
                 })
               }
             >

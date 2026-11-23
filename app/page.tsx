@@ -1,3 +1,4 @@
 import { redirect } from 'next/navigation'
 
-export default function Home() { redirect('/tasks') }
+// Ensure Vercel processes the branch after enabling automatic builds.
+export default function Home() { redirect('/manager') }

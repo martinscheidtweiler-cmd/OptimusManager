@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
+import { useLocale } from '../LanguageProvider'
 import styles from './LabResultsTab.module.css'
 
 type TestType = 'blood' | 'foal_blood' | 'fecal'
@@ -30,7 +31,14 @@ type Props = {
   onBack: () => void
 }
 
+function todayISO() {
+  const date = new Date()
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+  return date.toISOString().slice(0, 10)
+}
+
 export default function LabResultsTab({ onBack }: Props) {
+  useLocale()
   const [horses, setHorses] = useState<Horse[]>([])
   const [records, setRecords] = useState<LabResult[]>([])
   const [loading, setLoading] = useState(true)
@@ -44,7 +52,7 @@ export default function LabResultsTab({ onBack }: Props) {
 
   const [horseId, setHorseId] = useState('')
   const [testType, setTestType] = useState<TestType>('blood')
-  const [sampleDate, setSampleDate] = useState(() => new Date().toISOString().slice(0, 10))
+  const [sampleDate, setSampleDate] = useState(todayISO)
 
   const loadData = async () => {
     setLoading(true)
@@ -93,9 +101,9 @@ export default function LabResultsTab({ onBack }: Props) {
     loadData()
   }, [])
 
-  const horseName = (id: string) => {
+  const horseName = useCallback((id: string) => {
     return horses.find((horse) => horse.id === id)?.name || 'Unknown horse'
-  }
+  }, [horses])
 
   const filteredRecords = useMemo(() => {
     const statusOrder: Record<ResultStatus, number> = {
@@ -125,7 +133,7 @@ export default function LabResultsTab({ onBack }: Props) {
 
         return new Date(b.sample_taken_on).getTime() - new Date(a.sample_taken_on).getTime()
       })
-  }, [records, horses, search, statusFilter])
+  }, [records, horseName, search, statusFilter])
 
   const waitingCount = records.filter((record) => record.result_status === 'waiting').length
   const partialCount = records.filter((record) => record.result_status === 'partial').length
@@ -150,13 +158,13 @@ export default function LabResultsTab({ onBack }: Props) {
 
       setHorseId('')
       setTestType('blood')
-      setSampleDate(new Date().toISOString().slice(0, 10))
+      setSampleDate(todayISO())
       setShowForm(false)
 
       await loadData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving lab sample:', err)
-      alert(err?.message || err?.details || JSON.stringify(err) || 'Saving failed.')
+      alert(err instanceof Error ? err.message : 'Saving failed.')
     } finally {
       setSaving(false)
     }
@@ -208,12 +216,12 @@ export default function LabResultsTab({ onBack }: Props) {
           ? {
               partial_file_url: data.publicUrl,
               result_status: 'partial' as ResultStatus,
-              partial_result_on: new Date().toISOString().slice(0, 10),
+              partial_result_on: todayISO(),
             }
           : {
               final_file_url: data.publicUrl,
               result_status: 'completed' as ResultStatus,
-              final_result_on: new Date().toISOString().slice(0, 10),
+              final_result_on: todayISO(),
             }
 
       const { error: updateError } = await supabase
@@ -224,9 +232,9 @@ export default function LabResultsTab({ onBack }: Props) {
       if (updateError) throw updateError
 
       await loadData()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error uploading lab file:', err)
-      alert(err?.message || err?.details || JSON.stringify(err) || 'Upload failed.')
+      alert(err instanceof Error ? err.message : 'Upload failed.')
     } finally {
       setUploadingId(null)
     }
@@ -250,7 +258,7 @@ export default function LabResultsTab({ onBack }: Props) {
     if (!value) return '—'
     const date = new Date(value)
     if (Number.isNaN(date.getTime())) return '—'
-    return date.toLocaleDateString('nl-BE')
+    return date.toLocaleDateString(typeof document === 'undefined' ? 'en-GB' : document.documentElement.lang || 'en-GB')
   }
 
   const formatTestType = (type: TestType) => {

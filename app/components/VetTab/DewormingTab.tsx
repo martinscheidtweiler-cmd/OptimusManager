@@ -1,8 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
-import './DewormingTab.css'
+import { useLocale } from '../LanguageProvider'
+import './CareRecords.css'
 
 type Horse = {
   id: string
@@ -58,12 +59,14 @@ type BatchStockRow = {
 type FormState = {
   horseId: string
   date: string
+  nextDue: string
   productName: string
   notes: string
 }
 
 type Props = {
   onBack?: () => void
+  initialHorseId?: string
 }
 
 const DEWORMING_INTERVAL_DAYS = 90
@@ -71,7 +74,7 @@ const DUE_SOON_DAYS = 21
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('nl-BE')
+  return new Date(dateStr).toLocaleDateString(typeof document === 'undefined' ? 'en-GB' : document.documentElement.lang || 'en-GB')
 }
 
 function toDateInputValue(date = new Date()) {
@@ -82,7 +85,7 @@ function toDateInputValue(date = new Date()) {
 }
 
 function addDays(dateStr: string, days: number) {
-  const date = new Date(dateStr)
+  const date = new Date(`${dateStr}T12:00:00`)
   date.setDate(date.getDate() + days)
   return toDateInputValue(date)
 }
@@ -93,7 +96,7 @@ function diffInDays(dateStr: string | null) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const target = new Date(dateStr)
+  const target = new Date(`${dateStr}T12:00:00`)
   target.setHours(0, 0, 0, 0)
 
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
@@ -132,60 +135,26 @@ function sortWeight(status: string) {
   return 3
 }
 
-function normalizeHorse(row: any): Horse | null {
-  if (!row?.id) return null
+function firstString(...values: unknown[]): string | null {
+  return values.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null
+}
 
-  const resolvedName =
-    row.name ??
-    row.Naam ??
-    row.naam ??
-    row.horse_name ??
-    row.horse ??
-    row.paard ??
-    row['Naam+Naam'] ??
-    row.stable_name ??
-    null
-
-  const resolvedStableName =
-    row.stable_name ??
-    row.stable ??
-    row.barn_name ??
-    null
-
-  const resolvedActive =
-    typeof row.active === 'boolean'
-      ? row.active
-      : typeof row.is_active === 'boolean'
-        ? row.is_active
-        : typeof row.Active === 'boolean'
-          ? row.Active
-          : true
-
+function normalizeHorse(row: Record<string, unknown>): Horse | null {
+  const id = firstString(row.id)
+  if (!id) return null
+  const active = [row.active, row.is_active, row.Active].find((value): value is boolean => typeof value === 'boolean') ?? true
   return {
-    id: row.id,
-    name: resolvedName,
-    stable_name: resolvedStableName,
-    active: resolvedActive,
+    id,
+    name: firstString(row.name, row.Naam, row.naam, row.horse_name, row.horse, row.paard, row['Naam+Naam'], row.stable_name),
+    stable_name: firstString(row.stable_name, row.stable, row.barn_name),
+    active,
   }
 }
 
-function normalizeMedicine(row: any): ProductOption | null {
-  const rawName =
-    row.name ??
-    row.medicine_name ??
-    row.product_name ??
-    row.title ??
-    row.naam ??
-    row.Naam ??
-    null
-
-  if (!rawName) return null
-
-  return {
-    id: row.id ?? rawName,
-    name: String(rawName),
-    category: row.category ?? null,
-  }
+function normalizeMedicine(row: Record<string, unknown>): ProductOption | null {
+  const name = firstString(row.name, row.medicine_name, row.product_name, row.title, row.naam, row.Naam)
+  if (!name) return null
+  return { id: firstString(row.id) || name, name, category: firstString(row.category) }
 }
 
 function looksLikeDewormer(product: ProductOption) {
@@ -216,12 +185,15 @@ function batchSortValue(batch: BatchStockRow) {
   return batch.expiry_date
 }
 
-export default function DewormingTab({ onBack }: Props) {
+export default function DewormingTab({ onBack, initialHorseId }: Props) {
+  useLocale()
+  const quickEntryApplied = useRef(false)
   const [horses, setHorses] = useState<Horse[]>([])
   const [records, setRecords] = useState<DewormingRecord[]>([])
   const [products, setProducts] = useState<ProductOption[]>([])
   const [batchRows, setBatchRows] = useState<BatchStockRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [savingHorseId, setSavingHorseId] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
@@ -229,13 +201,8 @@ export default function DewormingTab({ onBack }: Props) {
   const [showAllHistory, setShowAllHistory] = useState(false)
   const [openForm, setOpenForm] = useState<FormState | null>(null)
 
-  useEffect(() => {
-    void loadData()
-  }, [])
-
-  async function loadData() {
-    setLoading(true)
-
+  const loadData = useCallback(async () => {
+    setLoadError('')
     const [horsesRes, recordsRes, medicinesRes, batchRes] = await Promise.all([
       supabase.from('horses').select('*'),
       supabase.from('deworming_records').select('*').order('administered_on', { ascending: false }),
@@ -247,14 +214,21 @@ export default function DewormingTab({ onBack }: Props) {
         .order('expiry_date', { ascending: true }),
     ])
 
+    const queryError = horsesRes.error || recordsRes.error || medicinesRes.error || batchRes.error
+    if (queryError) {
+      setLoadError('Deworming records could not be loaded. Refresh and try again.')
+      setLoading(false)
+      return
+    }
+
     const normalizedHorses: Horse[] = (horsesRes.data || [])
-      .map((horse: any) => normalizeHorse(horse))
+      .map((horse) => normalizeHorse(horse))
       .filter((horse): horse is Horse => Boolean(horse))
       .filter((horse) => horse.active !== false)
       .sort((a, b) => (a.name || a.stable_name || '').localeCompare(b.name || b.stable_name || ''))
 
     const normalizedProducts: ProductOption[] = (medicinesRes.data || [])
-      .map((row: any) => normalizeMedicine(row))
+      .map((row) => normalizeMedicine(row))
       .filter((p): p is ProductOption => Boolean(p))
       .filter((p) => looksLikeDewormer(p))
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -264,12 +238,29 @@ export default function DewormingTab({ onBack }: Props) {
     setProducts(normalizedProducts)
     setBatchRows((batchRes.data || []) as BatchStockRow[])
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => { void loadData() })
+    return () => window.cancelAnimationFrame(frame)
+  }, [loadData])
+
+  useEffect(() => {
+    if (!initialHorseId || loading || quickEntryApplied.current || !horses.some((horse) => horse.id === initialHorseId)) return
+    quickEntryApplied.current = true
+    const date = toDateInputValue()
+    const frame = window.requestAnimationFrame(() => {
+      setOpenForm({ horseId: initialHorseId, date, nextDue: addDays(date, DEWORMING_INTERVAL_DAYS), productName: products[0]?.name || '', notes: '' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [initialHorseId, loading, horses, products])
 
   function openDewormingForm(horseId: string) {
+    const date = toDateInputValue(new Date())
     setOpenForm({
       horseId,
-      date: toDateInputValue(new Date()),
+      date,
+      nextDue: addDays(date, DEWORMING_INTERVAL_DAYS),
       productName: products[0]?.name || '',
       notes: '',
     })
@@ -287,7 +278,6 @@ export default function DewormingTab({ onBack }: Props) {
 
     setSavingHorseId(openForm.horseId)
 
-    const nextDue = addDays(openForm.date, DEWORMING_INTERVAL_DAYS)
     const product = products.find((p) => p.name === openForm.productName) || null
 
     let chosenBatch: BatchStockRow | null = null
@@ -305,7 +295,7 @@ export default function DewormingTab({ onBack }: Props) {
       .insert({
         horse_id: openForm.horseId,
         administered_on: openForm.date,
-        next_due_on: nextDue,
+        next_due_on: openForm.nextDue || null,
         product_name: openForm.productName || null,
         notes: openForm.notes || null,
       })
@@ -519,7 +509,7 @@ export default function DewormingTab({ onBack }: Props) {
           <span className="deworm-kicker">Health Management</span>
           <h2 className="deworm-title">Deworming</h2>
           <p className="deworm-subtitle">
-            Compact overzicht van ontworming, due dates, stockverbruik en history.
+            Track treatment dates, what is due next and product use for each horse.
           </p>
         </div>
 
@@ -561,6 +551,8 @@ export default function DewormingTab({ onBack }: Props) {
           <strong>{stats.missing}</strong>
         </div>
       </div>
+
+      {loadError && <div className="care-alert" role="alert"><span>{loadError}</span><button type="button" onClick={() => void loadData()}>Try again</button></div>}
 
       <div className="deworm-toolbar">
         <div className="deworm-filters">
@@ -676,7 +668,7 @@ export default function DewormingTab({ onBack }: Props) {
                         type="button"
                         onClick={() => openDewormingForm(row.horse.id)}
                         disabled={isSaving}
-                        title="Deworming toevoegen"
+                        title="Record deworming"
                       >
                         +
                       </button>
@@ -693,12 +685,17 @@ export default function DewormingTab({ onBack }: Props) {
                               <input
                                 type="date"
                                 value={openForm.date}
-                                onChange={(e) =>
-                                  setOpenForm((prev) =>
-                                    prev ? { ...prev, date: e.target.value } : prev
-                                  )
-                                }
+                                onChange={(e) => setOpenForm((prev) => prev ? {
+                                  ...prev,
+                                  date: e.target.value,
+                                  nextDue: e.target.value ? addDays(e.target.value, DEWORMING_INTERVAL_DAYS) : '',
+                                } : prev)}
                               />
+                            </div>
+
+                            <div className="deworm-entry-field">
+                              <label>Next due (suggested)</label>
+                              <input type="date" value={openForm.nextDue} onChange={(e) => setOpenForm((prev) => prev ? { ...prev, nextDue: e.target.value } : prev)} />
                             </div>
 
                             <div className="deworm-entry-field">

@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import './MedicinesTab.css'
+import './CareRecords.css'
+
+function todayISO() {
+  const date = new Date()
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
+  return date.toISOString().slice(0, 10)
+}
 
 type Medicine = {
   id: string
@@ -129,8 +135,9 @@ const ISSUED_BY_OPTIONS = [
 
 type IssuanceMode = 'issuance' | 'begin_stock'
 
-export default function MedicinesTab() {
+export default function MedicinesTab({ initialUsageHorseId }: { initialUsageHorseId?: string } = {}) {
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   const [medicines, setMedicines] = useState<Medicine[]>([])
   const [horses, setHorses] = useState<Horse[]>([])
@@ -144,7 +151,7 @@ export default function MedicinesTab() {
   const [horseSearchUsage, setHorseSearchUsage] = useState('')
 
   const [showAddModal, setShowAddModal] = useState(false)
-  const [showUsageModal, setShowUsageModal] = useState(false)
+  const [showUsageModal, setShowUsageModal] = useState(Boolean(initialUsageHorseId))
   const [showCreateMedicineInline, setShowCreateMedicineInline] = useState(false)
 
   const [issuanceMode, setIssuanceMode] = useState<IssuanceMode>('issuance')
@@ -159,7 +166,7 @@ export default function MedicinesTab() {
 
   const [issuanceForm, setIssuanceForm] = useState({
     medicine_id: '',
-    issue_date: new Date().toISOString().slice(0, 10),
+    issue_date: todayISO(),
     expiry_date: '',
     lot_number: '',
     issued_by: 'Wim Vermeiren' as (typeof ISSUED_BY_OPTIONS)[number],
@@ -174,16 +181,15 @@ export default function MedicinesTab() {
   const [usageForm, setUsageForm] = useState({
     medicine_id: '',
     issuance_id: '',
-    usage_date: new Date().toISOString().slice(0, 10),
+    usage_date: todayISO(),
     quantity: '1',
     horse_scope: 'selected' as 'selected' | 'all',
-    selected_horse_ids: [] as string[],
+    selected_horse_ids: initialUsageHorseId ? [initialUsageHorseId] : [],
     notes: '',
   })
 
   async function loadData() {
-    setLoading(true)
-
+    setLoadError('')
     const [
       medicinesRes,
       horsesRes,
@@ -220,18 +226,26 @@ export default function MedicinesTab() {
         .order('expiry_date', { ascending: true }),
     ])
 
-    if (!medicinesRes.error) setMedicines((medicinesRes.data as Medicine[]) || [])
-    if (!horsesRes.error) setHorses((horsesRes.data as Horse[]) || [])
-    if (!stockRes.error) setStockRows((stockRes.data as StockRow[]) || [])
-    if (!registerRes.error) setRegisterRows((registerRes.data as RegisterRow[]) || [])
-    if (!expiryRes.error) setExpiryWarnings((expiryRes.data as ExpiryWarningRow[]) || [])
-    if (!batchRes.error) setBatchRows((batchRes.data as BatchStockRow[]) || [])
+    const queryError = medicinesRes.error || horsesRes.error || stockRes.error || registerRes.error || expiryRes.error || batchRes.error
+    if (queryError) {
+      setLoadError('Medicine and stock records could not be loaded. Refresh and try again.')
+      setLoading(false)
+      return
+    }
+
+    setMedicines((medicinesRes.data as Medicine[]) || [])
+    setHorses((horsesRes.data as Horse[]) || [])
+    setStockRows((stockRes.data as StockRow[]) || [])
+    setRegisterRows((registerRes.data as RegisterRow[]) || [])
+    setExpiryWarnings((expiryRes.data as ExpiryWarningRow[]) || [])
+    setBatchRows((batchRes.data as BatchStockRow[]) || [])
 
     setLoading(false)
   }
 
   useEffect(() => {
-    loadData()
+    const frame = window.requestAnimationFrame(() => { void loadData() })
+    return () => window.cancelAnimationFrame(frame)
   }, [])
 
   const filteredRegister = useMemo(() => {
@@ -479,7 +493,7 @@ export default function MedicinesTab() {
 
     setIssuanceForm({
       medicine_id: '',
-      issue_date: new Date().toISOString().slice(0, 10),
+      issue_date: todayISO(),
       expiry_date: '',
       lot_number: '',
       issued_by: 'Wim Vermeiren',
@@ -555,7 +569,7 @@ export default function MedicinesTab() {
     setUsageForm({
       medicine_id: '',
       issuance_id: '',
-      usage_date: new Date().toISOString().slice(0, 10),
+      usage_date: todayISO(),
       quantity: '1',
       horse_scope: 'selected',
       selected_horse_ids: [],
@@ -599,7 +613,7 @@ export default function MedicinesTab() {
     setUsageForm({
       medicine_id: '',
       issuance_id: '',
-      usage_date: new Date().toISOString().slice(0, 10),
+      usage_date: todayISO(),
       quantity: '1',
       horse_scope: 'selected',
       selected_horse_ids: [],
@@ -641,6 +655,8 @@ export default function MedicinesTab() {
           </button>
         </div>
       </div>
+
+      {loadError && <div className="care-alert" role="alert"><span>{loadError}</span><button type="button" onClick={() => void loadData()}>Try again</button></div>}
 
       <div className="med-toolbar">
         <input

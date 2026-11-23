@@ -74,8 +74,9 @@ export default function HorsesTab() {
   const [horses, setHorses] = useState<Horse[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
-  const [activeFilter, setActiveFilter] = useState<'All' | 'Active' | 'Inactive'>('Active')
+  const [activeFilter, setActiveFilter] = useState<'All' | 'Active' | 'Away' | 'Inactive'>('Active')
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null)
+  const [profileSection, setProfileSection] = useState<'Overview' | 'Health' | 'Breeding'>('Overview')
 
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [vaccinationsLoading, setVaccinationsLoading] = useState(false)
@@ -260,9 +261,11 @@ export default function HorsesTab() {
       const matchesActive =
         activeFilter === 'All'
           ? true
+          : activeFilter === 'Away'
+            ? horse.stable_status === 'away'
           : activeFilter === 'Active'
-            ? horse.active !== false
-            : horse.active === false
+            ? horse.stable_status !== 'away' && horse.stable_status !== 'inactive' && horse.active !== false
+            : horse.stable_status === 'inactive' || horse.active === false
 
       return matchesSearch && matchesActive
     })
@@ -286,6 +289,7 @@ export default function HorsesTab() {
 
   const openHorse = async (horse: Horse) => {
     setSelectedHorseId(horse.id)
+    setProfileSection('Overview')
     setHistoryOpen({
       flu_tetanus: false,
       rhino: false,
@@ -492,7 +496,21 @@ export default function HorsesTab() {
             </div>
           </div>
 
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+          <nav className={`${styles.profileTabs} ${styles.noPrint}`} aria-label="Horse profile sections">
+            {(['Overview', 'Health', 'Breeding'] as const).map((section) => (
+              <button
+                key={section}
+                type="button"
+                className={profileSection === section ? styles.profileTabActive : styles.profileTab}
+                aria-current={profileSection === section ? 'page' : undefined}
+                onClick={() => setProfileSection(section)}
+              >
+                {section}
+              </button>
+            ))}
+          </nav>
+
+          <div className={`${styles.detailCard} ${styles.noPrint} ${profileSection !== 'Overview' ? styles.sectionHidden : ''}`}>
             <h3 className={styles.cardTitle}>Basic information</h3>
 
             <div className={styles.infoGrid}>
@@ -528,7 +546,7 @@ export default function HorsesTab() {
             </div>
           </div>
 
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+          <div className={`${styles.detailCard} ${styles.noPrint} ${profileSection !== 'Health' ? styles.sectionHidden : ''}`}>
             <h3 className={styles.cardTitle}>Vaccinations</h3>
 
             {vaccinationsLoading ? (
@@ -644,7 +662,7 @@ export default function HorsesTab() {
             )}
           </div>
 
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+          <div className={`${styles.detailCard} ${styles.noPrint} ${profileSection !== 'Health' ? styles.sectionHidden : ''}`}>
             <h3 className={styles.cardTitle}>Ontworming</h3>
 
             {dewormingLoading ? (
@@ -707,7 +725,7 @@ export default function HorsesTab() {
             )}
           </div>
 
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
+          <div className={`${styles.detailCard} ${styles.noPrint} ${profileSection !== 'Health' ? styles.sectionHidden : ''}`}>
             <h3 className={styles.cardTitle}>Farrier</h3>
 
             <div className={styles.infoGrid}>
@@ -777,7 +795,7 @@ export default function HorsesTab() {
             )}
           </div>
 
-          {selectedHorse.show_in_mare_cards && (
+          {profileSection === 'Breeding' && (selectedHorse.show_in_mare_cards ? (
             <div className={`${styles.detailCard} ${styles.noPrint}`}>
               <h3 className={styles.cardTitle}>Mare card</h3>
 
@@ -798,9 +816,14 @@ export default function HorsesTab() {
                 </div>
               </div>
             </div>
-          )}
+          ) : (
+            <div className={`${styles.detailCard} ${styles.noPrint} ${styles.fullWidth}`}>
+              <h3 className={styles.cardTitle}>Breeding records</h3>
+              <p className={styles.sectionHint}>Breeding tracking is not enabled for this horse. Edit the horse profile to include it.</p>
+            </div>
+          ))}
 
-          <div className={`${styles.detailCard} ${styles.fullWidth} ${styles.noPrint}`}>
+          <div className={`${styles.detailCard} ${styles.fullWidth} ${styles.noPrint} ${profileSection !== 'Overview' ? styles.sectionHidden : ''}`}>
             <h3 className={styles.cardTitle}>Notes</h3>
             <div className={styles.notesBox}>
               {selectedHorse.notes?.trim() ? selectedHorse.notes : 'No notes yet.'}
@@ -813,95 +836,69 @@ export default function HorsesTab() {
 
   return (
     <section className={styles.panel}>
-      <div className={styles.header}>
+      <header className={styles.horseHeader}>
         <div>
-          <span className={styles.kicker}>Stable horses</span>
-          <h2>Horse List</h2>
-          <p>Overview of all horses currently stored in Supabase.</p>
+          <span className={styles.kicker}>STABLE OPTIMUS / HORSES</span>
+          <h1>Horses</h1>
+          <p>Find a horse quickly and see its current status, location and care at a glance.</p>
         </div>
+        <div className={styles.horseHeaderCount}>
+          <span>Showing</span>
+          <strong>{loading ? '—' : filteredHorses.length}</strong>
+          <small>of {horses.length} horses</small>
+        </div>
+      </header>
 
-        <div className={styles.countBox}>
-          <span>Visible horses</span>
-          <strong>{filteredHorses.length}</strong>
-        </div>
+      <div className={styles.horseSummary} aria-label="Horse counts">
+        <div><span>Active</span><strong>{horses.filter((horse) => horse.active !== false && horse.stable_status !== 'away').length}</strong></div>
+        <div><span>Away</span><strong>{horses.filter((horse) => horse.stable_status === 'away').length}</strong></div>
+        <div><span>Inactive</span><strong>{horses.filter((horse) => horse.active === false && horse.stable_status !== 'away').length}</strong></div>
       </div>
 
-      <div className={styles.toolbar}>
-        <div className={styles.searchWrap}>
+      <div className={styles.horseToolbar}>
+        <label className={styles.horseSearchLabel}>
+          <span className={styles.visuallyHidden}>Search horses</span>
+          <span aria-hidden="true" className={styles.searchIcon}>⌕</span>
           <input
-            className={styles.search}
-            placeholder="Search horse..."
+            className={styles.horseSearch}
+            placeholder="Search horses by name…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-
-        <div className={styles.filters}>
-          <select
-            className={styles.filter}
-            value={activeFilter}
-            onChange={(e) =>
-              setActiveFilter(e.target.value as 'All' | 'Active' | 'Inactive')
-            }
-          >
-            <option value="All">All horses</option>
-            <option value="Active">Active only</option>
-            <option value="Inactive">Inactive only</option>
-          </select>
+          {search && <button type="button" className={styles.clearSearch} onClick={() => setSearch('')} aria-label="Clear search">×</button>}
+        </label>
+        <div className={styles.horseFilters} role="group" aria-label="Filter horses">
+          {(['Active', 'Away', 'Inactive', 'All'] as const).map((filter) => (
+            <button key={filter} type="button" className={activeFilter === filter ? styles.horseFilterActive : styles.horseFilter} aria-pressed={activeFilter === filter} onClick={() => setActiveFilter(filter)}>
+              {filter === 'Active' ? 'In stable' : filter === 'All' ? 'All horses' : filter}
+            </button>
+          ))}
         </div>
       </div>
 
-      <div className={styles.tableCard}>
-        <div className={styles.tableHead}>
-          <div>Name</div>
-          <div>Type</div>
-          <div>Status</div>
-          <div>Location</div>
-          <div></div>
+      {loading ? <div className={styles.horseEmpty}>Loading horses…</div> : filteredHorses.length === 0 ? (
+        <div className={styles.horseEmpty}>
+          <strong>{search ? 'No horses match this search' : 'No horses in this view'}</strong>
+          <span>{search ? 'Try a shorter name or clear the search.' : 'Choose another status filter to see more horses.'}</span>
+          {search && <button type="button" onClick={() => setSearch('')}>Clear search</button>}
         </div>
-
-        <div className={styles.tableBody}>
-          {loading && <div className={styles.emptyState}>Loading horses...</div>}
-
-          {!loading &&
-            filteredHorses.map((horse) => (
-              <div
-                key={horse.id}
-                className={styles.row}
-                onClick={() => openHorse(horse)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    openHorse(horse)
-                  }
-                }}
-                aria-label={`Open details for ${horse.name}`}
-              >
-                <div className={styles.name}>{horse.name}</div>
-
-                <div className={styles.tableMuted}>{horse.horse_type || '—'}</div>
-
-                <div>
-                  <span className={`${styles.statusPill} ${getStatusClass(horse)}`}>
-                    {getStatusLabel(horse)}
-                  </span>
-                </div>
-
-                <div className={styles.tableMuted}>{getStableLocationLabel(horse)}</div>
-
-                <div className={styles.openCell}>
-                  <span className={styles.rowActionArrow}>→</span>
-                </div>
-              </div>
-            ))}
-
-          {!loading && filteredHorses.length === 0 && (
-            <div className={styles.emptyState}>No horses found.</div>
-          )}
+      ) : (
+        <div className={styles.horseCardGrid}>
+          {filteredHorses.map((horse) => (
+            <button key={horse.id} type="button" className={styles.horseCard} onClick={() => void openHorse(horse)} aria-label={`Open ${horse.name || 'unnamed horse'}`}>
+              <span className={styles.horseCardTop}>
+                <span className={styles.horseInitial} aria-hidden="true">{(horse.name || '?').trim().slice(0, 1).toUpperCase()}</span>
+                <span className={`${styles.statusPill} ${getStatusClass(horse)}`}>{getStatusLabel(horse)}</span>
+              </span>
+              <strong className={styles.horseCardName}>{horse.name || 'Unnamed horse'}</strong>
+              <span className={styles.horseCardType}>{horse.horse_type || 'Type not set'}</span>
+              <span className={styles.horseCardLocation}><span aria-hidden="true">⌖</span>{getStableLocationLabel(horse)}</span>
+              {horse.stable_status === 'away' && getMovementLabel(horse) !== '—' && <span className={styles.horseCardMovement}>Away to {getMovementLabel(horse)}</span>}
+              <span className={styles.horseCardAction}>Open profile <span aria-hidden="true">→</span></span>
+            </button>
+          ))}
         </div>
-      </div>
+      )}
     </section>
   )
 }

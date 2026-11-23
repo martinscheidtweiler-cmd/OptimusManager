@@ -1,8 +1,9 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
-import './VaccinationsTab.css'
+import { useLocale } from '../LanguageProvider'
+import './CareRecords.css'
 
 type Horse = {
   id: string
@@ -70,12 +71,15 @@ type FormState = {
   horseId: string
   type: 'flu_tetanus' | 'rhino'
   date: string
+  nextDue: string
   productName: string
   notes: string
 }
 
 type Props = {
   onBack?: () => void
+  initialHorseId?: string
+  initialType?: 'flu_tetanus' | 'rhino'
 }
 
 const FLU_INTERVAL_DAYS = 365
@@ -84,7 +88,7 @@ const DUE_SOON_DAYS = 30
 
 function formatDate(dateStr: string | null) {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('nl-BE')
+  return new Date(dateStr).toLocaleDateString(typeof document === 'undefined' ? 'en-GB' : document.documentElement.lang || 'en-GB')
 }
 
 function toDateInputValue(date = new Date()) {
@@ -95,7 +99,7 @@ function toDateInputValue(date = new Date()) {
 }
 
 function addDays(dateStr: string, days: number) {
-  const date = new Date(dateStr)
+  const date = new Date(`${dateStr}T12:00:00`)
   date.setDate(date.getDate() + days)
   return toDateInputValue(date)
 }
@@ -106,7 +110,7 @@ function diffInDays(dateStr: string | null) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  const target = new Date(dateStr)
+  const target = new Date(`${dateStr}T12:00:00`)
   target.setHours(0, 0, 0, 0)
 
   return Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
@@ -145,60 +149,26 @@ function sortWeight(status: string) {
   return 3
 }
 
-function normalizeHorse(row: any): Horse | null {
-  if (!row?.id) return null
+function firstString(...values: unknown[]): string | null {
+  return values.find((value): value is string => typeof value === 'string' && value.length > 0) ?? null
+}
 
-  const resolvedName =
-    row.name ??
-    row.Naam ??
-    row.naam ??
-    row.horse_name ??
-    row.horse ??
-    row.paard ??
-    row['Naam+Naam'] ??
-    row.stable_name ??
-    null
-
-  const resolvedStableName =
-    row.stable_name ??
-    row.stable ??
-    row.barn_name ??
-    null
-
-  const resolvedActive =
-    typeof row.active === 'boolean'
-      ? row.active
-      : typeof row.is_active === 'boolean'
-        ? row.is_active
-        : typeof row.Active === 'boolean'
-          ? row.Active
-          : true
-
+function normalizeHorse(row: Record<string, unknown>): Horse | null {
+  const id = firstString(row.id)
+  if (!id) return null
+  const active = [row.active, row.is_active, row.Active].find((value): value is boolean => typeof value === 'boolean') ?? true
   return {
-    id: row.id,
-    name: resolvedName,
-    stable_name: resolvedStableName,
-    active: resolvedActive,
+    id,
+    name: firstString(row.name, row.Naam, row.naam, row.horse_name, row.horse, row.paard, row['Naam+Naam'], row.stable_name),
+    stable_name: firstString(row.stable_name, row.stable, row.barn_name),
+    active,
   }
 }
 
-function normalizeMedicine(row: any): ProductOption | null {
-  const rawName =
-    row.name ??
-    row.medicine_name ??
-    row.product_name ??
-    row.title ??
-    row.naam ??
-    row.Naam ??
-    null
-
-  if (!rawName) return null
-
-  return {
-    id: row.id ?? rawName,
-    name: String(rawName),
-    category: row.category ?? null,
-  }
+function normalizeMedicine(row: Record<string, unknown>): ProductOption | null {
+  const name = firstString(row.name, row.medicine_name, row.product_name, row.title, row.naam, row.Naam)
+  if (!name) return null
+  return { id: firstString(row.id) || name, name, category: firstString(row.category) }
 }
 
 function looksLikeVaccine(product: ProductOption) {
@@ -252,13 +222,16 @@ function batchSortValue(batch: BatchStockRow) {
   return batch.expiry_date
 }
 
-export default function VaccinationsTab({ onBack }: Props) {
+export default function VaccinationsTab({ onBack, initialHorseId, initialType = 'flu_tetanus' }: Props) {
+  useLocale()
+  const quickEntryApplied = useRef(false)
   const [horses, setHorses] = useState<Horse[]>([])
   const [records, setRecords] = useState<VaccinationRecord[]>([])
   const [passportStatuses, setPassportStatuses] = useState<Record<string, PassportStatusRow>>({})
   const [products, setProducts] = useState<ProductOption[]>([])
   const [batchRows, setBatchRows] = useState<BatchStockRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
   const [savingHorseId, setSavingHorseId] = useState<string | null>(null)
   const [filter, setFilter] = useState<FilterType>('all')
   const [search, setSearch] = useState('')
@@ -266,13 +239,8 @@ export default function VaccinationsTab({ onBack }: Props) {
   const [showAllHistory, setShowAllHistory] = useState(false)
   const [openForm, setOpenForm] = useState<FormState | null>(null)
 
-  useEffect(() => {
-    void loadData()
-  }, [])
-
-  async function loadData() {
-    setLoading(true)
-
+  const loadData = useCallback(async () => {
+    setLoadError('')
     const [horsesRes, recordsRes, passportRes, medicinesRes, batchRes] = await Promise.all([
       supabase.from('horses').select('*'),
       supabase.from('vaccination_records').select('*').order('administered_on', { ascending: false }),
@@ -285,19 +253,26 @@ export default function VaccinationsTab({ onBack }: Props) {
         .order('expiry_date', { ascending: true }),
     ])
 
+    const queryError = horsesRes.error || recordsRes.error || passportRes.error || medicinesRes.error || batchRes.error
+    if (queryError) {
+      setLoadError('Vaccination records could not be loaded. Refresh and try again.')
+      setLoading(false)
+      return
+    }
+
     const passportMap: Record<string, PassportStatusRow> = {}
-    ;(passportRes.data || []).forEach((row: any) => {
+    ;(passportRes.data || []).forEach((row) => {
       passportMap[row.horse_id] = row
     })
 
     const normalizedHorses: Horse[] = (horsesRes.data || [])
-      .map((horse: any) => normalizeHorse(horse))
+      .map((horse) => normalizeHorse(horse))
       .filter((horse): horse is Horse => Boolean(horse))
       .filter((horse) => horse.active !== false)
       .sort((a, b) => (a.name || a.stable_name || '').localeCompare(b.name || b.stable_name || ''))
 
     const normalizedProducts: ProductOption[] = (medicinesRes.data || [])
-      .map((row: any) => normalizeMedicine(row))
+      .map((row) => normalizeMedicine(row))
       .filter((p): p is ProductOption => Boolean(p))
       .filter((p) => looksLikeVaccine(p))
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -308,15 +283,34 @@ export default function VaccinationsTab({ onBack }: Props) {
     setProducts(normalizedProducts)
     setBatchRows((batchRes.data || []) as BatchStockRow[])
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => { void loadData() })
+    return () => window.cancelAnimationFrame(frame)
+  }, [loadData])
+
+  useEffect(() => {
+    if (!initialHorseId || loading || quickEntryApplied.current || !horses.some((horse) => horse.id === initialHorseId)) return
+    quickEntryApplied.current = true
+    const product = products.find((item) => matchesType(item, initialType))
+    const date = toDateInputValue()
+    const interval = initialType === 'flu_tetanus' ? FLU_INTERVAL_DAYS : RHINO_INTERVAL_DAYS
+    const frame = window.requestAnimationFrame(() => {
+      setOpenForm({ horseId: initialHorseId, type: initialType, date, nextDue: addDays(date, interval), productName: product?.name || '', notes: '' })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [initialHorseId, initialType, loading, horses, products])
 
   function openVaccinationForm(horseId: string, type: 'flu_tetanus' | 'rhino') {
     const typeProducts = products.filter((p) => matchesType(p, type))
+    const date = toDateInputValue(new Date())
 
     setOpenForm({
       horseId,
       type,
-      date: toDateInputValue(new Date()),
+      date,
+      nextDue: addDays(date, type === 'flu_tetanus' ? FLU_INTERVAL_DAYS : RHINO_INTERVAL_DAYS),
       productName: typeProducts[0]?.name || '',
       notes: '',
     })
@@ -333,11 +327,6 @@ export default function VaccinationsTab({ onBack }: Props) {
     const horseName = horse?.name || horse?.stable_name || 'Unnamed horse'
 
     setSavingHorseId(openForm.horseId)
-
-    const nextDue =
-      openForm.type === 'flu_tetanus'
-        ? addDays(openForm.date, FLU_INTERVAL_DAYS)
-        : addDays(openForm.date, RHINO_INTERVAL_DAYS)
 
     const product = products.find((p) => p.name === openForm.productName) || null
 
@@ -357,7 +346,7 @@ export default function VaccinationsTab({ onBack }: Props) {
         horse_id: openForm.horseId,
         vaccine_type: openForm.type,
         administered_on: openForm.date,
-        next_due_on: nextDue,
+        next_due_on: openForm.nextDue || null,
         product_name: openForm.productName || null,
         notes: openForm.notes || null,
       })
@@ -644,7 +633,7 @@ export default function VaccinationsTab({ onBack }: Props) {
           <span className="vacc-kicker">Health Management</span>
           <h2 className="vacc-title">Vaccinations</h2>
           <p className="vacc-subtitle">
-            Overzicht van tetanus + griep, rhino en paspoortopvolging.
+            Keep vaccination dates, passport checks and each dose history together.
           </p>
         </div>
 
@@ -686,6 +675,8 @@ export default function VaccinationsTab({ onBack }: Props) {
           <strong>{stats.passportUpdatesNeeded}</strong>
         </div>
       </div>
+
+      {loadError && <div className="care-alert" role="alert"><span>{loadError}</span><button type="button" onClick={() => void loadData()}>Try again</button></div>}
 
       <div className="vacc-toolbar">
         <div className="vacc-filters">
@@ -795,7 +786,7 @@ export default function VaccinationsTab({ onBack }: Props) {
                           type="button"
                           onClick={() => openVaccinationForm(row.horse.id, 'flu_tetanus')}
                           disabled={isSaving}
-                          title="Vaccination toevoegen"
+                          title="Record vaccination"
                         >
                           +
                         </button>
@@ -815,12 +806,17 @@ export default function VaccinationsTab({ onBack }: Props) {
                               <input
                                 type="date"
                                 value={openForm.date}
-                                onChange={(e) =>
-                                  setOpenForm((prev) =>
-                                    prev ? { ...prev, date: e.target.value } : prev
-                                  )
-                                }
+                                onChange={(e) => setOpenForm((prev) => prev ? {
+                                  ...prev,
+                                  date: e.target.value,
+                                  nextDue: e.target.value ? addDays(e.target.value, FLU_INTERVAL_DAYS) : '',
+                                } : prev)}
                               />
+                            </div>
+
+                            <div className="vacc-entry-field">
+                              <label>Next due (suggested)</label>
+                              <input type="date" value={openForm.nextDue} onChange={(e) => setOpenForm((prev) => prev ? { ...prev, nextDue: e.target.value } : prev)} />
                             </div>
 
                             <div className="vacc-entry-field">
@@ -887,7 +883,7 @@ export default function VaccinationsTab({ onBack }: Props) {
                           type="button"
                           onClick={() => openVaccinationForm(row.horse.id, 'rhino')}
                           disabled={isSaving}
-                          title="Vaccination toevoegen"
+                          title="Record vaccination"
                         >
                           +
                         </button>
@@ -907,12 +903,17 @@ export default function VaccinationsTab({ onBack }: Props) {
                               <input
                                 type="date"
                                 value={openForm.date}
-                                onChange={(e) =>
-                                  setOpenForm((prev) =>
-                                    prev ? { ...prev, date: e.target.value } : prev
-                                  )
-                                }
+                                onChange={(e) => setOpenForm((prev) => prev ? {
+                                  ...prev,
+                                  date: e.target.value,
+                                  nextDue: e.target.value ? addDays(e.target.value, RHINO_INTERVAL_DAYS) : '',
+                                } : prev)}
                               />
+                            </div>
+
+                            <div className="vacc-entry-field">
+                              <label>Next due (suggested)</label>
+                              <input type="date" value={openForm.nextDue} onChange={(e) => setOpenForm((prev) => prev ? { ...prev, nextDue: e.target.value } : prev)} />
                             </div>
 
                             <div className="vacc-entry-field">

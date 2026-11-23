@@ -1,4 +1,4 @@
 import { redirect } from 'next/navigation'
 
-// Trigger a fresh Vercel preview deployment.
+// Ensure Vercel processes the branch after enabling automatic builds.
 export default function Home() { redirect('/manager') }

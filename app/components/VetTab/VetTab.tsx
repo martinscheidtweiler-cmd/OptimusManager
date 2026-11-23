@@ -35,7 +35,7 @@ const menuGroups: VetGroup[] = [
     title: 'Diagnostics',
     text: 'Scans, imaging and lab follow-up.',
     items: [
-      { key: 'Xray', label: 'Xray', text: 'X-ray scans and imaging' },
+      { key: 'Xray', label: 'X-rays', text: 'X-ray scans and imaging' },
       { key: 'Lab Results', label: 'Lab Results', text: 'Blood tests and lab results' },
     ],
   },

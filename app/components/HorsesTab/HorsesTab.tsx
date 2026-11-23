@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import styles from './HorsesTab.module.css'
@@ -68,7 +68,13 @@ type FarrierVisit = {
   created_at: string | null
 }
 
-export default function HorsesTab() {
+type QuickCareMenu = 'Vaccinations' | 'Deworming' | 'Visits' | 'Farrier'
+
+export default function HorsesTab({
+  onVetQuickAction,
+}: {
+  onVetQuickAction?: (menu: QuickCareMenu, horseId: string, vaccineType?: VaccineType) => void
+}) {
   const router = useRouter()
 
   const [horses, setHorses] = useState<Horse[]>([])
@@ -76,6 +82,11 @@ export default function HorsesTab() {
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<'All' | 'Active' | 'Inactive'>('Active')
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
+  const [noteEditing, setNoteEditing] = useState(false)
+  const [noteSaving, setNoteSaving] = useState(false)
+  const [noteFeedback, setNoteFeedback] = useState('')
+  const [showAllActivity, setShowAllActivity] = useState(false)
 
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [vaccinationsLoading, setVaccinationsLoading] = useState(false)
@@ -286,6 +297,10 @@ export default function HorsesTab() {
 
   const openHorse = async (horse: Horse) => {
     setSelectedHorseId(horse.id)
+    setNoteDraft(horse.notes || '')
+    setNoteEditing(false)
+    setNoteFeedback('')
+    setShowAllActivity(false)
     setHistoryOpen({
       flu_tetanus: false,
       rhino: false,
@@ -302,6 +317,8 @@ export default function HorsesTab() {
 
   const closeHorse = () => {
     setSelectedHorseId(null)
+    setNoteEditing(false)
+    setNoteFeedback('')
     setVaccinations([])
     setDewormingRecords([])
     setFarrierHistory([])
@@ -313,15 +330,11 @@ export default function HorsesTab() {
     })
   }
 
-  const handlePrint = () => {
-    window.print()
-  }
-
   const formatDate = (value: string | null) => {
     if (!value) return '—'
-    const date = new Date(value)
+    const date = new Date(`${value.slice(0, 10)}T12:00:00`)
     if (Number.isNaN(date.getTime())) return '—'
-    return date.toLocaleDateString('nl-BE')
+    return date.toLocaleDateString(document.documentElement.lang || 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
   const getStatusLabel = (horse: Horse) => {
@@ -358,14 +371,39 @@ export default function HorsesTab() {
     return horse.moved_to_location || horse.moved_to_detail || '—'
   }
 
-  const getNextFarrierDate = (horse: Horse) => {
-    if (!horse.farrier_last_done || !horse.farrier_interval_weeks) return '—'
+  const getCareStatus = (dueDate: string | null) => {
+    if (!dueDate) return { label: 'No date', tone: styles.statusMissing }
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const due = new Date(`${dueDate.slice(0, 10)}T12:00:00`)
+    const daysLeft = Math.ceil((due.getTime() - today.getTime()) / 86_400_000)
+    if (daysLeft < 0) return { label: 'Overdue', tone: styles.statusOverdue }
+    if (daysLeft <= 30) return { label: 'Due soon', tone: styles.statusDueSoon }
+    return { label: 'Scheduled', tone: styles.statusScheduled }
+  }
 
-    const base = new Date(horse.farrier_last_done)
-    if (Number.isNaN(base.getTime())) return '—'
+  const getNextFarrierDateValue = (horse: Horse) => {
+    if (!horse.farrier_last_done || !horse.farrier_interval_weeks) return null
+    const date = new Date(`${horse.farrier_last_done.slice(0, 10)}T12:00:00`)
+    if (Number.isNaN(date.getTime())) return null
+    date.setDate(date.getDate() + horse.farrier_interval_weeks * 7)
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  }
 
-    base.setDate(base.getDate() + horse.farrier_interval_weeks * 7)
-    return base.toLocaleDateString('nl-BE')
+  const saveHorseNote = async () => {
+    if (!selectedHorse) return
+    setNoteSaving(true)
+    setNoteFeedback('')
+    const value = noteDraft.trim() || null
+    const { error } = await supabase.from('horses').update({ notes: value }).eq('id', selectedHorse.id)
+    if (error) {
+      setNoteFeedback('Could not save note. Please try again.')
+    } else {
+      setHorses((current) => current.map((horse) => horse.id === selectedHorse.id ? { ...horse, notes: value } : horse))
+      setNoteEditing(false)
+      setNoteFeedback('Note saved.')
+    }
+    setNoteSaving(false)
   }
 
   const yesNo = (value: boolean | null) => {
@@ -394,8 +432,23 @@ export default function HorsesTab() {
   }
 
   if (selectedHorse) {
+    const careRows = [
+      { id: 'flu_tetanus', historyKey: 'flu_tetanus' as const, label: 'Flu + tetanus', last: latestFlu?.administered_on || null, due: latestFlu?.next_due_on || null, menu: 'Vaccinations' as const, vaccineType: 'flu_tetanus' as const, history: fluVaccinations.map((item) => ({ id: item.id, date: item.administered_on, due: item.next_due_on, detail: item.product_name || 'Product not specified', notes: item.notes })) },
+      { id: 'rhino', historyKey: 'rhino' as const, label: 'Rhino', last: latestRhino?.administered_on || null, due: latestRhino?.next_due_on || null, menu: 'Vaccinations' as const, vaccineType: 'rhino' as const, history: rhinoVaccinations.map((item) => ({ id: item.id, date: item.administered_on, due: item.next_due_on, detail: item.product_name || 'Product not specified', notes: item.notes })) },
+      { id: 'deworming', historyKey: 'deworming' as const, label: 'Deworming', last: latestDeworming?.administered_on || null, due: latestDeworming?.next_due_on || null, menu: 'Deworming' as const, vaccineType: undefined, history: dewormingRecords.map((item) => ({ id: item.id, date: item.administered_on, due: item.next_due_on, detail: item.product_name || 'Product not specified', notes: item.notes })) },
+      { id: 'farrier', historyKey: 'farrier' as const, label: selectedHorse.farrier_name ? `Farrier · ${selectedHorse.farrier_name}` : 'Farrier', last: selectedHorse.farrier_last_done, due: getNextFarrierDateValue(selectedHorse), menu: 'Farrier' as const, vaccineType: undefined, history: farrierHistory.map((item) => ({ id: item.id, date: item.visit_date, due: null, detail: item.farrier_name || 'Farrier not specified', notes: item.notes || item.visit_type })) },
+    ]
+    const recentActivity = [
+      ...vaccinations.map((item) => ({ id: item.id, date: item.administered_on, title: `Vaccination recorded · ${item.vaccine_type === 'rhino' ? 'Rhino' : 'Flu + tetanus'}`, detail: item.product_name || 'Product not specified' })),
+      ...dewormingRecords.map((item) => ({ id: item.id, date: item.administered_on, title: 'Deworming recorded', detail: item.product_name || 'Product not specified' })),
+      ...(farrierHistory.length ? farrierHistory.map((item) => ({ id: item.id, date: item.visit_date, title: 'Farrier visit recorded', detail: item.farrier_name || 'Farrier not specified' })) : selectedHorse.farrier_last_done ? [{ id: `farrier-${selectedHorse.id}`, date: selectedHorse.farrier_last_done, title: 'Farrier visit recorded', detail: selectedHorse.farrier_name || 'Farrier not specified' }] : []),
+      ...(selectedHorse.stable_status === 'away' && selectedHorse.left_stable_at ? [{ id: `left-${selectedHorse.id}`, date: selectedHorse.left_stable_at, title: 'Left stable', detail: getMovementLabel(selectedHorse) }] : []),
+      ...(selectedHorse.returned_stable_at ? [{ id: `returned-${selectedHorse.id}`, date: selectedHorse.returned_stable_at, title: 'Returned to stable', detail: 'Horse returned to stable.' }] : []),
+    ].filter((item): item is { id: string; date: string; title: string; detail: string } => Boolean(item.date))
+      .sort((a, b) => b.date.localeCompare(a.date))
+
     return (
-      <section className={styles.panel}>
+      <section className={`${styles.panel} ${styles.profilePage}`}>
         <div className={`${styles.detailTopBar} ${styles.noPrint}`}>
           <button className={styles.backButton} onClick={closeHorse}>
             ← Back to horses
@@ -413,360 +466,78 @@ export default function HorsesTab() {
             </div>
           </div>
 
-          <button className={styles.printButton} onClick={handlePrint}>
-            Print
-          </button>
-
-          <button
-            className={styles.primaryButton}
-            onClick={() => router.push(`/horses/${selectedHorse.id}/edit`)}
-          >
-            Edit horse
-          </button>
+          <div className={styles.profileActions}>
+            <button className={styles.profileAddButton} onClick={() => onVetQuickAction?.('Visits', selectedHorse.id)}>+ Add record</button>
+            <button className={styles.printButton} onClick={() => router.push('/move')}>↔ Move horse</button>
+            <button className={styles.primaryButton} onClick={() => router.push(`/horses/${selectedHorse.id}/edit`)}>Edit profile</button>
+          </div>
         </div>
 
         <div className={styles.printSheet}>
           <div className={styles.printSheetHeader}>
             <h1>{selectedHorse.name || 'Unnamed horse'}</h1>
-            <h2>Horse profile</h2>
+            <h2>{selectedHorse.horse_type || 'Horse'} · {getStableLocationLabel(selectedHorse)}</h2>
           </div>
-
-          <div className={styles.printSheetGrid}>
-            <div className={styles.printSheetItem}>
-              <span>Latest flu + tetanus</span>
-              <strong>{latestFlu ? formatDate(latestFlu.administered_on) : '—'}</strong>
-              <small>{latestFlu?.product_name || '—'}</small>
-            </div>
-
-            <div className={styles.printSheetItem}>
-              <span>Latest rhino</span>
-              <strong>{latestRhino ? formatDate(latestRhino.administered_on) : '—'}</strong>
-              <small>{latestRhino?.product_name || '—'}</small>
-            </div>
-
-            <div className={styles.printSheetItem}>
-              <span>Last farrier visit</span>
-              <strong>{formatDate(selectedHorse.farrier_last_done)}</strong>
-              <small>{selectedHorse.farrier_name || '—'}</small>
-            </div>
-
-            <div className={styles.printSheetItem}>
-              <span>Last deworming</span>
-              <strong>{latestDeworming ? formatDate(latestDeworming.administered_on) : '—'}</strong>
-              <small>{latestDeworming?.product_name || '—'}</small>
-            </div>
-          </div>
+          <table className={styles.printCareTable}><thead><tr><th>Care</th><th>Last done</th><th>Next due</th><th>Status</th></tr></thead><tbody>{careRows.map((row) => <tr key={row.id}><td>{row.label}</td><td>{formatDate(row.last)}</td><td>{formatDate(row.due)}</td><td>{getCareStatus(row.due).label}</td></tr>)}</tbody></table>
         </div>
 
-        <div className={styles.detailGrid}>
-          {(selectedHorse.stable_status === 'away' || selectedHorse.returned_stable_at) && (
-            <div className={`${styles.detailCard} ${styles.noPrint}`}>
-              <h3 className={styles.cardTitle}>
-                {selectedHorse.stable_status === 'away' ? 'Away from stable' : 'Stable movement'}
-              </h3>
-              <div className={styles.infoGrid}>
-                {selectedHorse.stable_status === 'away' && (
-                  <>
-                    <div className={styles.infoItem}>
-                      <span>Left stable</span>
-                      <strong>{formatDate(selectedHorse.left_stable_at)}</strong>
-                    </div>
-                    {getMovementLabel(selectedHorse) !== '—' && (
-                      <div className={styles.infoItem}>
-                        <span>Current location</span>
-                        <strong>{getMovementLabel(selectedHorse)}</strong>
-                      </div>
-                    )}
-                  </>
-                )}
-                {selectedHorse.returned_stable_at && (
-                  <div className={styles.infoItem}>
-                    <span>Last returned</span>
-                    <strong>{formatDate(selectedHorse.returned_stable_at)}</strong>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
-            <h3 className={styles.cardTitle}>Vaccinations</h3>
-
-            {vaccinationsLoading ? (
-              <div className={styles.notesBox}>Loading vaccinations...</div>
-            ) : (
-              <div className={styles.vaccinationWrap}>
-                <div className={styles.vaccineBlock}>
-                  <div className={styles.vaccineTop}>
-                    <div>
-                      <span className={styles.vaccineLabel}>Flu + tetanus</span>
-                      <strong className={styles.vaccineDate}>
-                        {latestFlu ? formatDate(latestFlu.administered_on) : '—'}
-                      </strong>
-                      <span className={styles.vaccineMeta}>
-                        Next due: {latestFlu ? formatDate(latestFlu.next_due_on) : '—'}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.historyToggle}
-                      onClick={() =>
-                        setHistoryOpen((prev) => ({
-                          ...prev,
-                          flu_tetanus: !prev.flu_tetanus,
-                        }))
-                      }
-                    >
-                      {historyOpen.flu_tetanus ? 'Hide history' : 'View history'}
-                    </button>
-                  </div>
-
-                  {historyOpen.flu_tetanus && (
-                    <div className={styles.historyList}>
-                      {fluVaccinations.length === 0 ? (
-                        <div className={styles.historyEmpty}>No history yet.</div>
-                      ) : (
-                        fluVaccinations.map((item) => (
-                          <div key={item.id} className={styles.historyRow}>
-                            <div className={styles.historyDate}>
-                              <strong>{formatDate(item.administered_on)}</strong>
-                              <span>Due: {formatDate(item.next_due_on)}</span>
-                            </div>
-
-                            <div className={styles.historyContent}>
-                              <div className={styles.historyProduct}>
-                                {item.product_name || 'Product not specified'}
-                              </div>
-                              <div className={styles.historyNote}>
-                                {item.notes?.trim() || '—'}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className={styles.vaccineBlock}>
-                  <div className={styles.vaccineTop}>
-                    <div>
-                      <span className={styles.vaccineLabel}>Rhino</span>
-                      <strong className={styles.vaccineDate}>
-                        {latestRhino ? formatDate(latestRhino.administered_on) : '—'}
-                      </strong>
-                      <span className={styles.vaccineMeta}>
-                        Next due: {latestRhino ? formatDate(latestRhino.next_due_on) : '—'}
-                      </span>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={styles.historyToggle}
-                      onClick={() =>
-                        setHistoryOpen((prev) => ({
-                          ...prev,
-                          rhino: !prev.rhino,
-                        }))
-                      }
-                    >
-                      {historyOpen.rhino ? 'Hide history' : 'View history'}
-                    </button>
-                  </div>
-
-                  {historyOpen.rhino && (
-                    <div className={styles.historyList}>
-                      {rhinoVaccinations.length === 0 ? (
-                        <div className={styles.historyEmpty}>No history yet.</div>
-                      ) : (
-                        rhinoVaccinations.map((item) => (
-                          <div key={item.id} className={styles.historyRow}>
-                            <div className={styles.historyDate}>
-                              <strong>{formatDate(item.administered_on)}</strong>
-                              <span>Due: {formatDate(item.next_due_on)}</span>
-                            </div>
-
-                            <div className={styles.historyContent}>
-                              <div className={styles.historyProduct}>
-                                {item.product_name || 'Product not specified'}
-                              </div>
-                              <div className={styles.historyNote}>
-                                {item.notes?.trim() || '—'}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+        <section className={styles.careOverview}>
+          <div className={styles.careHeading}><div><span className={styles.careEyebrow}>CARE FOLLOW-UP</span><h2>Care overview</h2><p>See what is due and record care without searching through separate screens.</p></div></div>
+          <div className={styles.careTableWrap}>
+            <table className={styles.careTable}>
+              <thead><tr><th>Care</th><th>Last done</th><th>Next due</th><th>Status</th><th>Action</th></tr></thead>
+              <tbody>
+                {careRows.map((row) => {
+                  const status = getCareStatus(row.due)
+                  const isOpen = historyOpen[row.historyKey]
+                  return (
+                    <Fragment key={row.id}>
+                      <tr>
+                        <td data-label="Care"><div className={styles.careName}>{row.label}</div><button type="button" className={styles.inlineHistory} onClick={() => row.id === 'farrier' ? void toggleFarrierHistory() : setHistoryOpen((current) => ({ ...current, [row.historyKey]: !current[row.historyKey] }))}>{isOpen ? 'Hide history' : 'View history'}</button></td>
+                        <td data-label="Last done">{formatDate(row.last)}</td>
+                        <td data-label="Next due">{formatDate(row.due)}</td>
+                        <td data-label="Status"><span className={`${styles.careStatus} ${status.tone}`}><i />{status.label}</span></td>
+                        <td data-label="Action"><button type="button" className={styles.rowAddButton} onClick={() => onVetQuickAction?.(row.menu, selectedHorse.id, row.vaccineType)}>Add record</button></td>
+                      </tr>
+                      {isOpen && <tr className={styles.historyExpanded}><td colSpan={5}>
+                        {row.id === 'farrier' && farrierHistoryLoading ? <p>Loading history…</p> : row.history.length === 0 ? <p>No history yet.</p> : <div className={styles.activityList}>{row.history.map((item) => <div className={styles.activityItem} key={item.id}><span className={styles.activityDot} /><div><strong>{formatDate(item.date)}</strong><p>{item.detail}</p>{item.notes ? <small>{item.notes}</small> : null}{item.due ? <small>Next due: {formatDate(item.due)}</small> : null}</div></div>)}</div>}
+                      </td></tr>}
+                    </Fragment>
+                  )
+                })}
+              </tbody>
+            </table>
+            {(vaccinationsLoading || dewormingLoading) && <div className={styles.careLoading}>Updating care records…</div>}
           </div>
+        </section>
 
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
-            <h3 className={styles.cardTitle}>Deworming</h3>
+        {(selectedHorse.stable_status === 'away' || selectedHorse.returned_stable_at) && (
+          <div className={styles.movementNotice}><strong>{selectedHorse.stable_status === 'away' ? 'Away from stable' : 'Last returned'}</strong><span>{selectedHorse.stable_status === 'away' ? `${formatDate(selectedHorse.left_stable_at)}${getMovementLabel(selectedHorse) !== '—' ? ` · ${getMovementLabel(selectedHorse)}` : ''}` : formatDate(selectedHorse.returned_stable_at)}</span></div>
+        )}
 
-            {dewormingLoading ? (
-              <div className={styles.notesBox}>Loading deworming...</div>
-            ) : (
-              <div className={styles.vaccinationWrap}>
-                <div className={styles.vaccineBlock}>
-                  <div className={styles.vaccineTop}>
-                    <div>
-                      <span className={styles.vaccineLabel}>Last deworming</span>
-                      <strong className={styles.vaccineDate}>
-                        {latestDeworming ? formatDate(latestDeworming.administered_on) : '—'}
-                      </strong>
-                      <span className={styles.vaccineMeta}>
-                        Next due: {latestDeworming ? formatDate(latestDeworming.next_due_on) : '—'}
-                      </span>
-                    </div>
+        <div className={`${styles.quickActions} ${styles.noPrint}`}>
+          <strong>Quick actions</strong>
+          <button type="button" className={styles.quickPrimary} onClick={() => onVetQuickAction?.('Visits', selectedHorse.id)}>+ Log care</button>
+          <button type="button" onClick={() => router.push('/move')}>↔ Move horse</button>
+          <button type="button" onClick={() => { setNoteEditing(true); setNoteFeedback('') }}>＋ Add note</button>
+        </div>
 
-                    <button
-                      type="button"
-                      className={styles.historyToggle}
-                      onClick={() =>
-                        setHistoryOpen((prev) => ({
-                          ...prev,
-                          deworming: !prev.deworming,
-                        }))
-                      }
-                    >
-                      {historyOpen.deworming ? 'Hide history' : 'View history'}
-                    </button>
-                  </div>
+        <div className={styles.profileLowerGrid}>
+          <section className={styles.profilePanel}>
+            <div className={styles.profilePanelHeading}><div><span className={styles.panelIcon}>⌁</span><h3>Recent activity</h3></div>{recentActivity.length > 3 ? <button type="button" className={styles.textAction} onClick={() => setShowAllActivity((current) => !current)}>{showAllActivity ? 'Show less' : 'View all'}</button> : <span className={styles.subtleLabel}>Latest records</span>}</div>
+            {recentActivity.length ? <div className={styles.activityList}>{(showAllActivity ? recentActivity : recentActivity.slice(0, 3)).map((item) => <div className={styles.activityItem} key={item.id}><span className={styles.activityDot} /><div><strong>{item.title}</strong><time>{formatDate(item.date)}</time><p>{item.detail}</p></div></div>)}</div> : <p className={styles.emptyActivity}>No care activity recorded yet.</p>}
+          </section>
 
-                  {historyOpen.deworming && (
-                    <div className={styles.historyList}>
-                      {dewormingRecords.length === 0 ? (
-                        <div className={styles.historyEmpty}>No history yet.</div>
-                      ) : (
-                        dewormingRecords.map((item) => (
-                          <div key={item.id} className={styles.historyRow}>
-                            <div className={styles.historyDate}>
-                              <strong>{formatDate(item.administered_on)}</strong>
-                              <span>Due: {formatDate(item.next_due_on)}</span>
-                            </div>
-
-                            <div className={styles.historyContent}>
-                              <div className={styles.historyProduct}>
-                                {item.product_name || 'Product not specified'}
-                              </div>
-                              <div className={styles.historyNote}>
-                                {item.notes?.trim() || '—'}
-                              </div>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
-            <h3 className={styles.cardTitle}>Farrier</h3>
-
-            <div className={styles.infoGrid}>
-              <div className={styles.infoItem}>
-                <span>Farrier</span>
-                <strong>{selectedHorse.farrier_name || '—'}</strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Last done</span>
-                <strong>{formatDate(selectedHorse.farrier_last_done)}</strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Interval</span>
-                <strong>
-                  {selectedHorse.farrier_interval_weeks
-                    ? `${selectedHorse.farrier_interval_weeks} weeks`
-                    : '—'}
-                </strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Next farrier</span>
-                <strong>{getNextFarrierDate(selectedHorse)}</strong>
-              </div>
-            </div>
-
-            <div style={{ marginTop: '16px' }}>
-              <button
-                type="button"
-                className={styles.historyToggle}
-                onClick={toggleFarrierHistory}
-              >
-                {historyOpen.farrier ? 'Hide history' : 'View history'}
-              </button>
-            </div>
-
-            {historyOpen.farrier && (
-              <div className={styles.historyList} style={{ marginTop: '16px' }}>
-                {farrierHistoryLoading ? (
-                  <div className={styles.historyEmpty}>Loading history...</div>
-                ) : farrierHistory.length === 0 ? (
-                  <div className={styles.historyEmpty}>No farrier history yet.</div>
-                ) : (
-                  farrierHistory.map((item) => (
-                    <div key={item.id} className={styles.historyRow}>
-                      <div className={styles.historyDate}>
-                        <strong>{formatDate(item.visit_date)}</strong>
-                        <span>
-                          {item.interval_weeks ? `${item.interval_weeks} weeks` : '—'}
-                        </span>
-                      </div>
-
-                      <div className={styles.historyContent}>
-                        <div className={styles.historyProduct}>
-                          {item.farrier_name || 'Farrier not specified'}
-                        </div>
-                        <div className={styles.historyNote}>
-                          {item.notes?.trim() || item.visit_type || '—'}
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-
-          {selectedHorse.show_in_mare_cards && (
-            <div className={`${styles.detailCard} ${styles.noPrint}`}>
-              <h3 className={styles.cardTitle}>Mare card</h3>
-
-              <div className={styles.infoGrid}>
-                <div className={styles.infoItem}>
-                  <span>Last in heat</span>
-                  <strong>{formatDate(selectedHorse.last_in_heat_date)}</strong>
-                </div>
-
-                <div className={styles.infoItem}>
-                  <span>Pregnant</span>
-                  <strong>{yesNo(selectedHorse.pregnant)}</strong>
-                </div>
-
-                <div className={`${styles.infoItem} ${styles.fullSpan}`}>
-                  <span>Pregnancy notes</span>
-                  <strong>{selectedHorse.pregnancy_notes || '—'}</strong>
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className={`${styles.detailCard} ${styles.fullWidth} ${styles.noPrint}`}>
-            <h3 className={styles.cardTitle}>Notes</h3>
-            <div className={styles.notesBox}>
-              {selectedHorse.notes?.trim() ? selectedHorse.notes : 'No notes yet.'}
-            </div>
-          </div>
+          <section className={styles.profilePanel}>
+            <div className={styles.profilePanelHeading}><div><span className={styles.panelIcon}>♘</span><h3>Horse details</h3></div><button type="button" className={styles.textAction} onClick={() => router.push(`/horses/${selectedHorse.id}/edit`)}>Edit profile</button></div>
+            <dl className={styles.detailFacts}>
+              <div><dt>Type</dt><dd>{selectedHorse.horse_type || '—'}</dd></div>
+              <div><dt>Location</dt><dd>{getStableLocationLabel(selectedHorse)}</dd></div>
+              <div><dt>Status</dt><dd><span className={`${styles.profileStatus} ${getStatusClass(selectedHorse)}`}>{getStatusLabel(selectedHorse)}</span></dd></div>
+              {selectedHorse.show_in_mare_cards && <><div><dt>Pregnant</dt><dd>{yesNo(selectedHorse.pregnant)}</dd></div><div><dt>Last in heat</dt><dd>{formatDate(selectedHorse.last_in_heat_date)}</dd></div>{selectedHorse.pregnancy_notes ? <div><dt>Breeding notes</dt><dd>{selectedHorse.pregnancy_notes}</dd></div> : null}</>}
+              <div className={styles.notesFact}><dt>Notes</dt><dd>{noteEditing ? <div className={styles.noteEditor}><textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} rows={3} autoFocus /><div><button type="button" onClick={() => { setNoteEditing(false); setNoteDraft(selectedHorse.notes || '') }}>Cancel</button><button type="button" className={styles.quickPrimary} onClick={() => void saveHorseNote()} disabled={noteSaving}>{noteSaving ? 'Saving…' : 'Save note'}</button></div></div> : <button type="button" className={styles.noteValue} onClick={() => setNoteEditing(true)}>{selectedHorse.notes?.trim() || 'No notes yet'}</button>}{noteFeedback ? <small className={styles.noteFeedback}>{noteFeedback}</small> : null}</dd></div>
+            </dl>
+          </section>
         </div>
       </section>
     )

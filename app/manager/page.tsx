@@ -15,6 +15,7 @@ import HorseIdTab from '@/app/components/HorseIdTab/HorseIdTab'
 import './desktop.css'
 
 type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Care'|'Stock'|'HorseID'
+type VetQuickRequest={menu:'Vaccinations'|'Deworming'|'Visits';horseId:string;vaccineType?:'flu_tetanus'|'rhino'}
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
  {key:'Today',label:'Vandaag',symbol:'◫'},
@@ -40,7 +41,9 @@ export default function ManagerModules(){
  const [ready,setReady]=useState(false)
  const [authError,setAuthError]=useState('')
  const [vetKey,setVetKey]=useState(0)
+ const [vetRequest,setVetRequest]=useState<VetQuickRequest|null>(null)
  const [farrierKey,setFarrierKey]=useState(0)
+ const [farrierInitialHorseId,setFarrierInitialHorseId]=useState<string|null>(null)
 
  useEffect(()=>{
   let live=true
@@ -64,9 +67,23 @@ export default function ManagerModules(){
 
  function selectTab(tab:Module){
   setActive(tab)
-  if(tab==='Vet')setVetKey(x=>x+1)
-  if(tab==='Farrier')setFarrierKey(x=>x+1)
+  if(tab==='Vet'){setVetRequest(null);setVetKey(x=>x+1)}
+  if(tab==='Farrier'){setFarrierInitialHorseId(null);setFarrierKey(x=>x+1)}
   window.history.replaceState(null,'','/manager?tab='+encodeURIComponent(tab))
+ }
+
+ function openHorseCare(menu:VetQuickRequest['menu']|'Farrier',horseId:string,vaccineType?:VetQuickRequest['vaccineType']){
+  if(menu==='Farrier'){
+   setFarrierInitialHorseId(horseId)
+   setActive('Farrier')
+   setFarrierKey(x=>x+1)
+   window.history.replaceState(null,'','/manager?tab=Farrier')
+   return
+  }
+  setVetRequest({menu,horseId,vaccineType})
+  setActive('Vet')
+  setVetKey(x=>x+1)
+  window.history.replaceState(null,'','/manager?tab=Vet')
  }
 
  async function signOut(){await supabase.auth.signOut();window.location.replace('/manager')}
@@ -75,10 +92,10 @@ export default function ManagerModules(){
  function renderModule(){
   switch(active){
    case 'Today':return <TodayTab/>
-   case 'Horses':return <HorsesTab/>
-   case 'Vet':return <VetTab key={vetKey}/>
+   case 'Horses':return <HorsesTab onVetQuickAction={openHorseCare}/>
+   case 'Vet':return <VetTab key={vetKey} initialRequest={vetRequest}/>
    case 'Place':return <PlaceTab/>
-   case 'Farrier':return <FarrierTab key={farrierKey}/>
+   case 'Farrier':return <FarrierTab key={farrierKey} initialHorseId={farrierInitialHorseId || undefined}/>
    case 'Care':return <CareTab/>
    case 'Stock':return <StockTab/>
    case 'HorseID':return <HorseIdTab/>

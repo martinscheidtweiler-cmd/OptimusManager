@@ -438,18 +438,13 @@ export default function PlanningTab() {
   )
 
   useEffect(() => {
-    setSelectedDate((prev) =>
-      prev && weekDates.includes(prev) ? prev : weekDates[4] ?? weekDates[0] ?? '',
-    )
+    const frame = requestAnimationFrame(() => {
+      setSelectedDate((prev) =>
+        prev && weekDates.includes(prev) ? prev : weekDates[4] ?? weekDates[0] ?? '',
+      )
+    })
+    return () => cancelAnimationFrame(frame)
   }, [weekDates])
-
-  useEffect(() => {
-    loadInitialData()
-  }, [])
-
-  async function loadInitialData() {
-    await Promise.all([loadStaff(), loadHorses(), loadAssignments()])
-  }
 
   async function loadStaff() {
     const { data, error } = await supabase
@@ -544,6 +539,13 @@ export default function PlanningTab() {
     setAssignments(mapped)
     setLoadingAssignments(false)
   }
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      void Promise.all([loadStaff(), loadHorses(), loadAssignments()])
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   async function saveSingleAssignment(item: Assignment) {
     const { data, error } = await supabase

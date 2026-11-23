@@ -24,7 +24,7 @@ Deno.serve(async req=>{
  const week=String(request.week_monday||'');
  if(!/^\d{4}-\d{2}-\d{2}$/.test(week)||new Date(week+'T12:00:00Z').getUTCDay()!==1)return respond({error:'Startweek moet een maandag zijn'},400);
  const until=day(week,7);
- const read=async(path)=>{let x=await fetch(URLBASE+'/rest/v1/'+path,{headers});if(!x.ok)throw Error('Could not load scheduling inputs');return x.json()};
+ const read=async(path)=>{const x=await fetch(URLBASE+'/rest/v1/'+path,{headers});if(!x.ok)throw Error('Could not load scheduling inputs');return x.json()};
  const [people,availability,templates,existing,rides]=await Promise.all([
  read('optimus_task_people?select=id,name,skills,departments,active&active=eq.true'),
  read('optimus_task_availability?select=person_id,work_date,working,start_time,end_time,break_minutes,confirmed&work_date=gte.'+week+'&work_date=lt.'+until),
@@ -53,7 +53,7 @@ Deno.serve(async req=>{
  all.sort((a,b)=>ranking[a.priority]-ranking[b.priority]||b.required_skills.length-a.required_skills.length||b.minutes-a.minutes);
  const warnings=[];
  for(const task of all){
-  let candidates=roster.filter(p=>(task.required_skills||[]).every(skill=>(p.skills||[]).some(s=>s.toLowerCase()===skill.toLowerCase()))).map(p=>{const work=workloads[p.id+'|'+task.date];return {person:p,work,slot:slot(work,task.minutes,min(task.preferred_time))}}).filter(x=>x.work.cap>0&&x.work.used+task.minutes<=x.work.cap&&x.slot!==null);
+  const candidates=roster.filter(p=>(task.required_skills||[]).every(skill=>(p.skills||[]).some(s=>s.toLowerCase()===skill.toLowerCase()))).map(p=>{const work=workloads[p.id+'|'+task.date];return {person:p,work,slot:slot(work,task.minutes,min(task.preferred_time))}}).filter(x=>x.work.cap>0&&x.work.used+task.minutes<=x.work.cap&&x.slot!==null);
   candidates.sort((a,b)=>{
    // Fill a smaller pool of qualified people first to free entire work blocks.
    const aBusy=a.work.loaded>0?0:1,bBusy=b.work.loaded>0?0:1;

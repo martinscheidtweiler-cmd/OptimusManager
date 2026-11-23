@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
 import './FarrierTab.css'
 
@@ -131,7 +131,7 @@ function matchesHorseCategory(
   return true
 }
 
-export default function FarrierTab() {
+export default function FarrierTab({ initialHorseId }: { initialHorseId?: string }) {
   const [horses, setHorses] = useState<HorseFarrierItem[]>([])
   const [horseCategory, setHorseCategory] = useState<HorseCategoryFilter>('All')
   const [selectedFarrier, setSelectedFarrier] = useState<FarrierName | 'All'>('All')
@@ -155,11 +155,7 @@ export default function FarrierTab() {
   const [visitHistory, setVisitHistory] = useState<Record<string, FarrierVisit[]>>({})
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null)
 
-  useEffect(() => {
-    fetchHorses()
-  }, [])
-
-  async function fetchHorses() {
+  const fetchHorses = useCallback(async () => {
     setLoading(true)
     setError('')
 
@@ -209,7 +205,22 @@ export default function FarrierTab() {
 
     setHorses(mapped)
     setLoading(false)
-  }
+    const initialHorse = initialHorseId ? mapped.find((horse) => horse.id === initialHorseId) : null
+    if (initialHorse) {
+      setEditingHorseId(initialHorse.id)
+      setVisitDate(todayString())
+      setVisitFarrier(initialHorse.farrier || '')
+      setVisitIntervalWeeks(String(initialHorse.intervalWeeks || 6))
+      setVisitShoeingType(initialHorse.shoeingType || '')
+      setVisitNotes('')
+      setUpdateOpen(true)
+    }
+  }, [initialHorseId])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => { void fetchHorses() })
+    return () => window.cancelAnimationFrame(frame)
+  }, [fetchHorses])
 
   const enriched = useMemo<EnrichedHorse[]>(() => {
     return horses.map((horse) => {

@@ -13,6 +13,7 @@ import DewormingTab from './DewormingTab'
 import CareTab from '../CareTab/CareTab'
 
 type VetMenu = 'Visits' | 'Xray' | 'Lab Results' | 'Vaccinations' | 'Deworming' | 'Medicines' | 'Breeding'
+type InitialRequest = { menu: 'Vaccinations' | 'Deworming' | 'Visits'; horseId: string; vaccineType?: 'flu_tetanus' | 'rhino' } | null
 type Horse = { id: string; name: string; active: boolean | null }
 type PreventiveRecord = { id: string; horse_id: string; vaccine_type?: string; administered_on: string; next_due_on: string | null }
 type FollowUp = { id: string; horse_id: string; complaint: string; followup_on: string | null; action_required: boolean; is_done: boolean }
@@ -38,9 +39,9 @@ function formatShortDate(value: string) {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleDateString(document.documentElement.lang || 'en-GB', { day: 'numeric', month: 'short' })
 }
 
-export default function VetTab() {
+export default function VetTab({ initialRequest = null }: { initialRequest?: InitialRequest }) {
   useLocale()
-  const [activeMenu, setActiveMenu] = useState<VetMenu | null>(null)
+  const [activeMenu, setActiveMenu] = useState<VetMenu | null>(initialRequest?.menu || null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [horses, setHorses] = useState<Horse[]>([])
@@ -51,8 +52,8 @@ export default function VetTab() {
   const [expiryAlerts, setExpiryAlerts] = useState<ExpiryAlert[]>([])
   const [quickStartMenu, setQuickStartMenu] = useState<VetMenu | null>(null)
   const [quickStartHorseId, setQuickStartHorseId] = useState('')
-  const [entryHorseId, setEntryHorseId] = useState<string | null>(null)
-  const [entryVaccineType, setEntryVaccineType] = useState<'flu_tetanus' | 'rhino'>('flu_tetanus')
+  const [entryHorseId, setEntryHorseId] = useState<string | null>(initialRequest?.horseId || null)
+  const [entryVaccineType, setEntryVaccineType] = useState<'flu_tetanus' | 'rhino'>(initialRequest?.vaccineType || 'flu_tetanus')
   const [entryDate, setEntryDate] = useState<string | null>(null)
 
   const loadOverview = useCallback(async () => {

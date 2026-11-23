@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
 import TodayView from './TodayView'
 import TimelineBoard from './TimelineBoard'
@@ -349,11 +349,7 @@ export default function OperationsTab() {
     return grouped
   }, [stableTasks])
 
-  useEffect(() => {
-    loadData()
-  }, [selectedDate])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true)
 
     const [
@@ -413,7 +409,14 @@ export default function OperationsTab() {
     }
 
     setLoading(false)
-  }
+  }, [selectedDate])
+
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      void loadData()
+    })
+    return () => cancelAnimationFrame(frame)
+  }, [loadData])
 
   function getStatus(horseId: string): DailyStatus {
     return (
@@ -482,7 +485,19 @@ export default function OperationsTab() {
     await saveStatuses()
     await supabase.from('stable_tasks').delete().eq('date', selectedDate).eq('auto_generated', true)
 
-    const rows: any[] = []
+    const rows: {
+      date: string
+      horse_id: string | null
+      title: string
+      task_type: string
+      assigned_to: string
+      starts_at: string
+      ends_at: string
+      auto_generated: boolean
+      status: string
+      notes: string | null
+      priority: number
+    }[] = []
     const personTasks: Record<string, { starts_at: string | null; ends_at: string | null }[]> = {}
 
     stableTasks

@@ -114,8 +114,8 @@ function render(){
  el('boot').hidden=true;el('root').hidden=false;
  el('root').innerHTML=`<div class="app"><aside class="sidebar"><div class="brandline"><div class="logo" style="height:38px;width:38px;font-size:25px">O</div><div><div class="brand">OPTIMUS</div><small>TASKS</small></div></div><div class="nav">${navButtons}</div><div class="sidefoot"><div style="font-weight:700">${html(me.name)}</div><p class="muted" style="margin-top:5px">Beheerder</p><button class="btn light small" id="signout">Uitloggen</button></div></aside><section class="shell"><div class="topbar"><div class="muted">OPTIMUS / ${html(page==='home'?'Dashboard':page==='week'?'Weekplanner':page==='tasks'?'Taken':'Medewerkers')}</div><div class="row">${isStandalone()?'':`<button type="button" class="btn light small" data-install>📲 App</button>`}<span class="muted">${html(me.name)}</span><span class="avatar" style="width:34px;height:34px">${html(me.name.slice(0,2).toUpperCase())}</span></div></div><main class="container" id="mainContent"></main></section></div><nav class="mobile-nav">${mobileNav.map(([p,ic,t])=>`<button data-nav="${p}" class="${page===p?'active':''}"><span>${ic}</span>${t}</button>`).join('')}</nav>`;
  document.querySelectorAll('[data-nav]').forEach(x=>x.onclick=()=>{
-   const module={horses:'Horses',planning:'Planning',vet:'Vet',place:'Place',farrier:'Farrier',operations:'Operations'}[x.dataset.nav];
-   if(module){window.location.assign('/manager?tab='+encodeURIComponent(module));return}
+   const moduleName={horses:'Horses',planning:'Planning',vet:'Vet',place:'Place',farrier:'Farrier',operations:'Operations'}[x.dataset.nav];
+   if(moduleName){window.location.assign('/manager?tab='+encodeURIComponent(moduleName));return}
    setPage(x.dataset.nav);
  });
  el('signout').onclick=async()=>{await db.auth.signOut();me=null;renderLogin()};

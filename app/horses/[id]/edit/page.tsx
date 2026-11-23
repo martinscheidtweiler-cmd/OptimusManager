@@ -56,6 +56,17 @@ type ProductOption = {
   category: string | null
 }
 
+type MedicineRow = {
+  id?: string
+  name?: string | null
+  medicine_name?: string | null
+  product_name?: string | null
+  title?: string | null
+  naam?: string | null
+  Naam?: string | null
+  category?: string | null
+}
+
 type BatchStockRow = {
   id: string
   medicine_id: string
@@ -174,7 +185,7 @@ function getDueText(dateStr: string | null) {
   return `${daysLeft} d left`
 }
 
-function normalizeMedicine(row: any): ProductOption | null {
+function normalizeMedicine(row: MedicineRow): ProductOption | null {
   const rawName =
     row.name ??
     row.medicine_name ??
@@ -187,7 +198,7 @@ function normalizeMedicine(row: any): ProductOption | null {
   if (!rawName) return null
 
   return {
-    id: row.id ?? rawName,
+    id: row.id ?? String(rawName),
     name: String(rawName),
     category: row.category ?? null,
   }
@@ -333,7 +344,7 @@ export default function EditHorsePage() {
       }
 
       const allProducts: ProductOption[] = (medicinesRes.data || [])
-        .map((row: any) => normalizeMedicine(row))
+        .map((row) => normalizeMedicine(row as MedicineRow))
         .filter((p): p is ProductOption => Boolean(p))
         .filter((p) => looksLikeVaccine(p))
         .sort((a, b) => a.name.localeCompare(b.name))
@@ -357,7 +368,7 @@ export default function EditHorsePage() {
           .order('sort_order', { ascending: true })
           .order('name', { ascending: true })
 
-        setVremdePastures((vremdeUnits || []).map((u: any) => u.name))
+        setVremdePastures((vremdeUnits || []).map((unit) => unit.name))
       } else {
         setVremdePastures([])
       }

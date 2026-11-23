@@ -29,6 +29,7 @@ declare
  v_old_site uuid;
  v_old_unit uuid;
  v_old_site_name text;
+ v_legacy_snapshot text;
  v_moved integer := 0;
  v_occupied integer;
  v_incoming integer;
@@ -105,11 +106,17 @@ begin
      update public.horse_place_assignments
         set left_at=v_now where horse_id=v_id and left_at is null;
    end if;
+   -- Retain the original legacy location fields in the assignment history
+   -- before updating those fields for compatibility with the old horse fiche.
+   select pg_catalog.jsonb_build_object(
+     'stable_location',stable_location,'box_number',box_number,'pasture_name',pasture_name
+   )::text into v_legacy_snapshot from public.horses where id=v_id;
    insert into public.horse_place_assignments
       (horse_id,site_id,area_id,unit_id,assigned_at,moved_by,move_note)
    values(v_id,v_unit.site_id,v_unit.area_id,v_unit.id,v_now,v_name,
-      (case when v_old_site is null then 'Initial placement '
-       else 'Optimus group move ' end)||p_request_id::text);
+      (case when v_old_site is null
+         then 'Initial placement; previous legacy fields: '||v_legacy_snapshot
+         else 'Optimus group move' end)||' | batch: '||p_request_id::text);
    update public.horses
       set stable_location=v_site.name,
           box_number=case when v_unit.unit_type::text='stable'

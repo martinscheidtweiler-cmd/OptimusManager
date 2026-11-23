@@ -574,11 +574,11 @@ export default function PlaceManager({
       endsAt.setDate(endsAt.getDate() + days)
 
       const rows = selectedBlockUnitIds
-        .map((unitId) => {
+        .flatMap((unitId) => {
           const unit = units.find((u) => u.id === unitId)
-          if (!unit) return null
+          if (!unit) return []
 
-          return {
+          return [{
             target_type: 'unit',
             site_id: site.id,
             area_id: unit.area_id,
@@ -591,9 +591,8 @@ export default function PlaceManager({
             starts_at: startsAt.toISOString(),
             ends_at: endsAt.toISOString(),
             active: true,
-          }
+          }]
         })
-        .filter(Boolean)
 
       const { error: insertError } = await supabase.from('place_blocks').insert(rows)
       if (insertError) throw insertError

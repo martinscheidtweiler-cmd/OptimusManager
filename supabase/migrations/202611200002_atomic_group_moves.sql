@@ -17,7 +17,8 @@ alter table public.optimus_move_batches enable row level security;
 revoke all on public.optimus_move_batches from anon, authenticated;
 
 create or replace function optimus_private.move_group_impl(
- p_horse_ids uuid[], p_destination_unit uuid, p_request_id uuid
+ p_horse_ids uuid[], p_destination_unit uuid, p_request_id uuid,
+ p_expected_source_unit uuid default null, p_must_be_unassigned boolean default false
 ) returns integer
 language plpgsql security definer set search_path = ''
 as $$
@@ -70,6 +71,19 @@ begin
  perform 1 from public.horses where id=any(p_horse_ids) order by id for update;
  if (select count(*) from public.horses where id=any(p_horse_ids) and active is true) <> pg_catalog.cardinality(p_horse_ids)
  then raise exception 'One or more horses are missing or inactive'; end if;
+ -- Reject stale mobile selections rather than silently relocating horses that
+ -- somebody else has moved since the source list was loaded.
+ if p_must_be_unassigned and exists(
+   select 1 from public.horse_place_assignments
+   where horse_id=any(p_horse_ids) and left_at is null
+ ) then raise exception 'One or more horses have already received a location. Refresh first'; end if;
+ if p_expected_source_unit is not null and exists(
+   select 1 from pg_catalog.unnest(p_horse_ids) as chosen(horse_id)
+   where not exists(
+     select 1 from public.horse_place_assignments a
+     where a.horse_id=chosen.horse_id and a.unit_id=p_expected_source_unit and a.left_at is null
+   )
+ ) then raise exception 'A selected horse has moved since the list was loaded. Refresh first'; end if;
  -- A unit's positive capacity is an enforced maximum. Zero/NULL means unspecified.
  if v_unit.capacity is not null and v_unit.capacity > 0 then
    select count(*) into v_occupied
@@ -143,16 +157,40 @@ begin
  return v_moved;
 end
 $$;
-revoke all on function optimus_private.move_group_impl(uuid[],uuid,uuid) from public, anon, authenticated;
-grant execute on function optimus_private.move_group_impl(uuid[],uuid,uuid) to authenticated;
+revoke all on function optimus_private.move_group_impl(uuid[],uuid,uuid,uuid,boolean) from public, anon, authenticated;
+grant execute on function optimus_private.move_group_impl(uuid[],uuid,uuid,uuid,boolean) to authenticated;
 
 create or replace function public.optimus_move_group(
  p_horse_ids uuid[], p_destination_unit uuid, p_request_id uuid
 ) returns integer
 language sql security invoker set search_path=''
 as $$
- select optimus_private.move_group_impl(p_horse_ids,p_destination_unit,p_request_id);
-$$;
+ select optimus_private.move_group_impl(p_horse_ids,p_destination_unit,p_request_id,null,false);
+$;
 revoke all on function public.optimus_move_group(uuid[],uuid,uuid) from public, anon, authenticated;
 grant execute on function public.optimus_move_group(uuid[],uuid,uuid) to authenticated;
+-- Strict versions used by staff: they validate the source while holding row locks.
+create or replace function public.optimus_first_place_group(
+ p_horse_ids uuid[], p_destination_unit uuid, p_request_id uuid
+) returns integer
+language sql security invoker set search_path=''
+as $
+ select optimus_private.move_group_impl(p_horse_ids,p_destination_unit,p_request_id,null,true);
+$;
+revoke all on function public.optimus_first_place_group(uuid[],uuid,uuid) from public, anon, authenticated;
+grant execute on function public.optimus_first_place_group(uuid[],uuid,uuid) to authenticated;
+
+create or replace function public.optimus_move_group_from(
+ p_horse_ids uuid[], p_destination_unit uuid, p_request_id uuid, p_expected_source_unit uuid
+) returns integer
+language plpgsql security invoker set search_path=''
+as $
+begin
+ if p_expected_source_unit is null then raise exception 'Source unit is required'; end if;
+ return optimus_private.move_group_impl(p_horse_ids,p_destination_unit,p_request_id,p_expected_source_unit,false);
+end
+$;
+revoke all on function public.optimus_move_group_from(uuid[],uuid,uuid,uuid) from public, anon, authenticated;
+grant execute on function public.optimus_move_group_from(uuid[],uuid,uuid,uuid) to authenticated;
+
 -- All history and outbox changes roll back together on error. No email calls.

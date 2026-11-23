@@ -93,20 +93,30 @@ begin
      from public.horse_place_assignments
      where horse_id=v_id and left_at is null
      order by assigned_at desc limit 1 for update;
-   if v_old_site is null then raise exception 'Horse % has no current assignment',v_id; end if;
-   if v_old_unit is not distinct from v_unit.id and v_old_site=v_unit.site_id then continue; end if;
-   update public.horse_place_assignments set left_at=v_now where horse_id=v_id and left_at is null;
+   -- A horse without a current assignment may be placed for the first time.
+   -- This does not invent a previous site or create an unjustified HorseID alert.
+   if v_old_site is not null and v_old_unit is not distinct from v_unit.id
+      and v_old_site=v_unit.site_id then continue; end if;
+   if (select count(*) from public.horse_place_assignments
+       where horse_id=v_id and left_at is null)>1 then
+      raise exception 'Horse % has multiple current assignments; resolve first',v_id;
+   end if;
+   if v_old_site is not null then
+     update public.horse_place_assignments
+        set left_at=v_now where horse_id=v_id and left_at is null;
+   end if;
    insert into public.horse_place_assignments
       (horse_id,site_id,area_id,unit_id,assigned_at,moved_by,move_note)
    values(v_id,v_unit.site_id,v_unit.area_id,v_unit.id,v_now,v_name,
-      'Optimus group move '||p_request_id::text);
+      (case when v_old_site is null then 'Initial placement '
+       else 'Optimus group move ' end)||p_request_id::text);
    update public.horses
       set stable_location=v_site.name,
           box_number=case when v_unit.unit_type::text='stable'
             then pg_catalog.regexp_replace(v_unit.name,'^stable[[:space:]]*','','i') else null end,
           pasture_name=case when v_unit.unit_type::text<>'stable' then v_unit.name else null end
       where id=v_id;
-   if v_old_site<>v_unit.site_id then
+   if v_old_site is not null and v_old_site<>v_unit.site_id then
       select name into strict v_old_site_name from public.sites where id=v_old_site;
       insert into public.optimus_horseid_outbox
          (movement_key,horse_id,horse_name,chip_number,

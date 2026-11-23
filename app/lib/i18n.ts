@@ -228,6 +228,19 @@ const rows: string[][] = [
   ['Open details for', 'Open details for', 'Details openen voor', 'Abrir detalhes de', 'Deschide detaliile pentru', 'Ouvrir les détails de', 'باز کردن جزئیات', 'د جزییاتو پرانیستل د'],
   ['Last visit', 'Last visit', 'Laatste bezoek', 'Última visita', 'Ultima vizită', 'Dernière visite', 'آخرین مراجعه', 'وروستۍ لیدنه'],
   ['Next', 'Next', 'Volgende', 'Próxima', 'Următoarea', 'Prochaine', 'بعدی', 'راتلونکی'],
+  ['Back to horses', 'Back to horses', 'Terug naar paarden', 'Voltar aos cavalos', 'Înapoi la cai', 'Retour aux chevaux', 'بازگشت به اسب‌ها', 'بېرته آسونو ته'],
+  ['Vaccinations', 'Vaccinations', 'Vaccinaties', 'Vacinas', 'Vaccinări', 'Vaccinations', 'واکسین‌ها', 'واکسینونه'],
+  ['Away from stable', 'Away from stable', 'Buiten de stal', 'Fora do estábulo', 'Plecat din grajd', 'Absent de l’écurie', 'دور از اصطبل', 'له اصطبل څخه بهر'],
+  ['Stable movement', 'Stable movement', 'Stalverplaatsing', 'Movimento no estábulo', 'Mișcare din grajd', 'Mouvement d’écurie', 'جابجایی اصطبل', 'د اصطبل لېږد'],
+  ['Last returned', 'Last returned', 'Laatst teruggekeerd', 'Regressou pela última vez', 'Ultima întoarcere', 'Dernier retour', 'آخرین بازگشت', 'وروستی راستنېدل'],
+  ['Next due', 'Next due', 'Volgende vervaldatum', 'Próxima data', 'Următoarea dată', 'Prochaine échéance', 'موعد بعدی', 'راتلونکې نېټه'],
+  ['Last deworming', 'Last deworming', 'Laatste ontworming', 'Última desparasitação', 'Ultima deparazitare', 'Dernière vermifugation', 'آخرین ضدانگل', 'وروستی د چینجیو درمل'],
+  ['Last done', 'Last done', 'Laatst uitgevoerd', 'Última vez', 'Ultima dată', 'Dernière intervention', 'آخرین انجام', 'وروستی ترسره شوی'],
+  ['Next farrier', 'Next farrier', 'Volgende hoefsmid', 'Próximo ferrador', 'Următorul potcovar', 'Prochain maréchal-ferrant', 'نعل‌بند بعدی', 'راتلونکی نعل‌بند'],
+  ['No notes yet.', 'No notes yet.', 'Nog geen notities.', 'Ainda sem notas.', 'Nu există încă note.', 'Aucune note pour le moment.', 'هنوز یادداشتی نیست.', 'تر اوسه یادښت نشته.'],
+  ['Latest flu + tetanus', 'Latest flu + tetanus', 'Laatste griep + tetanus', 'Última gripe + tétano', 'Ultima gripă + tetanos', 'Dernier vaccin grippe + tétanos', 'آخرین آنفلوانزا + کزاز', 'وروستی زکام + تیتانوس'],
+  ['Latest rhino', 'Latest rhino', 'Laatste rhino', 'Última rinopneumonite', 'Ultima rinopneumonie', 'Dernier vaccin rhino', 'آخرین رینو', 'وروستی رینو'],
+  ['Farrier not specified', 'Farrier not specified', 'Hoefsmid niet opgegeven', 'Ferrador não indicado', 'Potcovar nespecificat', 'Maréchal-ferrant non indiqué', 'نعل‌بند مشخص نشده', 'نعل‌بند نه دی ښودل شوی'],
 ]
 
 const indexes: Record<Locale, number> = { en: 1, nl: 2, pt: 3, ro: 4, fr: 5, fa: 6, ps: 7 }

@@ -194,10 +194,61 @@
 }
 
 .detailTopBar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 2px 0 4px;
+}
+
+.profileIdentity {
+  min-width: 0;
+}
+
+.profileKicker {
+  display: block;
+  margin-bottom: 3px;
+  color: #758579;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.profileIdentity h1 {
+  margin: 0;
+  color: #1d3326;
+  font-size: clamp(22px, 2vw, 29px);
+  line-height: 1.15;
+  letter-spacing: -.035em;
+}
+
+.profileFacts {
   display: flex;
   align-items: center;
-  gap: 12px;
   flex-wrap: wrap;
+  gap: 6px 12px;
+  margin-top: 6px;
+  color: #657267;
+  font-size: 12px;
+}
+
+.profileFacts > span:not(.profileStatus) + span:not(.profileStatus)::before {
+  content: '·';
+  margin-right: 12px;
+  color: #a1aaa1;
+}
+
+.profileStatus {
+  display: inline-flex;
+  align-items: center;
+  min-height: 23px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: #e8f2e9;
+  color: #356a41;
+  font-size: 11px;
+  font-weight: 750;
 }
 
 .topBarActions {
@@ -320,14 +371,17 @@
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 18px;
+  align-items: start;
+  align-content: start;
 }
 
 .detailCard {
   grid-column: span 6;
+  align-self: start;
   background: #fff;
   border: 1px solid #e7ddd1;
-  border-radius: 22px;
-  padding: 20px;
+  border-radius: 18px;
+  padding: 18px;
   box-shadow: 0 8px 28px rgba(36, 24, 10, 0.05);
 }
 
@@ -420,8 +474,8 @@
 }
 
 .cardTitle {
-  margin: 0 0 18px;
-  font-size: 18px;
+  margin: 0 0 14px;
+  font-size: 16px;
   font-weight: 800;
   color: #1f1a14;
 }
@@ -692,7 +746,39 @@
   }
 
   .detailTopBar {
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: start;
+    gap: 10px;
+  }
+
+  .profileIdentity {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+
+  .detailTopBar .backButton {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .detailTopBar .printButton {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .detailTopBar .primaryButton {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .backButton,
+  .primaryButton,
+  .printButton {
+    width: auto;
+    min-width: 0;
+    height: 42px;
+    padding: 0 12px;
+    font-size: 12px;
   }
 
   .heroStatusBox {

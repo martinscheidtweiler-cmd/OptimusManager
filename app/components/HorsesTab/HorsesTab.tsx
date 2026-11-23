@@ -401,6 +401,18 @@ export default function HorsesTab() {
             ← Back to horses
           </button>
 
+          <div className={styles.profileIdentity}>
+            <span className={styles.profileKicker}>Horse profile</span>
+            <h1>{selectedHorse.name || 'Unnamed horse'}</h1>
+            <div className={styles.profileFacts}>
+              <span>{selectedHorse.horse_type || 'Type not set'}</span>
+              <span>{getStableLocationLabel(selectedHorse)}</span>
+              <span className={`${styles.profileStatus} ${getStatusClass(selectedHorse)}`}>
+                {getStatusLabel(selectedHorse)}
+              </span>
+            </div>
+          </div>
+
           <button className={styles.printButton} onClick={handlePrint}>
             Print
           </button>
@@ -416,30 +428,30 @@ export default function HorsesTab() {
         <div className={styles.printSheet}>
           <div className={styles.printSheetHeader}>
             <h1>{selectedHorse.name || 'Unnamed horse'}</h1>
-            <h2>Verkoopfiche</h2>
+            <h2>Horse profile</h2>
           </div>
 
           <div className={styles.printSheetGrid}>
             <div className={styles.printSheetItem}>
-              <span>Laatste griep + tetanus</span>
+              <span>Latest flu + tetanus</span>
               <strong>{latestFlu ? formatDate(latestFlu.administered_on) : '—'}</strong>
               <small>{latestFlu?.product_name || '—'}</small>
             </div>
 
             <div className={styles.printSheetItem}>
-              <span>Laatste rhino</span>
+              <span>Latest rhino</span>
               <strong>{latestRhino ? formatDate(latestRhino.administered_on) : '—'}</strong>
               <small>{latestRhino?.product_name || '—'}</small>
             </div>
 
             <div className={styles.printSheetItem}>
-              <span>Laatst naar de smid</span>
+              <span>Last farrier visit</span>
               <strong>{formatDate(selectedHorse.farrier_last_done)}</strong>
               <small>{selectedHorse.farrier_name || '—'}</small>
             </div>
 
             <div className={styles.printSheetItem}>
-              <span>Laatste ontworming</span>
+              <span>Last deworming</span>
               <strong>{latestDeworming ? formatDate(latestDeworming.administered_on) : '—'}</strong>
               <small>{latestDeworming?.product_name || '—'}</small>
             </div>
@@ -447,86 +459,35 @@ export default function HorsesTab() {
         </div>
 
         <div className={styles.detailGrid}>
-          <div className={`${styles.detailCard} ${styles.heroCard} ${styles.noPrint}`}>
-            <div className={styles.heroTop}>
-              <div>
-                <span className={styles.heroKicker}>Horse detail</span>
-                <h3 className={styles.heroName}>{selectedHorse.name || 'Unnamed horse'}</h3>
-                <p className={styles.heroSubline}>
-                  {selectedHorse.horse_type || '—'} · {getStableLocationLabel(selectedHorse)}
-                </p>
-              </div>
-
-              <div className={styles.heroRight}>
-                <div className={styles.heroStatusBox}>
-                  <span className={styles.heroStatusLabel}>Status</span>
-                  <span className={`${styles.statusPill} ${getStatusClass(selectedHorse)}`}>
-                    {getStatusLabel(selectedHorse)}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className={styles.heroFlags}>
-              <span
-                className={`${styles.miniFlag} ${
-                  selectedHorse.show_in_rider_planning ? styles.flagOn : styles.flagOff
-                }`}
-              >
-                Rider planning
-              </span>
-              <span
-                className={`${styles.miniFlag} ${
-                  selectedHorse.show_in_mare_cards ? styles.flagOn : styles.flagOff
-                }`}
-              >
-                Mare cards
-              </span>
-              <span
-                className={`${styles.miniFlag} ${
-                  selectedHorse.show_in_tasks ? styles.flagOn : styles.flagOff
-                }`}
-              >
-                Tasks
-              </span>
-            </div>
-          </div>
-
-          <div className={`${styles.detailCard} ${styles.noPrint}`}>
-            <h3 className={styles.cardTitle}>Basic information</h3>
-
-            <div className={styles.infoGrid}>
-              <div className={styles.infoItem}>
-                <span>Type</span>
-                <strong>{selectedHorse.horse_type || '—'}</strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Stable location</span>
-                <strong>{getStableLocationLabel(selectedHorse)}</strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Stable status</span>
-                <strong>{getStatusLabel(selectedHorse)}</strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Left stable</span>
-                <strong>{formatDate(selectedHorse.left_stable_at)}</strong>
-              </div>
-
-              <div className={styles.infoItem}>
-                <span>Returned</span>
-                <strong>{formatDate(selectedHorse.returned_stable_at)}</strong>
-              </div>
-
-              <div className={`${styles.infoItem} ${styles.fullSpan}`}>
-                <span>Where to</span>
-                <strong>{getMovementLabel(selectedHorse)}</strong>
+          {(selectedHorse.stable_status === 'away' || selectedHorse.returned_stable_at) && (
+            <div className={`${styles.detailCard} ${styles.noPrint}`}>
+              <h3 className={styles.cardTitle}>
+                {selectedHorse.stable_status === 'away' ? 'Away from stable' : 'Stable movement'}
+              </h3>
+              <div className={styles.infoGrid}>
+                {selectedHorse.stable_status === 'away' && (
+                  <>
+                    <div className={styles.infoItem}>
+                      <span>Left stable</span>
+                      <strong>{formatDate(selectedHorse.left_stable_at)}</strong>
+                    </div>
+                    {getMovementLabel(selectedHorse) !== '—' && (
+                      <div className={styles.infoItem}>
+                        <span>Current location</span>
+                        <strong>{getMovementLabel(selectedHorse)}</strong>
+                      </div>
+                    )}
+                  </>
+                )}
+                {selectedHorse.returned_stable_at && (
+                  <div className={styles.infoItem}>
+                    <span>Last returned</span>
+                    <strong>{formatDate(selectedHorse.returned_stable_at)}</strong>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
           <div className={`${styles.detailCard} ${styles.noPrint}`}>
             <h3 className={styles.cardTitle}>Vaccinations</h3>
@@ -538,12 +499,12 @@ export default function HorsesTab() {
                 <div className={styles.vaccineBlock}>
                   <div className={styles.vaccineTop}>
                     <div>
-                      <span className={styles.vaccineLabel}>Griep + Tetanus</span>
+                      <span className={styles.vaccineLabel}>Flu + tetanus</span>
                       <strong className={styles.vaccineDate}>
                         {latestFlu ? formatDate(latestFlu.administered_on) : '—'}
                       </strong>
                       <span className={styles.vaccineMeta}>
-                        Vervaldatum: {latestFlu ? formatDate(latestFlu.next_due_on) : '—'}
+                        Next due: {latestFlu ? formatDate(latestFlu.next_due_on) : '—'}
                       </span>
                     </div>
 
@@ -557,14 +518,14 @@ export default function HorsesTab() {
                         }))
                       }
                     >
-                      {historyOpen.flu_tetanus ? 'Historiek sluiten' : 'Historiek openen'}
+                      {historyOpen.flu_tetanus ? 'Hide history' : 'View history'}
                     </button>
                   </div>
 
                   {historyOpen.flu_tetanus && (
                     <div className={styles.historyList}>
                       {fluVaccinations.length === 0 ? (
-                        <div className={styles.historyEmpty}>Geen historiek.</div>
+                        <div className={styles.historyEmpty}>No history yet.</div>
                       ) : (
                         fluVaccinations.map((item) => (
                           <div key={item.id} className={styles.historyRow}>
@@ -575,7 +536,7 @@ export default function HorsesTab() {
 
                             <div className={styles.historyContent}>
                               <div className={styles.historyProduct}>
-                                {item.product_name || 'Geen product ingevuld'}
+                                {item.product_name || 'Product not specified'}
                               </div>
                               <div className={styles.historyNote}>
                                 {item.notes?.trim() || '—'}
@@ -596,7 +557,7 @@ export default function HorsesTab() {
                         {latestRhino ? formatDate(latestRhino.administered_on) : '—'}
                       </strong>
                       <span className={styles.vaccineMeta}>
-                        Vervaldatum: {latestRhino ? formatDate(latestRhino.next_due_on) : '—'}
+                        Next due: {latestRhino ? formatDate(latestRhino.next_due_on) : '—'}
                       </span>
                     </div>
 
@@ -610,14 +571,14 @@ export default function HorsesTab() {
                         }))
                       }
                     >
-                      {historyOpen.rhino ? 'Historiek sluiten' : 'Historiek openen'}
+                      {historyOpen.rhino ? 'Hide history' : 'View history'}
                     </button>
                   </div>
 
                   {historyOpen.rhino && (
                     <div className={styles.historyList}>
                       {rhinoVaccinations.length === 0 ? (
-                        <div className={styles.historyEmpty}>Geen historiek.</div>
+                        <div className={styles.historyEmpty}>No history yet.</div>
                       ) : (
                         rhinoVaccinations.map((item) => (
                           <div key={item.id} className={styles.historyRow}>
@@ -628,7 +589,7 @@ export default function HorsesTab() {
 
                             <div className={styles.historyContent}>
                               <div className={styles.historyProduct}>
-                                {item.product_name || 'Geen product ingevuld'}
+                                {item.product_name || 'Product not specified'}
                               </div>
                               <div className={styles.historyNote}>
                                 {item.notes?.trim() || '—'}
@@ -645,7 +606,7 @@ export default function HorsesTab() {
           </div>
 
           <div className={`${styles.detailCard} ${styles.noPrint}`}>
-            <h3 className={styles.cardTitle}>Ontworming</h3>
+            <h3 className={styles.cardTitle}>Deworming</h3>
 
             {dewormingLoading ? (
               <div className={styles.notesBox}>Loading deworming...</div>
@@ -654,12 +615,12 @@ export default function HorsesTab() {
                 <div className={styles.vaccineBlock}>
                   <div className={styles.vaccineTop}>
                     <div>
-                      <span className={styles.vaccineLabel}>Laatste ontworming</span>
+                      <span className={styles.vaccineLabel}>Last deworming</span>
                       <strong className={styles.vaccineDate}>
                         {latestDeworming ? formatDate(latestDeworming.administered_on) : '—'}
                       </strong>
                       <span className={styles.vaccineMeta}>
-                        Vervaldatum: {latestDeworming ? formatDate(latestDeworming.next_due_on) : '—'}
+                        Next due: {latestDeworming ? formatDate(latestDeworming.next_due_on) : '—'}
                       </span>
                     </div>
 
@@ -673,14 +634,14 @@ export default function HorsesTab() {
                         }))
                       }
                     >
-                      {historyOpen.deworming ? 'Historiek sluiten' : 'Historiek openen'}
+                      {historyOpen.deworming ? 'Hide history' : 'View history'}
                     </button>
                   </div>
 
                   {historyOpen.deworming && (
                     <div className={styles.historyList}>
                       {dewormingRecords.length === 0 ? (
-                        <div className={styles.historyEmpty}>Geen historiek.</div>
+                        <div className={styles.historyEmpty}>No history yet.</div>
                       ) : (
                         dewormingRecords.map((item) => (
                           <div key={item.id} className={styles.historyRow}>
@@ -691,7 +652,7 @@ export default function HorsesTab() {
 
                             <div className={styles.historyContent}>
                               <div className={styles.historyProduct}>
-                                {item.product_name || 'Geen product ingevuld'}
+                                {item.product_name || 'Product not specified'}
                               </div>
                               <div className={styles.historyNote}>
                                 {item.notes?.trim() || '—'}
@@ -742,7 +703,7 @@ export default function HorsesTab() {
                 className={styles.historyToggle}
                 onClick={toggleFarrierHistory}
               >
-                {historyOpen.farrier ? 'Historiek sluiten' : 'Historiek openen'}
+                {historyOpen.farrier ? 'Hide history' : 'View history'}
               </button>
             </div>
 
@@ -751,7 +712,7 @@ export default function HorsesTab() {
                 {farrierHistoryLoading ? (
                   <div className={styles.historyEmpty}>Loading history...</div>
                 ) : farrierHistory.length === 0 ? (
-                  <div className={styles.historyEmpty}>Geen farrier historiek.</div>
+                  <div className={styles.historyEmpty}>No farrier history yet.</div>
                 ) : (
                   farrierHistory.map((item) => (
                     <div key={item.id} className={styles.historyRow}>
@@ -764,7 +725,7 @@ export default function HorsesTab() {
 
                       <div className={styles.historyContent}>
                         <div className={styles.historyProduct}>
-                          {item.farrier_name || 'Geen smid ingevuld'}
+                          {item.farrier_name || 'Farrier not specified'}
                         </div>
                         <div className={styles.historyNote}>
                           {item.notes?.trim() || item.visit_type || '—'}

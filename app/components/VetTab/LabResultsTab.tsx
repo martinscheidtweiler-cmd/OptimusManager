@@ -274,7 +274,7 @@ export default function LabResultsTab({ onBack }: Props) {
   }
 
   return (
-    <div className={styles.labPage}>
+    <div className={`${styles.labPage} vet-subpage`}>
       <div className={styles.labTopbar}>
         <button type="button" className={styles.labBack} onClick={onBack}>
           ← Back
@@ -295,7 +295,7 @@ export default function LabResultsTab({ onBack }: Props) {
         </button>
       </div>
 
-      <div className={styles.statsGrid}>
+      <div className={`${styles.statsGrid} vet-lab-stats`}>
         <div className={styles.statCardDanger}>
           <span>No result yet</span>
           <strong>{waitingCount}</strong>
@@ -388,7 +388,7 @@ export default function LabResultsTab({ onBack }: Props) {
           </select>
         </div>
 
-        <div className={styles.sampleList}>
+        <div className={`${styles.sampleList} vet-lab-list`}>
           {loading && <div className={styles.empty}>Loading samples...</div>}
 
           {!loading && filteredRecords.length === 0 && (
@@ -402,7 +402,7 @@ export default function LabResultsTab({ onBack }: Props) {
               return (
                 <article
                   key={record.id}
-                  className={`${styles.sampleCard} ${
+                  className={`${styles.sampleCard} vet-sample-card ${
                     record.result_status === 'waiting'
                       ? styles.cardWaiting
                       : record.result_status === 'partial'
@@ -412,7 +412,7 @@ export default function LabResultsTab({ onBack }: Props) {
                 >
                   <button
                     type="button"
-                    className={styles.sampleSummary}
+                    className={`${styles.sampleSummary} vet-sample-summary`}
                     onClick={() => setOpenRecordId(isOpen ? null : record.id)}
                   >
                     <div className={styles.sampleMainInfo}>

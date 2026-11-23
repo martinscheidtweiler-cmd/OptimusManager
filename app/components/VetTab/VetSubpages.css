@@ -1,0 +1,210 @@
+.vet-subpage.vet-subpage {
+  box-sizing: border-box;
+  width: min(100%, 1480px);
+  margin: 0 auto;
+  padding: clamp(20px, 3vw, 40px) clamp(16px, 3vw, 40px) 56px;
+  color: #25352b;
+}
+
+.vet-subpage h1,
+.vet-subpage h2 {
+  color: #203128;
+  letter-spacing: -0.035em;
+}
+
+.vet-subpage [class*="Topbar"],
+.vet-subpage [class*="topbar"] {
+  margin-bottom: 22px;
+}
+
+.vet-subpage [class*="Kicker"],
+.vet-subpage [class*="kicker"] {
+  color: #78857b;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.vet-subpage input:not([type="checkbox"]):not([type="radio"]),
+.vet-subpage select,
+.vet-subpage textarea {
+  box-sizing: border-box;
+  min-height: 44px;
+  border: 1px solid #d9e1d9;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  color: #26362b;
+  font: inherit;
+  font-size: 14px;
+}
+
+.vet-subpage textarea {
+  min-height: 88px;
+}
+
+.vet-subpage input:focus,
+.vet-subpage select:focus,
+.vet-subpage textarea:focus {
+  border-color: #66806a;
+  outline: 3px solid #66806a22;
+}
+
+.vet-subpage label {
+  color: #536258;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.vet-subpage button:not(.vet-sample-summary) {
+  font-family: inherit;
+}
+
+.vet-subpage .vet-lab-stats > div {
+  display: flex;
+  min-height: 76px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: #536258;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.vet-subpage .vet-lab-stats strong {
+  color: #26372c;
+  font-size: 26px;
+  line-height: 1;
+}
+
+.vet-subpage .vet-lab-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.vet-subpage .vet-sample-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #e0e7e0;
+  border-radius: 13px;
+  background: #fff;
+  box-shadow: 0 4px 14px #20302008;
+}
+
+.vet-subpage .vet-sample-summary {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  border: 0;
+  border-radius: 0;
+  padding: 16px;
+  background: transparent;
+  color: #26362b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.vet-subpage .vet-sample-summary:hover {
+  background: #f8faf7;
+}
+
+.vet-subpage .vet-sample-summary .sampleMainInfo,
+.vet-subpage .vet-sample-summary [class*="sampleMainInfo"] {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  justify-content: start;
+  gap: 5px 10px;
+}
+
+.vet-subpage .vet-sample-summary strong {
+  overflow: hidden;
+  color: #26372c;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vet-subpage .vet-sample-summary small,
+.vet-subpage .vet-sample-summary [class*="sampleDate"] {
+  color: #738076;
+  font-size: 12px;
+}
+
+.vet-subpage .vet-sample-summary p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #59675d;
+  font-size: 13px;
+}
+
+.vet-subpage .vet-sample-summary [class*="badges"] {
+  margin: 0;
+}
+
+.vet-subpage .vet-sample-card [class*="sampleDetail"] {
+  border-top: 1px solid #e8ede7;
+  padding: 16px;
+  background: #fbfcfa;
+}
+
+.vet-subpage .vet-sample-card [class*="fileUploadGrid"] {
+  gap: 10px;
+}
+
+.vet-subpage .vet-sample-card [class*="fileBox"] {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #e0e7e0;
+  border-radius: 11px;
+  padding: 13px;
+  background: #fff;
+}
+
+.vet-subpage .vet-sample-card [class*="fileBox"] strong {
+  display: block;
+  margin-top: 6px;
+  color: #334238;
+  font-size: 13px;
+}
+
+.vet-subpage .vet-sample-card [class*="fileActions"] {
+  flex-shrink: 0;
+}
+
+.vet-subpage .vet-sample-card [class*="uploadFileButton"] input {
+  min-height: 0;
+}
+
+@media (max-width: 760px) {
+  .vet-subpage.vet-subpage {
+    padding: 18px 12px 36px;
+  }
+
+  .vet-subpage .vet-lab-list {
+    grid-template-columns: 1fr;
+  }
+
+  .vet-subpage .vet-sample-summary {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .vet-subpage .vet-sample-summary [class*="badges"] {
+    grid-column: 1;
+    justify-content: flex-start;
+  }
+
+  .vet-subpage .vet-sample-card [class*="fileBox"] {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -380,7 +380,7 @@ export default function VetVisitsTab({ onBack, initialHorseId, initialDate }: Pr
   const selectedDateIsPast = selectedDate < todayISO()
 
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} vet-subpage`}>
       <div className={styles.topbar}>
         <button type="button" className={styles.secondaryBtn} onClick={onBack}>
           ← Back

@@ -503,7 +503,7 @@ export default function DewormingTab({ onBack, initialHorseId }: Props) {
   }
 
   return (
-    <div className="deworm-page">
+    <div className="deworm-page vet-subpage">
       <div className="deworm-topbar">
         <div>
           <span className="deworm-kicker">Health Management</span>

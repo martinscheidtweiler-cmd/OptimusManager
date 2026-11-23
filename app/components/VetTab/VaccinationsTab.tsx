@@ -627,7 +627,7 @@ export default function VaccinationsTab({ onBack, initialHorseId, initialType = 
   }
 
   return (
-    <div className="vacc-page">
+    <div className="vacc-page vet-subpage">
       <div className="vacc-topbar">
         <div>
           <span className="vacc-kicker">Health Management</span>

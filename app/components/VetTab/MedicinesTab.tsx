@@ -623,7 +623,7 @@ export default function MedicinesTab({ initialUsageHorseId }: { initialUsageHors
   }
 
   return (
-    <div className="med-page">
+    <div className="med-page vet-subpage">
       <div className="med-topbar">
         <div>
           <span className="med-kicker">Health Management</span>

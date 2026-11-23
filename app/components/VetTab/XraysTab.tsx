@@ -343,7 +343,7 @@ export default function XraysTab({ onBack }: Props) {
   }
 
   return (
-    <div className={styles.xrayPage}>
+    <div className={`${styles.xrayPage} vet-subpage`}>
       <div className={styles.xrayTopbar}>
         <button type="button" className={styles.xrayBack} onClick={onBack}>
           ← Back

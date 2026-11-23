@@ -56,7 +56,7 @@ export default function CareTab({onBack}:{onBack?:()=>void}={}){
   finally{setBusy(false)}
  }
  const byName=new Map(horses.map(h=>[h.id,h.name]))
- return <section className="care-page">
+ return <section className="care-page vet-subpage">
   <header className="care-head"><div><span>BREEDING & CARE</span><h1>Breeding records</h1><p>Record scans, insemination, pregnancy checks and births, then keep every follow-up with the horse.</p></div>{onBack?<button type="button" onClick={onBack}>← Care overview</button>:null}</header>
   {error?<p className="care-alert" role="alert">{error}</p>:null}
   {success?<p className="care-success" role="status">{success}</p>:null}

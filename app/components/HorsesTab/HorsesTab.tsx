@@ -382,17 +382,13 @@ export default function HorsesTab({
   }
 
   const getHorseDisplayName = (horse: Horse) => {
+    const registeredName = horse.registered_name?.trim()
+    if (registeredName) return registeredName
+
     const legacyName = (horse.name || '').replace(/^\d+\s*/, '').trim()
     if (legacyName && legacyName !== horse.name) return legacyName
-    if (/^\d+$/.test((horse.name || '').trim())) return horse.registered_name || 'Name to confirm'
-    return horse.name || horse.registered_name || 'Unnamed horse'
-  }
-
-  const getHorseOfficialName = (horse: Horse) => {
-    const displayName = getHorseDisplayName(horse)
-    return horse.registered_name && horse.registered_name.toLowerCase() !== displayName.toLowerCase()
-      ? horse.registered_name
-      : null
+    if (/^\d+$/.test((horse.name || '').trim())) return 'Name to confirm'
+    return horse.name || 'Unnamed horse'
   }
 
   const getMovementLabel = (horse: Horse) => {
@@ -491,7 +487,6 @@ export default function HorsesTab({
             <h1>{getHorseDisplayName(selectedHorse)}</h1>
             <div className={styles.identitySubline}>
               {selectedHorse.horse_number ? <span className={styles.numberBadge}>No. {selectedHorse.horse_number}</span> : null}
-              {getHorseOfficialName(selectedHorse) ? <span>{getHorseOfficialName(selectedHorse)}</span> : null}
             </div>
             <div className={styles.profileFacts}>
               <span>{selectedHorse.horse_type || 'Type not set'}</span>
@@ -512,7 +507,7 @@ export default function HorsesTab({
         <div className={styles.printSheet}>
           <div className={styles.printSheetHeader}>
             <h1>{getHorseDisplayName(selectedHorse)}</h1>
-            <h2>{selectedHorse.horse_number ? `No. ${selectedHorse.horse_number}` : ''}{getHorseOfficialName(selectedHorse) ? ` · ${getHorseOfficialName(selectedHorse)}` : ''}</h2>
+            <h2>{selectedHorse.horse_number ? `No. ${selectedHorse.horse_number}` : ''}</h2>
             <h2>{selectedHorse.horse_type || 'Horse'} · {getStableLocationLabel(selectedHorse)}</h2>
           </div>
           <table className={styles.printCareTable}><thead><tr><th>Care</th><th>Last done</th><th>Next due</th><th>Status</th></tr></thead><tbody>{careRows.map((row) => <tr key={row.id}><td>{row.label}</td><td>{formatDate(row.last)}</td><td>{formatDate(row.due)}</td><td>{getCareStatus(row.due).label}</td></tr>)}</tbody></table>
@@ -660,7 +655,6 @@ export default function HorsesTab({
                   <div className={styles.name}>{getHorseDisplayName(horse)}</div>
                   <div className={styles.nameMetadata}>
                     {horse.horse_number ? <span className={styles.numberBadge}>No. {horse.horse_number}</span> : null}
-                    {getHorseOfficialName(horse) ? <span>{getHorseOfficialName(horse)}</span> : null}
                   </div>
                 </div>
 

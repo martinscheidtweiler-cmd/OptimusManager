@@ -1,6 +1,7 @@
 .vet-subpage.vet-subpage {
   box-sizing: border-box;
-  width: min(100%, 1480px);
+  width: 100%;
+  max-width: none;
   margin: 0 auto;
   padding: clamp(20px, 3vw, 40px) clamp(16px, 3vw, 40px) 56px;
   color: #25352b;

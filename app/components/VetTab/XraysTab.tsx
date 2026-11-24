@@ -10,6 +10,8 @@ type XrayType = 'general' | '2yo' | '6yo'
 type Horse = {
   id: string
   name: string
+  horse_number: string | null
+  registered_name: string | null
   active: boolean | null
   horse_type: string | null
   birth_date: string | null
@@ -78,7 +80,7 @@ export default function XraysTab({ onBack }: Props) {
         await Promise.all([
           supabase
             .from('horses')
-            .select('id, name, active, horse_type, birth_date')
+            .select('id, name, horse_number, registered_name, active, horse_type, birth_date')
             .eq('active', true)
             .order('name', { ascending: true }),
 
@@ -107,14 +109,16 @@ export default function XraysTab({ onBack }: Props) {
 
   useEffect(() => { void loadData() }, [])
 
+  const getHorseDisplayName = (horse: Horse) => horse.registered_name?.trim() || horse.name || 'Unnamed horse'
+
   const filteredHorses = useMemo(() => {
     const query = search.trim().toLowerCase()
     return horses
-      .filter((horse) => (horse.name || '').toLowerCase().includes(query))
+      .filter((horse) => [horse.registered_name, horse.name, horse.horse_number].some((value) => (value || '').toLowerCase().includes(query)))
       .filter((horse) => query || records.some((record) => record.horse_id === horse.id))
       .sort((a, b) => {
-        const priority = (horse: Horse) => records.some((record) => record.horse_id === horse.id && record.needs_surgery && !record.surgery_done) ? 4 : records.some((record) => record.horse_id === horse.id) ? 3 : 0
-        return priority(b) - priority(a) || a.name.localeCompare(b.name)
+        const priority = (horse: Horse) => records.some((record) => record.horse_id === horse.id && record.needs_surgery && !record.surgery_done) ? 3 : records.some((record) => record.horse_id === horse.id) ? 2 : 0
+        return priority(b) - priority(a) || getHorseDisplayName(a).localeCompare(getHorseDisplayName(b))
       })
   }, [horses, records, search])
 
@@ -392,7 +396,8 @@ export default function XraysTab({ onBack }: Props) {
                     onClick={() => setSelectedHorseId(horse.id)}
                   >
                     <span>
-                      {horse.name}
+                      {getHorseDisplayName(horse)}
+                      {horse.horse_number && <b className={styles.horseNumber}>No. {horse.horse_number}</b>}
 
                       {ageAlert === '2yo' && <b className={styles.ageBadge}>2Y due</b>}
                       {ageAlert === '6yo' && <b className={styles.ageBadgeDanger}>6Y due</b>}
@@ -401,10 +406,10 @@ export default function XraysTab({ onBack }: Props) {
                     </span>
 
                     <small>
-                      {horse.horse_type}
+                      {horse.horse_type || 'Horse'}
                       {horse.birth_date ? ` · ${getAge(horse)}y` : ''}
                       {' · '}
-                      {count}
+                      {count} {count === 1 ? 'record' : 'records'}
                     </small>
                   </button>
                 )
@@ -422,14 +427,23 @@ export default function XraysTab({ onBack }: Props) {
             </div>
           ) : (
             <>
+              <section className={styles.selectedHorse}>
+                <div>
+                  <span className={styles.xrayKicker}>Selected horse</span>
+                  <h3>{getHorseDisplayName(selectedHorse)}</h3>
+                  <p>{selectedHorse.horse_type || 'Horse'}{selectedHorse.birth_date ? ` · ${getAge(selectedHorse)} years old` : ''}</p>
+                </div>
+                {selectedHorse.horse_number && <span className={styles.horseNumberLarge}>No. {selectedHorse.horse_number}</span>}
+              </section>
+
               <section className={styles.xrayCard}>
                 <div className={styles.xrayCardHead}>
                   <div>
-                    <span className={styles.xrayKicker}>History</span>
-                    <h3>Saved x-rays</h3>
+                    <span className={styles.xrayKicker}>Medical history</span>
+                    <h3>X-rays and reports</h3>
                   </div>
 
-                  <strong>{selectedRecords.length}</strong>
+                  <span className={styles.recordCount}>{selectedRecords.length} {selectedRecords.length === 1 ? 'record' : 'records'}</span>
                 </div>
 
                 <div className={styles.xrayRecordList}>
@@ -441,8 +455,10 @@ export default function XraysTab({ onBack }: Props) {
                     <article key={record.id} className={styles.xrayRecord}>
                       <div className={styles.xrayRecordTop}>
                         <div>
-                          <strong>{formatDate(record.taken_on)}</strong>
-                          <span>{formatXrayType(record.xray_type)}</span>
+                          <div className={styles.recordHeading}>
+                            <strong>{formatDate(record.taken_on)}</strong>
+                            <span>{formatXrayType(record.xray_type)}</span>
+                          </div>
 
                           {record.note && (
                             <span className={styles.historyRemark}>{record.note}</span>
@@ -499,8 +515,9 @@ export default function XraysTab({ onBack }: Props) {
               <section className={`${styles.xrayCard} ${styles.xrayFormCard}`}>
                 <div className={styles.xrayCardHead}>
                   <div>
-                    <span className={styles.xrayKicker}>Add new record</span>
-                    <h3>{selectedHorse.name}</h3>
+                    <span className={styles.xrayKicker}>New record</span>
+                    <h3>Add an X-ray or report</h3>
+                    <p className={styles.formIntro}>Enter the scan details, then attach the files or links if you have them.</p>
                   </div>
                 </div>
 
@@ -535,67 +552,33 @@ export default function XraysTab({ onBack }: Props) {
                     />
                   </label>
 
-                  <label>
-                    X-ray link
-                    <input
-                      type="url"
-                      placeholder="https://..."
-                      value={xrayLink}
-                      onChange={(e) => setXrayLink(e.target.value)}
-                    />
-                  </label>
+                  <div className={styles.uploadGroup}>
+                    <div className={styles.uploadTitle}><strong>X-ray images</strong><span>Optional</span></div>
+                    <label className={styles.uploadControl}>
+                      <span>{xrayFile ? xrayFile.name : 'Choose an image or PDF'}</span>
+                      <input id="xray-file" type="file" accept="image/*,.pdf" onChange={(e) => setXrayFile(e.target.files?.[0] || null)} />
+                    </label>
+                    <input aria-label="X-ray link" type="url" placeholder="Or paste an X-ray link" value={xrayLink} onChange={(e) => setXrayLink(e.target.value)} />
+                  </div>
 
-                  <label>
-                    Report link
-                    <input
-                      type="url"
-                      placeholder="https://connect.vet/view/..."
-                      value={reportLink}
-                      onChange={(e) => setReportLink(e.target.value)}
-                    />
-                  </label>
-
-                  <label className={styles.fileUploadBox}>
-                    <span>X-ray file</span>
-                    <strong>{xrayFile ? xrayFile.name : 'Choose x-ray file'}</strong>
-                    <small>Image or PDF — optional if link is filled</small>
-                    <input
-                      id="xray-file"
-                      type="file"
-                      accept="image/*,.pdf"
-                      onChange={(e) => setXrayFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
-
-                  <label className={styles.fileUploadBox}>
-                    <span>Report</span>
-                    <strong>{reportFile ? reportFile.name : 'Choose report file'}</strong>
-                    <small>PDF or image — optional if link is filled</small>
-                    <input
-                      id="report-file"
-                      type="file"
-                      accept=".pdf,image/*"
-                      onChange={(e) => setReportFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
+                  <div className={styles.uploadGroup}>
+                    <div className={styles.uploadTitle}><strong>Vet report</strong><span>Optional</span></div>
+                    <label className={styles.uploadControl}>
+                      <span>{reportFile ? reportFile.name : 'Choose a report PDF or image'}</span>
+                      <input id="report-file" type="file" accept=".pdf,image/*" onChange={(e) => setReportFile(e.target.files?.[0] || null)} />
+                    </label>
+                    <input aria-label="Report link" type="url" placeholder="Or paste a report link" value={reportLink} onChange={(e) => setReportLink(e.target.value)} />
+                  </div>
 
                   <label className={styles.surgeryCheck}>
-                    <input
-                      type="checkbox"
-                      checked={needsSurgery}
-                      onChange={(e) => setNeedsSurgery(e.target.checked)}
-                    />
-
-                    <span>
-                      <strong>Needs surgery</strong>
-                      <small>Shows a warning next to this horse until marked as done.</small>
-                    </span>
+                    <input type="checkbox" checked={needsSurgery} onChange={(e) => setNeedsSurgery(e.target.checked)} />
+                    <span><strong>Surgery or procedure needed</strong><small>This horse will stay flagged until it is marked done.</small></span>
                   </label>
 
                   <label className={styles.xrayFull}>
-                    Remark
+                    Notes
                     <textarea
-                      placeholder="Example: needs surgery, re-check in 6 weeks..."
+                      placeholder="Add the vet's findings or anything to remember..."
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
                     />
@@ -608,7 +591,7 @@ export default function XraysTab({ onBack }: Props) {
                   onClick={saveRecord}
                   disabled={saving}
                 >
-                  {saving ? 'Saving...' : 'Save record'}
+                  {saving ? 'Saving...' : 'Save X-ray record'}
                 </button>
               </section>
             </>

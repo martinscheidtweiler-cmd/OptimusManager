@@ -165,6 +165,11 @@
   color: #1f1a14;
 }
 
+.nameCell { min-width: 0; display: grid; gap: 4px; }
+.nameMetadata { min-width: 0; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; color: #7b7165; font-size: 11px; line-height: 1.35; }
+.numberBadge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 8px; background: #edf3ed; color: #284b36; font-size: 11px; font-weight: 750; white-space: nowrap; }
+.identitySubline { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-height: 22px; margin-top: 3px; color: #71675d; font-size: 13px; }
+
 .tableMuted {
   color: #6f655a;
   font-size: 14px;

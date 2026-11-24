@@ -13,6 +13,14 @@ type VaccineType = 'flu_tetanus' | 'rhino'
 type Horse = {
   id: string
   name: string
+  horse_number: string | null
+  registered_name: string | null
+  ueln: string | null
+  microchip: string | null
+  registered_sex: string | null
+  food_chain_status: string | null
+  identification_status: string | null
+  birth_date: string | null
   active: boolean | null
   horse_type: HorseType | null
   stable_status: StableStatus | null
@@ -118,6 +126,14 @@ export default function HorsesTab({
         .select(`
           id,
           name,
+          horse_number,
+          registered_name,
+          ueln,
+          microchip,
+          registered_sex,
+          food_chain_status,
+          identification_status,
+          birth_date,
           active,
           horse_type,
           stable_status,
@@ -264,7 +280,9 @@ export default function HorsesTab({
 
   const filteredHorses = useMemo(() => {
     return horses.filter((horse) => {
-      const matchesSearch = (horse.name || '')
+      const matchesSearch = [horse.name, horse.registered_name, horse.horse_number, horse.ueln, horse.microchip]
+        .filter(Boolean)
+        .join(' ')
         .toLowerCase()
         .includes(search.toLowerCase())
 
@@ -363,6 +381,20 @@ export default function HorsesTab({
     return horse.stable_location
   }
 
+  const getHorseDisplayName = (horse: Horse) => {
+    const legacyName = (horse.name || '').replace(/^\d+\s*/, '').trim()
+    if (legacyName && legacyName !== horse.name) return legacyName
+    if (/^\d+$/.test((horse.name || '').trim())) return horse.registered_name || 'Name to confirm'
+    return horse.name || horse.registered_name || 'Unnamed horse'
+  }
+
+  const getHorseOfficialName = (horse: Horse) => {
+    const displayName = getHorseDisplayName(horse)
+    return horse.registered_name && horse.registered_name.toLowerCase() !== displayName.toLowerCase()
+      ? horse.registered_name
+      : null
+  }
+
   const getMovementLabel = (horse: Horse) => {
     if (!horse.moved_to_location && !horse.moved_to_detail) return '—'
     if (horse.moved_to_location && horse.moved_to_detail) {
@@ -456,7 +488,11 @@ export default function HorsesTab({
 
           <div className={styles.profileIdentity}>
             <span className={styles.profileKicker}>Horse profile</span>
-            <h1>{selectedHorse.name || 'Unnamed horse'}</h1>
+            <h1>{getHorseDisplayName(selectedHorse)}</h1>
+            <div className={styles.identitySubline}>
+              {selectedHorse.horse_number ? <span className={styles.numberBadge}>No. {selectedHorse.horse_number}</span> : null}
+              {getHorseOfficialName(selectedHorse) ? <span>{getHorseOfficialName(selectedHorse)}</span> : null}
+            </div>
             <div className={styles.profileFacts}>
               <span>{selectedHorse.horse_type || 'Type not set'}</span>
               <span>{getStableLocationLabel(selectedHorse)}</span>
@@ -475,7 +511,8 @@ export default function HorsesTab({
 
         <div className={styles.printSheet}>
           <div className={styles.printSheetHeader}>
-            <h1>{selectedHorse.name || 'Unnamed horse'}</h1>
+            <h1>{getHorseDisplayName(selectedHorse)}</h1>
+            <h2>{selectedHorse.horse_number ? `No. ${selectedHorse.horse_number}` : ''}{getHorseOfficialName(selectedHorse) ? ` · ${getHorseOfficialName(selectedHorse)}` : ''}</h2>
             <h2>{selectedHorse.horse_type || 'Horse'} · {getStableLocationLabel(selectedHorse)}</h2>
           </div>
           <table className={styles.printCareTable}><thead><tr><th>Care</th><th>Last done</th><th>Next due</th><th>Status</th></tr></thead><tbody>{careRows.map((row) => <tr key={row.id}><td>{row.label}</td><td>{formatDate(row.last)}</td><td>{formatDate(row.due)}</td><td>{getCareStatus(row.due).label}</td></tr>)}</tbody></table>
@@ -532,6 +569,14 @@ export default function HorsesTab({
             <div className={styles.profilePanelHeading}><div><span className={styles.panelIcon}>♘</span><h3>Horse details</h3></div><button type="button" className={styles.textAction} onClick={() => router.push(`/horses/${selectedHorse.id}/edit`)}>Edit profile</button></div>
             <dl className={styles.detailFacts}>
               <div><dt>Type</dt><dd>{selectedHorse.horse_type || '—'}</dd></div>
+              <div><dt>Stable number</dt><dd>{selectedHorse.horse_number || '—'}</dd></div>
+              <div><dt>Registered name</dt><dd>{selectedHorse.registered_name || '—'}</dd></div>
+              <div><dt>UELN</dt><dd>{selectedHorse.ueln || '—'}</dd></div>
+              <div><dt>Microchip</dt><dd>{selectedHorse.microchip || '—'}</dd></div>
+              <div><dt>Registered sex</dt><dd>{selectedHorse.registered_sex || '—'}</dd></div>
+              <div><dt>Date of birth</dt><dd>{formatDate(selectedHorse.birth_date)}</dd></div>
+              <div><dt>Food chain</dt><dd>{selectedHorse.food_chain_status || '—'}</dd></div>
+              <div><dt>Identification</dt><dd>{selectedHorse.identification_status || '—'}</dd></div>
               <div><dt>Location</dt><dd>{getStableLocationLabel(selectedHorse)}</dd></div>
               <div><dt>Status</dt><dd><span className={`${styles.profileStatus} ${getStatusClass(selectedHorse)}`}>{getStatusLabel(selectedHorse)}</span></dd></div>
               {selectedHorse.show_in_mare_cards && <><div><dt>Pregnant</dt><dd>{yesNo(selectedHorse.pregnant)}</dd></div><div><dt>Last in heat</dt><dd>{formatDate(selectedHorse.last_in_heat_date)}</dd></div>{selectedHorse.pregnancy_notes ? <div><dt>Breeding notes</dt><dd>{selectedHorse.pregnancy_notes}</dd></div> : null}</>}
@@ -585,7 +630,7 @@ export default function HorsesTab({
 
       <div className={styles.tableCard}>
         <div className={styles.tableHead}>
-          <div>Name</div>
+          <div>Name / number</div>
           <div>Type</div>
           <div>Status</div>
           <div>Location</div>
@@ -609,9 +654,15 @@ export default function HorsesTab({
                     openHorse(horse)
                   }
                 }}
-                aria-label={`Open details for ${horse.name}`}
+                aria-label={`Open details for ${getHorseDisplayName(horse)}`}
               >
-                <div className={styles.name}>{horse.name}</div>
+                <div className={styles.nameCell}>
+                  <div className={styles.name}>{getHorseDisplayName(horse)}</div>
+                  <div className={styles.nameMetadata}>
+                    {horse.horse_number ? <span className={styles.numberBadge}>No. {horse.horse_number}</span> : null}
+                    {getHorseOfficialName(horse) ? <span>{getHorseOfficialName(horse)}</span> : null}
+                  </div>
+                </div>
 
                 <div className={styles.tableMuted}>{horse.horse_type || '—'}</div>
 

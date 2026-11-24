@@ -1,6 +1,7 @@
 .dashboard {
-  width: min(100%, 1180px);
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   padding: 28px clamp(14px, 2.4vw, 32px) 56px;
   color: #202923;
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { isLocale, localeDetails, locales, translate, type Locale } from '@/app/lib/i18n'
 import './language.css'
 
@@ -86,6 +87,15 @@ function setDocumentLocale(locale: Locale) {
 }
 
 export default function LanguageProvider({ children }: { children: React.ReactNode }) {
+  const [languageSlot, setLanguageSlot] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const findSlot = () => setLanguageSlot(document.querySelector<HTMLElement>('[data-language-slot]'))
+    findSlot()
+    const observer = new MutationObserver(findSlot)
+    observer.observe(document.body, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [])
   const [locale, setLocale] = useState<Locale>('en')
 
   const changeLocale = useCallback((value: string) => {
@@ -125,13 +135,15 @@ export default function LanguageProvider({ children }: { children: React.ReactNo
     }
   }, [])
 
-  return <LocaleContext.Provider value={locale}>
-    {children}
-    <div className="opt-language-control" data-language-control>
+  const languageControl = <div className={`opt-language-control${languageSlot ? ' opt-language-control--inline' : ''}`} data-language-control>
       <label className="opt-language-label" htmlFor="opt-language-select">{localeDetails[locale].label}</label>
       <select id="opt-language-select" value={locale} onChange={(event) => changeLocale(event.target.value)} aria-label={localeDetails[locale].label}>
         {locales.map((code) => <option key={code} value={code}>{localeDetails[code].native}</option>)}
       </select>
-    </div>
+  </div>
+
+  return <LocaleContext.Provider value={locale}>
+    {children}
+    {languageSlot ? createPortal(languageControl, languageSlot) : languageControl}
   </LocaleContext.Provider>
 }

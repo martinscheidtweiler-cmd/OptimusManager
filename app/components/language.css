@@ -71,3 +71,8 @@ html[dir="rtl"] .opt-language-control select {
     max-width: 34vw;
   }
 }
+
+
+.opt-language-control--inline{position:static;top:auto;right:auto;left:auto;z-index:auto;min-height:38px;flex-shrink:0;box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none}
+html[dir="rtl"] .opt-language-control--inline{right:auto;left:auto}
+@media(max-width:900px){.opt-language-control--inline{gap:4px;padding:3px 6px 3px 9px}.opt-language-control--inline select{max-width:30vw}}

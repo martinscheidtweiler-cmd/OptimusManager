@@ -10,9 +10,8 @@ import VetVisitsTab from './VetVisitsTab'
 import MedicinesTab from './MedicinesTab'
 import VaccinationsTab from './VaccinationsTab'
 import DewormingTab from './DewormingTab'
-import CareTab from '../CareTab/CareTab'
 
-type VetMenu = 'Visits' | 'Xray' | 'Lab Results' | 'Vaccinations' | 'Deworming' | 'Medicines' | 'Breeding'
+type VetMenu = 'Visits' | 'Xray' | 'Lab Results' | 'Vaccinations' | 'Deworming' | 'Medicines'
 type InitialRequest = { menu: 'Vaccinations' | 'Deworming' | 'Visits'; horseId: string; vaccineType?: 'flu_tetanus' | 'rhino' } | null
 type Horse = { id: string; name: string; active: boolean | null }
 type PreventiveRecord = { id: string; horse_id: string; vaccine_type?: string; administered_on: string; next_due_on: string | null }
@@ -144,7 +143,6 @@ export default function VetTab({ initialRequest = null }: { initialRequest?: Ini
   if (activeMenu === 'Vaccinations') return <VaccinationsTab initialHorseId={entryHorseId || undefined} initialType={entryVaccineType} onBack={() => setActiveMenu(null)} />
   if (activeMenu === 'Deworming') return <DewormingTab initialHorseId={entryHorseId || undefined} onBack={() => setActiveMenu(null)} />
   if (activeMenu === 'Medicines') return <div className={styles.subpage}><button type="button" className={styles.backLink} onClick={() => setActiveMenu(null)}>← Care overview</button><MedicinesTab initialUsageHorseId={entryHorseId || undefined} /></div>
-  if (activeMenu === 'Breeding') return <CareTab onBack={() => setActiveMenu(null)} />
 
   const actions: { menu: VetMenu; title: string; description: string; symbol: string; needsHorse: boolean }[] = [
     { menu: 'Visits', title: 'Log a vet concern', description: 'Choose a horse and add a concern or follow-up.', symbol: '+', needsHorse: true },
@@ -202,7 +200,6 @@ export default function VetTab({ initialRequest = null }: { initialRequest?: Ini
           <button type="button" onClick={() => open('Medicines')}><strong>Medicines & stock</strong><span>Products, batches, expiry dates and usage</span></button>
           <button type="button" onClick={() => open('Xray')}><strong>X-rays</strong><span>Imaging and surgery follow-up</span></button>
           <button type="button" onClick={() => open('Lab Results')}><strong>Lab results</strong><span>Blood tests and diagnostic reports</span></button>
-          <button type="button" onClick={() => open('Breeding')}><strong>Breeding & foaling</strong><span>Scans, insemination, pregnancy and birth records</span></button>
         </div>
       </section>
     </main>

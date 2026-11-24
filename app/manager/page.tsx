@@ -8,13 +8,12 @@ import HorsesTab from '@/app/components/HorsesTab/HorsesTab'
 import VetTab from '@/app/components/VetTab/VetTab'
 import PlaceTab from '@/app/components/PlaceTab/PlaceTab'
 import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
-import CareTab from '@/app/components/CareTab/CareTab'
 import StockTab from '@/app/components/StockTab/StockTab'
 import HorseIdTab from '@/app/components/HorseIdTab/HorseIdTab'
 
 import './desktop.css'
 
-type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Care'|'Stock'|'HorseID'
+type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Stock'|'HorseID'
 type VetQuickRequest={menu:'Vaccinations'|'Deworming'|'Visits';horseId:string;vaccineType?:'flu_tetanus'|'rhino'}
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
@@ -23,7 +22,6 @@ const modules:NavItem[]=[
  {key:'Vet',label:'Dierenarts',symbol:'✚'},
  {key:'Place',label:'Locaties',symbol:'⌖'},
  {key:'Farrier',label:'Hoefsmid',symbol:'∷'},
- {key:'Care',label:'Zorg & fokkerij',symbol:'✦'},
  {key:'Stock',label:'Medicatie',symbol:'▤'},
  {key:'HorseID',label:'HorseID',symbol:'✉'},
 ]
@@ -96,7 +94,6 @@ export default function ManagerModules(){
    case 'Vet':return <VetTab key={vetKey} initialRequest={vetRequest}/>
    case 'Place':return <PlaceTab/>
    case 'Farrier':return <FarrierTab key={farrierKey} initialHorseId={farrierInitialHorseId || undefined}/>
-   case 'Care':return <CareTab/>
    case 'Stock':return <StockTab/>
    case 'HorseID':return <HorseIdTab/>
   }
@@ -113,7 +110,7 @@ export default function ManagerModules(){
      <div className="td-sidefoot"><strong>{name}</strong><small>Beheerder</small><button className="td-logout" type="button" onClick={()=>void signOut()}>Uitloggen</button></div>
    </aside>
    <div className="td-shell">
-     <header className="td-topbar"><div className="td-topbar-title"><span className="td-topbar-eyebrow">STAL OPTIMUS / BEHEER</span><strong>{activeLabel}</strong></div><div className="td-user"><a className="td-quick-action" href="/move">Paarden verplaatsen</a><span>{name}</span><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div></div></header>
+     <header className="td-topbar"><div className="td-topbar-title"><span className="td-topbar-eyebrow">STAL OPTIMUS / BEHEER</span><strong>{activeLabel}</strong></div><div className="td-user"><div className="td-language-slot" data-language-slot></div><a className="td-quick-action" href="/move">Paarden verplaatsen</a><span>{name}</span><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div></div></header>
      <nav className="td-mobile-nav" aria-label="Mobiele navigatie">{modules.map(m=><button key={m.key} type="button" className={active===m.key?'active':''} onClick={()=>selectTab(m.key)}><span>{m.symbol}</span><small>{m.label}</small></button>)}</nav>
      <main className="td-container">{renderModule()}</main>
    </div>

@@ -90,11 +90,20 @@ export default function LanguageProvider({ children }: { children: React.ReactNo
   const [languageSlot, setLanguageSlot] = useState<HTMLElement | null>(null)
 
   useEffect(() => {
-    const findSlot = () => setLanguageSlot(document.querySelector<HTMLElement>('[data-language-slot]'))
+    const mobileQuery = window.matchMedia('(max-width: 900px)')
+    const findSlot = () => {
+      const desktopSlot = document.querySelector<HTMLElement>('[data-language-slot]')
+      const mobileSlot = document.querySelector<HTMLElement>('[data-language-slot-mobile]')
+      setLanguageSlot(mobileQuery.matches ? mobileSlot || desktopSlot : desktopSlot || mobileSlot)
+    }
     findSlot()
     const observer = new MutationObserver(findSlot)
     observer.observe(document.body, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    mobileQuery.addEventListener('change', findSlot)
+    return () => {
+      observer.disconnect()
+      mobileQuery.removeEventListener('change', findSlot)
+    }
   }, [])
   const [locale, setLocale] = useState<Locale>('en')
 

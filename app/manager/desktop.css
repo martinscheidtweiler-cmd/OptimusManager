@@ -22,7 +22,7 @@
 .td-topbar-title{display:flex;flex-direction:column;gap:5px}.td-topbar-eyebrow{font-size:10px;letter-spacing:.14em;color:#8a978c;font-weight:700}.td-topbar-title strong{font:800 19px Manrope,sans-serif;letter-spacing:-.04em}
 .td-user{display:flex;align-items:center;gap:12px;color:#4c6051;font-size:12px}
 .td-avatar{width:39px;height:39px;border-radius:50%;display:grid;place-items:center;background:#e9eee6;color:#36513d;font-weight:800}
-.td-container{max-width:1680px;margin:auto;padding:32px clamp(20px,3vw,50px) 80px}
+.td-container{width:100%;max-width:none;margin:0;padding:32px clamp(20px,3vw,50px) 80px}
 .td-container h1,.td-container h2,.td-container h3{font-family:Manrope,sans-serif}
 .td-loading,.td-auth{min-height:100dvh;display:grid;place-items:center;background:#f6f7f4;color:#22392b;font:14px 'DM Sans',sans-serif}
 .td-auth>div{max-width:420px;text-align:center;background:#fff;padding:38px;border-radius:22px;border:1px solid #e1e7df}.td-auth-logo{font:42px Georgia,serif}.td-auth h1{margin:12px 0}.td-auth p{line-height:1.5;color:#647467}.td-auth a{display:inline-block;margin-top:14px;padding:13px 18px;background:#23432e;color:white;text-decoration:none;border-radius:12px}

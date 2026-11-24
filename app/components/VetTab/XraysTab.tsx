@@ -108,10 +108,15 @@ export default function XraysTab({ onBack }: Props) {
   useEffect(() => { void loadData() }, [])
 
   const filteredHorses = useMemo(() => {
-    return horses.filter((horse) =>
-      (horse.name || '').toLowerCase().includes(search.toLowerCase())
-    )
-  }, [horses, search])
+    const query = search.trim().toLowerCase()
+    return horses
+      .filter((horse) => (horse.name || '').toLowerCase().includes(query))
+      .filter((horse) => query || records.some((record) => record.horse_id === horse.id))
+      .sort((a, b) => {
+        const priority = (horse: Horse) => records.some((record) => record.horse_id === horse.id && record.needs_surgery && !record.surgery_done) ? 4 : records.some((record) => record.horse_id === horse.id) ? 3 : 0
+        return priority(b) - priority(a) || a.name.localeCompare(b.name)
+      })
+  }, [horses, records, search])
 
   const selectedHorse = useMemo(() => {
     return horses.find((horse) => horse.id === selectedHorseId) || null
@@ -352,7 +357,7 @@ export default function XraysTab({ onBack }: Props) {
         <div>
           <span className={styles.xrayKicker}>Diagnostics</span>
           <h2>X-rays & Reports</h2>
-          <p>Search every active horse and keep imaging, reports, and follow-up together.</p>
+          <p>Horses with X-ray records and follow-up appear first. Search to find another horse.</p>
         </div>
       </div>
 
@@ -364,6 +369,8 @@ export default function XraysTab({ onBack }: Props) {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+
+          <span className={styles.xrayKicker}>{search.trim() ? 'Search results' : 'X-ray cases and due checks'} · {filteredHorses.length}</span>
 
           <div className={styles.xrayHorseList}>
             {loading && <div className={styles.xrayEmpty}>Loading horses...</div>}
@@ -403,9 +410,7 @@ export default function XraysTab({ onBack }: Props) {
                 )
               })}
 
-            {!loading && filteredHorses.length === 0 && (
-              <div className={styles.xrayEmpty}>No horses found.</div>
-            )}
+            {!loading && filteredHorses.length === 0 && <div className={styles.xrayEmpty}>{search.trim() ? 'No matching horse found.' : 'No X-ray cases or due checks. Search to find a horse.'}</div>}
           </div>
         </aside>
 

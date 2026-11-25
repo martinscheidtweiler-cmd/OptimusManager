@@ -9,6 +9,7 @@ on:
       - 'android-staff/**'
       - 'app/components/StaffDashboard/**'
       - 'app/lib/staffAnalytics*'
+      - 'app/lib/staffTaskLabels.ts'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
       - 'package.json'
@@ -20,6 +21,7 @@ on:
       - 'android-staff/**'
       - 'app/components/StaffDashboard/**'
       - 'app/lib/staffAnalytics*'
+      - 'app/lib/staffTaskLabels.ts'
       - 'supabase/migrations/**'
       - 'supabase/tests/**'
       - 'package.json'
@@ -128,6 +130,6 @@ jobs:
       - name: Check TypeScript
         run: npx tsc --noEmit
       - name: Lint
-        run: npx eslint app/components/StaffDashboard/StaffDashboard.tsx app/staff/page.tsx app/lib/staffAnalytics.ts app/lib/staffAnalytics.test.ts
+        run: npx eslint app/components/StaffDashboard/StaffDashboard.tsx app/staff/page.tsx app/lib/staffAnalytics.ts app/lib/staffAnalytics.test.ts app/lib/staffTaskLabels.ts
       - name: Build dashboard
         run: npm run build

@@ -2,17 +2,13 @@ package be.optimus.staff;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.ActivityManager;
 import android.app.AlertDialog;
-import android.app.admin.DevicePolicyManager;
-import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
@@ -36,7 +32,6 @@ import java.util.concurrent.Executors;
 /** Native staff time-tracking screen. Supabase remains the source of truth for all timestamps. */
 public class MainActivity extends Activity {
     private static final int LOCATION_PERMISSION = 42;
-    private static final String HOST = "optimus-manager.vercel.app";
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private LinearLayout root;
@@ -65,7 +60,6 @@ public class MainActivity extends Activity {
         getWindow().setNavigationBarColor(0xfff7f7f7);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
         loadSavedPairing();
-        applyDeviceOwnerKiosk();
         main.post(timerTick);
     }
 
@@ -89,8 +83,9 @@ public class MainActivity extends Activity {
         setBusy(true);
         io.execute(() -> {
             try {
-                JSONObject result = StaffApi.action(this, code, action, target, null, null, null);
-                if ("clear_position".equals(action)) result = StaffApi.action(this, code, "load", null, null, null, null);
+                JSONObject response = StaffApi.action(this, code, action, target, null, null, null);
+                if ("clear_position".equals(action)) response = StaffApi.action(this, code, "load", null, null, null, null);
+                final JSONObject result = response;
                 main.post(() -> {
                     state = result;
                     error = "";
@@ -357,20 +352,6 @@ public class MainActivity extends Activity {
         return lp;
     }
     private int dp(int value) { return (int) (value * getResources().getDisplayMetrics().density + 0.5f); }
-
-    private boolean permittedOrigin(String value) {
-        if (value == null) return false;
-        Uri uri = Uri.parse(value);
-        return "https".equals(uri.getScheme()) && HOST.equals(uri.getHost()) && (uri.getPort() == -1 || uri.getPort() == 443);
-    }
-
-    private void applyDeviceOwnerKiosk() {
-        DevicePolicyManager policy = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
-        if (policy == null || !policy.isDeviceOwnerApp(getPackageName())) return;
-        ComponentName admin = new ComponentName(this, WorkDeviceAdmin.class);
-        policy.setLockTaskPackages(admin, new String[]{getPackageName()});
-        startLockTask();
-    }
 
     @Override protected void onResume() {
         super.onResume();

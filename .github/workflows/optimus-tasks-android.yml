@@ -3,6 +3,7 @@ name: Optimus Tasks Android build
 on:
   push:
     branches:
+      - main
       - codex/optimus-tasks-android
     paths:
       - 'android-staff/**'

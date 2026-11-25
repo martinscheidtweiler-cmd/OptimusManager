@@ -1,6 +1,6 @@
 # Optimus Tasks — controle en testprocedure
 
-Deze testprocedure geldt voor de native Android-app in `android-staff/` en het personeelsdashboard. Werk op branch `codex/optimus-tasks-android`; productie wordt pas aangepast na expliciete vrijgave.
+Deze testprocedure geldt voor de native Android-app in `android-staff/` en het personeelsdashboard. De productiebeveiligingsmigraties voor paarden, locaties, medische gegevens en personeeltabellen zijn op 25 november 2026 toegepast. De app- en dashboardcode gaat live via de `main`-deployment.
 
 ## Automatische controles
 
@@ -23,7 +23,7 @@ Gebruik deze commando's nooit met een productieproject gekoppeld. De pgTAP-test 
 ## Web- en databasecontroles
 
 - Controleer dat ingelogde managers werknemers, locaties, taken, contacten en gekoppelde telefoons kunnen beheren.
-- Controleer dat anonieme clients de staff-tabellen, shiftgeschiedenis, GPS-posities, pairinggegevens en actiebewijzen niet rechtstreeks kunnen lezen.
+- Controleer dat anonieme clients de paarden-, medische-, legacy personeels- en staff-tabellen, shiftgeschiedenis, GPS-posities, pairinggegevens en actiebewijzen niet rechtstreeks kunnen lezen.
 - Controleer dat de telefoon alleen via de code-beveiligde `staff_phone`-RPC werkt; de admin-RPC blijft ontoegankelijk voor `anon`.
 - Herhaal `begin` en `task` met hetzelfde verzoek-ID; er mag geen dubbele shift of taak ontstaan.
 - Controleer een dienst die over middernacht loopt, totalen op Brusselse kalenderdagen, filters, taakwijzigingen en de apparaattijdlijn.

@@ -1,5 +1,5 @@
 begin;
-select plan(14);
+select plan(20);
 
 select ok(not has_table_privilege('anon', 'public.staff_workers', 'select'), 'anonymous clients cannot read the worker table directly');
 select ok(not has_table_privilege('anon', 'public.staff_shifts', 'select'), 'anonymous clients cannot read shift history directly');
@@ -9,6 +9,12 @@ select ok(not has_table_privilege('anon', 'public.staff_paired_devices', 'select
 select ok(not has_table_privilege('anon', 'public.staff_phone_action_receipts', 'select'), 'anonymous clients cannot read action receipts');
 select ok(has_function_privilege('anon', 'public.staff_phone(text,text,bigint,double precision,double precision,double precision,uuid,timestamp with time zone)', 'execute'), 'anonymous clients may use only the code-gated phone RPC');
 select ok(not has_function_privilege('anon', 'public.staff_pair_admin(text,text,uuid)', 'execute'), 'anonymous clients cannot use the admin RPC');
+select ok(not has_table_privilege('anon', 'public.horses', 'select'), 'anonymous clients cannot read horse records directly');
+select ok(not has_table_privilege('anon', 'public.medicines', 'select'), 'anonymous clients cannot read medical records directly');
+select ok(not has_table_privilege('anon', 'public.staff_attendance', 'select'), 'anonymous clients cannot read legacy staff records');
+select ok(not has_table_privilege('anon', 'public.horse_current_places_v2', 'select'), 'anonymous clients cannot read the horse location view');
+select ok(not has_table_privilege('anon', 'public.medicine_stock_view', 'select'), 'anonymous clients cannot read the medicine stock view');
+select ok(not has_function_privilege('anon', 'public.move_horse_v2(uuid,uuid,uuid,uuid,text,text,timestamp with time zone)', 'execute'), 'anonymous clients cannot move horses through the RPC');
 
 do $$
 declare

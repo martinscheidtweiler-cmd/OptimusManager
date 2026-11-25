@@ -44,20 +44,38 @@ public class StaffLocationService extends Service implements LocationListener {
         boolean precise = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         boolean approximate = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         if (!precise && !approximate) {
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", false).putString("last_error", "Locatietoegang ontbreekt").apply();
             stopSelf(); return START_NOT_STICKY;
         }
         try {
             String provider = precise && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
                     ? LocationManager.GPS_PROVIDER : LocationManager.NETWORK_PROVIDER;
             if (!manager.isProviderEnabled(provider)) throw new IllegalStateException("Geen locatiebron beschikbaar");
-            manager.requestLocationUpdates(provider, precise ? 30000L : 60000L, precise ? 35f : 100f, this, Looper.getMainLooper());
-            Location last = manager.getLastKnownLocation(provider);
-            if (last != null && System.currentTimeMillis() - last.getTime() < 120000L) onLocationChanged(last);
+            boolean requested = false;
+            if (precise && manager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
+                manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 15000L, 10f, this, Looper.getMainLooper());
+                requested = true;
+            }
+            if (manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+                manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, precise ? 20000L : 30000L, precise ? 15f : 50f, this, Looper.getMainLooper());
+                requested = true;
+            }
+            if (!requested) throw new IllegalStateException("Locatieservices staan uit of zijn niet beschikbaar");
+            Location last = null;
+            for (String source : new String[]{LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER}) {
+                try {
+                    Location candidate = manager.getLastKnownLocation(source);
+                    if (candidate != null && (last == null || candidate.getTime() > last.getTime())) last = candidate;
+                } catch (SecurityException ignored) { }
+            }
+            if (last != null && System.currentTimeMillis() - last.getTime() < 300000L) onLocationChanged(last);
         } catch (Exception e) {
+            String detail = e.getMessage() == null ? "Geen locatiebron beschikbaar" : e.getMessage();
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", false).putString("last_error", detail).apply();
             stopSelf();
             return START_NOT_STICKY;
         }
-        getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", true).apply();
+        getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", true).putString("last_error", "").apply();
         return START_STICKY;
     }
 
@@ -93,21 +111,22 @@ public class StaffLocationService extends Service implements LocationListener {
         io.execute(() -> {
             try {
                 StaffApi.action(this, credential, "position", null, lat, lon, accuracy);
-                getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putLong("last_position_at", System.currentTimeMillis()).apply();
+                getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putLong("last_position_at", System.currentTimeMillis()).putString("last_error", "").apply();
             }
             catch (Exception error) {
-                String message = error.getMessage() == null ? "" : error.getMessage().toLowerCase(java.util.Locale.ROOT);
+                String detail = error.getMessage() == null ? "Locatie kon niet verstuurd worden" : error.getMessage();
+                getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putString("last_error", detail).apply();
+                String message = detail.toLowerCase(java.util.Locale.ROOT);
                 if (message.contains("device not authorized") || message.contains("no active shift") || message.contains("location sharing is disabled")) stopSelf();
             }
         });
     }
 
     @Override public void onProviderDisabled(String provider) {
-        if (LocationManager.GPS_PROVIDER.equals(provider)
-                && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-            try { manager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 60000L, 100f, this, Looper.getMainLooper()); }
-            catch (Exception ignored) { stopSelf(); }
-        } else stopSelf();
+        if (!manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                && !manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)) {
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putString("last_error", "Locatieservices zijn uitgeschakeld").apply();
+        }
     }
     @Override public void onProviderEnabled(String provider) {}
     @Override public void onStatusChanged(String provider, int status, android.os.Bundle extras) {}

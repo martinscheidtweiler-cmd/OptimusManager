@@ -15,6 +15,7 @@ import android.os.UserManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -52,12 +53,14 @@ public class MainActivity extends Activity {
     private boolean pendingNotificationPermission;
     private String language = "nl";
     private TextView timerView;
+    private TextView gpsStatusView;
     private String timerStart;
     private volatile long lastServerSync;
 
     private final Runnable timerTick = new Runnable() {
         @Override public void run() {
             if (!isFinishing() && timerView != null && timerStart != null) timerView.setText(elapsed(timerStart));
+            updateGpsStatus();
             main.postDelayed(this, 1000);
         }
     };
@@ -279,7 +282,7 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(18), dp(12), dp(18), dp(22));
+        root.setPadding(dp(16), dp(14), dp(16), dp(24));
         root.setBackgroundColor(0xfff7f7f7);
         scroll.addView(root);
         setContentView(scroll);
@@ -356,36 +359,42 @@ public class MainActivity extends Activity {
         JSONObject entry = state.optJSONObject("entry");
         String location = entry == null ? "" : locationName(taskLocationId(entry.optLong("task_id")));
         String taskName = entry == null ? tr("Geen actieve taak", "No active task", "Aucune tâche active") : taskName(entry.optLong("task_id"));
-        root.addView(label(tr("HUIDIGE TAAK", "CURRENT TASK", "TÂCHE EN COURS"), 11, false), params(-1, dp(28)));
-        root.addView(label(entry == null ? taskName : taskLabel(taskName) + " · " + locationLabel(location), 18, true), params(-1, dp(44)));
+
+        LinearLayout taskCard = panel();
+        taskCard.addView(label(tr("HUIDIGE TAAK", "CURRENT TASK", "TÂCHE EN COURS"), 12, false), params(-1, dp(26)));
+        TextView taskTitle = label(entry == null ? taskName : taskLabel(taskName) + " · " + locationLabel(location), 20, true);
+        taskTitle.setMaxLines(2);
+        taskCard.addView(taskTitle, params(-1, dp(64)));
         TextView clock = label(entry == null ? "00:00:00" : elapsed(entry.optString("started_at")), 40, true);
         clock.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         timerView = clock;
         timerStart = entry == null ? null : entry.optString("started_at", null);
-        root.addView(clock, params(-1, dp(64)));
+        taskCard.addView(clock, params(-1, dp(66)));
         if (entry != null) {
             Button stop = button(tr("Stop taak", "Stop task", "Arrêter la tâche"));
+            stop.setGravity(Gravity.CENTER);
             stop.setOnClickListener(v -> change("stop", null));
-            root.addView(stop, params(-1, dp(50)));
+            taskCard.addView(stop, params(-1, dp(54)));
         }
+        root.addView(taskCard, params(-1, -2));
 
-        boolean sharing = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getBoolean("active", false);
-        long lastPosition = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getLong("last_position_at", 0);
-        String gpsStatus = sharing ? (lastPosition > 0 ? tr("actief · bijgewerkt ", "active · updated ", "actif · mis à jour ") + syncAge(lastPosition) : tr("actief · positie zoeken", "active · finding position", "actif · recherche de position")) : tr("uit", "off", "désactivé");
-        TextView gps = label("GPS · " + gpsStatus, 12, false);
-        gps.setTextColor(0xff666666);
-        root.addView(gps, params(-1, dp(36)));
-        if (sharing && inLockTask()) {
-            root.addView(label(tr("Locatie delen stopt automatisch wanneer je je werkdag beëindigt.", "Location sharing stops automatically when you end your workday.", "Le partage de position s'arrête automatiquement à la fin de votre journée."), 12, false), params(-1, dp(38)));
-        } else {
-            Button gpsToggle = button(sharing ? tr("Locatie delen stoppen", "Stop location sharing", "Arrêter le partage de position") : tr("Locatie delen inschakelen", "Enable location sharing", "Activer le partage de position"));
-            gpsToggle.setOnClickListener(v -> { if (sharing) disableGps(); else requestGpsPermissions(); });
-            root.addView(gpsToggle, params(-1, dp(46)));
-        }
+        String gpsError = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("last_error", "");
+        LinearLayout gpsCard = panel();
+        gpsCard.addView(label(tr("📍  LOCATIE DELEN", "📍  LOCATION SHARING", "📍  PARTAGE DE POSITION"), 12, false), params(-1, dp(28)));
+        TextView gps = label(currentGpsStatus(), 15, true);
+        gps.setMaxLines(3);
+        gpsStatusView = gps;
+        gps.setTextColor((gpsError != null && !gpsError.isEmpty()) ? 0xff9a2e2e : 0xff262626);
+        gpsCard.addView(gps, params(-1, dp(72)));
+        gpsCard.addView(label(inLockTask()
+                ? tr("Blijft actief tijdens je werkdag.", "Stays on during your workday.", "Reste actif pendant votre journée.")
+                : tr("Voor appvergrendeling en automatische GPS is de beheerde kioskmodus nodig.", "Managed kiosk mode is required to lock the app and start GPS automatically.", "Le mode kiosque géré est nécessaire pour verrouiller l'app et démarrer le GPS automatiquement."),
+                12, false), params(-1, dp(38)));
+        root.addView(gpsCard, params(-1, -2));
 
         if (showContacts) { renderContacts(); return; }
         if (selectedLocation != null) { renderTasksForLocation(selectedLocation); return; }
-        root.addView(label(tr("Taken per locatie", "Tasks by location", "Tâches par lieu"), 17, true), params(-1, dp(48)));
+        root.addView(label(tr("Taken per locatie", "Tasks by location", "Tâches par lieu"), 19, true), params(-1, dp(52)));
         JSONArray locations = state.optJSONArray("locations");
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(2);
@@ -393,23 +402,44 @@ public class MainActivity extends Activity {
             JSONObject item = locations.optJSONObject(i);
             if (item == null) continue;
             long id = item.optLong("id");
-            Button b = button(locationLabel(item.optString("name", "Locatie")));
-            b.setOnClickListener(v -> { selectedLocation = id; render(); });
+            Button button = button(locationLabel(item.optString("name", "Locatie")) + "   ›");
+            button.setOnClickListener(v -> { selectedLocation = id; render(); });
             GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
             lp.width = 0;
-            lp.height = dp(64);
+            lp.height = dp(76);
             lp.columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1, 1f);
-            lp.setMargins(dp(3), dp(3), dp(3), dp(3));
-            grid.addView(b, lp);
+            lp.setMargins(dp(4), dp(4), dp(4), dp(4));
+            grid.addView(button, lp);
         }
         root.addView(grid, params(-1, -2));
-        Button contacts = button(tr("Contact", "Contacts", "Contacts"));
+        Button contacts = button(tr("Contact", "Contacts", "Contacts") + "   ›");
         contacts.setOnClickListener(v -> { showContacts = true; render(); });
-        root.addView(contacts, params(-1, dp(50)));
+        root.addView(contacts, params(-1, dp(58)));
         Button end = button(tr("Werkdag beëindigen", "End workday", "Terminer la journée"));
+        end.setGravity(Gravity.CENTER);
         end.setOnClickListener(v -> new AlertDialog.Builder(this).setMessage(tr("Werkdag beëindigen?", "End this workday?", "Terminer cette journée ?"))
                 .setNegativeButton(tr("Annuleren", "Cancel", "Annuler"), null).setPositiveButton(tr("Beëindigen", "End", "Terminer"), (d, w) -> change("end", null)).show());
-        root.addView(end, params(-1, dp(50)));
+        root.addView(end, params(-1, dp(54)));
+    }
+
+    private String currentGpsStatus() {
+        boolean sharing = StaffLocationService.running
+                && getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getBoolean("active", false);
+        long lastPosition = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getLong("last_position_at", 0);
+        String gpsError = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("last_error", "");
+        if (gpsError != null && !gpsError.isEmpty()) return tr("Probleem: ", "Problem: ", "Problème : ") + gpsError;
+        if (sharing && lastPosition > 0)
+            return tr("Locatie actief · bijgewerkt ", "Location active · updated ", "Position active · mis à jour ") + syncAge(lastPosition);
+        if (sharing)
+            return tr("GPS ingeschakeld · positie wordt gezocht", "GPS enabled · finding position", "GPS activé · recherche de la position");
+        return tr("GPS start automatisch tijdens de werkdag", "GPS starts automatically during the workday", "Le GPS démarre automatiquement pendant la journée");
+    }
+
+    private void updateGpsStatus() {
+        if (gpsStatusView == null) return;
+        String gpsError = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("last_error", "");
+        gpsStatusView.setText(currentGpsStatus());
+        gpsStatusView.setTextColor(gpsError != null && !gpsError.isEmpty() ? 0xff9a2e2e : 0xff262626);
     }
 
     private void renderTasksForLocation(long locationId) {
@@ -558,10 +588,30 @@ public class MainActivity extends Activity {
         Button b = new Button(this);
         b.setText(text);
         b.setAllCaps(false);
+        b.setTextSize(16);
         b.setTextColor(0xff171717);
-        b.setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xffffffff));
+        b.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+        b.setPadding(dp(18), dp(8), dp(18), dp(8));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(0xffffffff);
+        background.setCornerRadius(dp(15));
+        background.setStroke(dp(1), 0xffd7d7d7);
+        b.setBackground(background);
+        b.setElevation(dp(1));
         b.setEnabled(!busy);
         return b;
+    }
+
+    private LinearLayout panel() {
+        LinearLayout panel = new LinearLayout(this);
+        panel.setOrientation(LinearLayout.VERTICAL);
+        panel.setPadding(dp(18), dp(14), dp(18), dp(12));
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(0xffffffff);
+        background.setCornerRadius(dp(20));
+        background.setStroke(dp(1), 0xffdddddd);
+        panel.setBackground(background);
+        return panel;
     }
     private LinearLayout.LayoutParams params(int width, int height) {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(width, height);
@@ -572,7 +622,15 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
+        enforceManagedKiosk();
         if (state != null && pairingCode != null && !busy) requestState("load", null, pairingCode, false);
+    }
+
+    private void enforceManagedKiosk() {
+        if (!isDeviceOwner() || inLockTask()) return;
+        DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
+        if (dpm == null || !dpm.isLockTaskPermitted(getPackageName())) return;
+        try { startLockTask(); } catch (Exception ignored) { }
     }
     @Override protected void onDestroy() {
         main.removeCallbacks(timerTick);
@@ -621,15 +679,41 @@ public class MainActivity extends Activity {
     }
 
     private void ensureKioskGps() {
-        if (!isDeviceOwner() || !inLockTask() || busy || state == null || pairingCode == null
-                || state.optJSONObject("shift") == null) return;
+        if (busy || state == null || pairingCode == null || state.optJSONObject("shift") == null
+                || StaffOfflineStore.pending(this).length() > 0) return;
         JSONObject device = state.optJSONObject("device");
         boolean serverEnabled = device != null && device.optBoolean("gps_enabled", false);
-        if (serverEnabled) {
-            if (!StaffLocationService.running) startLocationService();
+        if (serverEnabled && StaffLocationService.running) return;
+
+        String shiftId = state.optJSONObject("shift").optString("id", "active");
+        boolean fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        String promptedShift = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("permission_prompted_shift", "");
+        if (!fine && !coarse) {
+            if (shiftId.equals(promptedShift)) {
+                error = tr("Geef locatietoegang om GPS tijdens de werkdag te gebruiken.", "Allow location access to use GPS during the workday.", "Autorisez la localisation pour utiliser le GPS pendant la journée.");
+                render();
+                return;
+            }
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putString("permission_prompted_shift", shiftId).apply();
+            main.post(this::requestGpsPermissions);
             return;
         }
-        main.post(this::requestGpsPermissions);
+
+        if (android.os.Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            String notificationPrompt = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("notification_prompted_shift", "");
+            if (shiftId.equals(notificationPrompt)) {
+                error = tr("Sta meldingen toe om te zien dat GPS actief is.", "Allow notifications to see that GPS is active.", "Autorisez les notifications pour voir que le GPS est actif.");
+                render();
+                return;
+            }
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putString("notification_prompted_shift", shiftId).apply();
+            main.post(this::requestNotificationPermissionOrStart);
+            return;
+        }
+
+        if (!serverEnabled || !StaffLocationService.running) main.post(this::enableGpsService);
     }
 
     private void showAdminMenu() {
@@ -693,11 +777,17 @@ public class MainActivity extends Activity {
             dpm.clearPackagePersistentPreferredActivities(admin, getPackageName());
             stopLockTask();
             dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_APPS_CONTROL);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_UNINSTALL_APPS);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_SAFE_BOOT);
             dpm.setLockTaskPackages(admin, new String[0]);
             Toast.makeText(this, tr("Kioskmodus verlaten.", "Kiosk mode exited.", "Mode kiosque désactivé."), Toast.LENGTH_SHORT).show();
             return;
         }
         dpm.addUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+        dpm.addUserRestriction(admin, UserManager.DISALLOW_APPS_CONTROL);
+        dpm.addUserRestriction(admin, UserManager.DISALLOW_UNINSTALL_APPS);
+        dpm.addUserRestriction(admin, UserManager.DISALLOW_SAFE_BOOT);
         if (android.os.Build.VERSION.SDK_INT >= 30) dpm.setLocationEnabled(admin, true);
         boolean fineGranted = dpm.setPermissionGrantState(admin, getPackageName(), Manifest.permission.ACCESS_FINE_LOCATION,
                 DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
@@ -712,6 +802,9 @@ public class MainActivity extends Activity {
                     && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         if ((!fineGranted && !coarseGranted) || !notificationsGranted) {
             dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_APPS_CONTROL);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_UNINSTALL_APPS);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_SAFE_BOOT);
             fail(tr("Android kon GPS- of meldingsmachtiging niet beheren. Kioskmodus is niet ingeschakeld.", "Android could not manage location or notification permissions. Kiosk mode was not enabled.", "Android n'a pas pu gérer les autorisations de localisation ou de notification. Le mode kiosque n'a pas été activé."));
             return;
         }
@@ -724,8 +817,7 @@ public class MainActivity extends Activity {
         home.addCategory(Intent.CATEGORY_HOME);
         home.addCategory(Intent.CATEGORY_DEFAULT);
         dpm.addPersistentPreferredActivity(admin, home, new ComponentName(this, MainActivity.class));
-        dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_HOME
-                | DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS);
+        dpm.setLockTaskFeatures(admin, 0);
         startLockTask();
         Toast.makeText(this, tr("Kioskmodus ingeschakeld.", "Kiosk mode enabled.", "Mode kiosque activé."), Toast.LENGTH_SHORT).show();
         main.post(this::ensureKioskGps);
@@ -769,7 +861,7 @@ public class MainActivity extends Activity {
                     StaffOfflineStore.saveState(this, updated);
                     setBusy(false);
                     startLocationService();
-                    Toast.makeText(this, "Locatie delen is gestart. De melding bovenaan blijft zichtbaar.", Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, tr("Locatie delen is ingeschakeld; GPS wordt gestart.", "Location sharing is on; GPS is starting.", "Le partage de position est activé ; le GPS démarre."), Toast.LENGTH_LONG).show();
                     render();
                 });
             } catch (Exception e) {

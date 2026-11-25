@@ -800,6 +800,9 @@ public class MainActivity extends Activity {
                     && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
         if ((!fineGranted && !coarseGranted) || !notificationsGranted) {
             dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_APPS_CONTROL);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_UNINSTALL_APPS);
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_SAFE_BOOT);
             fail(tr("Android kon GPS- of meldingsmachtiging niet beheren. Kioskmodus is niet ingeschakeld.", "Android could not manage location or notification permissions. Kiosk mode was not enabled.", "Android n'a pas pu gérer les autorisations de localisation ou de notification. Le mode kiosque n'a pas été activé."));
             return;
         }

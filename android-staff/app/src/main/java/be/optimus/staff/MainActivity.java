@@ -11,6 +11,7 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.UserManager;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
@@ -111,6 +112,7 @@ public class MainActivity extends Activity {
                     setBusy(false);
                     render();
                     if ("load".equals(action) && StaffOfflineStore.pending(this).length() > 0) flushPending();
+                    else if ("load".equals(action)) ensureKioskGps();
                 });
             } catch (Exception e) {
                 main.post(() -> {
@@ -199,7 +201,7 @@ public class MainActivity extends Activity {
                     render();
                 });
             }
-            main.post(() -> { setBusy(false); state = StaffOfflineStore.loadState(this); error = ""; render(); });
+            main.post(() -> { setBusy(false); state = StaffOfflineStore.loadState(this); error = ""; render(); ensureKioskGps(); });
         } catch (IOException networkError) {
             main.post(() -> {
                 setBusy(false);
@@ -373,9 +375,13 @@ public class MainActivity extends Activity {
         TextView gps = label("GPS · " + gpsStatus, 12, false);
         gps.setTextColor(0xff666666);
         root.addView(gps, params(-1, dp(36)));
-        Button gpsToggle = button(sharing ? tr("Locatie delen stoppen", "Stop location sharing", "Arrêter le partage de position") : tr("Locatie delen inschakelen", "Enable location sharing", "Activer le partage de position"));
-        gpsToggle.setOnClickListener(v -> { if (sharing) disableGps(); else requestGpsPermissions(); });
-        root.addView(gpsToggle, params(-1, dp(46)));
+        if (sharing && inLockTask()) {
+            root.addView(label(tr("Locatie delen stopt automatisch wanneer je je werkdag beëindigt.", "Location sharing stops automatically when you end your workday.", "Le partage de position s'arrête automatiquement à la fin de votre journée."), 12, false), params(-1, dp(38)));
+        } else {
+            Button gpsToggle = button(sharing ? tr("Locatie delen stoppen", "Stop location sharing", "Arrêter le partage de position") : tr("Locatie delen inschakelen", "Enable location sharing", "Activer le partage de position"));
+            gpsToggle.setOnClickListener(v -> { if (sharing) disableGps(); else requestGpsPermissions(); });
+            root.addView(gpsToggle, params(-1, dp(46)));
+        }
 
         if (showContacts) { renderContacts(); return; }
         if (selectedLocation != null) { renderTasksForLocation(selectedLocation); return; }
@@ -583,6 +589,18 @@ public class MainActivity extends Activity {
         return manager != null && manager.getLockTaskModeState() != ActivityManager.LOCK_TASK_MODE_NONE;
     }
 
+    private void ensureKioskGps() {
+        if (!isDeviceOwner() || !inLockTask() || busy || state == null || pairingCode == null
+                || state.optJSONObject("shift") == null) return;
+        JSONObject device = state.optJSONObject("device");
+        boolean serverEnabled = device != null && device.optBoolean("gps_enabled", false);
+        if (serverEnabled) {
+            if (!StaffLocationService.running) startLocationService();
+            return;
+        }
+        main.post(this::requestGpsPermissions);
+    }
+
     private void showAdminMenu() {
         String kioskAction = inLockTask() ? tr("Kioskmodus verlaten", "Exit kiosk mode", "Quitter le mode kiosque") : tr("Kioskmodus inschakelen", "Enable kiosk mode", "Activer le mode kiosque");
         String codeAction = AdminCodeStore.isConfigured(this) ? tr("Beheerderscode wijzigen", "Change admin code", "Modifier le code admin") : tr("Beheerderscode instellen", "Set admin code", "Définir le code admin");
@@ -634,12 +652,36 @@ public class MainActivity extends Activity {
             fail(tr("Kioskmodus vereist eenmalige Android Device Owner-provisioning. Raadpleeg de installatiehandleiding.", "Kiosk mode requires Android Device Owner provisioning. See the setup guide.", "Le mode kiosque nécessite le provisionnement Android Device Owner. Consultez le guide."));
             return;
         }
+        if (android.os.Build.VERSION.SDK_INT < 28) {
+            fail(tr("Kioskmodus vereist Android 9 of nieuwer.", "Kiosk mode requires Android 9 or newer.", "Le mode kiosque nécessite Android 9 ou une version ultérieure."));
+            return;
+        }
         DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
         ComponentName admin = new ComponentName(this, WorkDeviceAdmin.class);
         if (inLockTask()) {
             dpm.clearPackagePersistentPreferredActivities(admin, getPackageName());
             stopLockTask();
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+            dpm.setLockTaskPackages(admin, new String[0]);
             Toast.makeText(this, tr("Kioskmodus verlaten.", "Kiosk mode exited.", "Mode kiosque désactivé."), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        dpm.addUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+        if (android.os.Build.VERSION.SDK_INT >= 30) dpm.setLocationEnabled(admin, true);
+        boolean fineGranted = dpm.setPermissionGrantState(admin, getPackageName(), Manifest.permission.ACCESS_FINE_LOCATION,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                && checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean coarseGranted = dpm.setPermissionGrantState(admin, getPackageName(), Manifest.permission.ACCESS_COARSE_LOCATION,
+                DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                && checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean notificationsGranted = true;
+        if (android.os.Build.VERSION.SDK_INT >= 33)
+            notificationsGranted = dpm.setPermissionGrantState(admin, getPackageName(), Manifest.permission.POST_NOTIFICATIONS,
+                    DevicePolicyManager.PERMISSION_GRANT_STATE_GRANTED)
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+        if ((!fineGranted && !coarseGranted) || !notificationsGranted) {
+            dpm.clearUserRestriction(admin, UserManager.DISALLOW_CONFIG_LOCATION);
+            fail(tr("Android kon GPS- of meldingsmachtiging niet beheren. Kioskmodus is niet ingeschakeld.", "Android could not manage location or notification permissions. Kiosk mode was not enabled.", "Android n'a pas pu gérer les autorisations de localisation ou de notification. Le mode kiosque n'a pas été activé."));
             return;
         }
         java.util.ArrayList<String> packages = new java.util.ArrayList<>();
@@ -651,8 +693,11 @@ public class MainActivity extends Activity {
         home.addCategory(Intent.CATEGORY_HOME);
         home.addCategory(Intent.CATEGORY_DEFAULT);
         dpm.addPersistentPreferredActivity(admin, home, new ComponentName(this, MainActivity.class));
+        dpm.setLockTaskFeatures(admin, DevicePolicyManager.LOCK_TASK_FEATURE_HOME
+                | DevicePolicyManager.LOCK_TASK_FEATURE_NOTIFICATIONS);
         startLockTask();
         Toast.makeText(this, tr("Kioskmodus ingeschakeld.", "Kiosk mode enabled.", "Mode kiosque activé."), Toast.LENGTH_SHORT).show();
+        main.post(this::ensureKioskGps);
     }
 
     private void addResolvedPackage(java.util.List<String> packages, Intent intent) {
@@ -715,6 +760,16 @@ public class MainActivity extends Activity {
                 main.post(() -> { setBusy(false); fail("GPS is gestopt, maar de laatste positie kon niet worden gewist. Controleer de verbinding."); });
             }
         });
+    }
+
+    @Override public void onBackPressed() {
+        if (showContacts) { showContacts = false; render(); return; }
+        if (selectedLocation != null) { selectedLocation = null; render(); return; }
+        if (inLockTask()) {
+            Toast.makeText(this, tr("De kioskmodus is actief.", "Kiosk mode is active.", "Le mode kiosque est actif."), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        super.onBackPressed();
     }
 
     @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {

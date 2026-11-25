@@ -1,0 +1,133 @@
+name: Optimus Tasks Android build
+
+on:
+  push:
+    branches:
+      - main
+      - codex/optimus-tasks-android
+    paths:
+      - 'android-staff/**'
+      - 'app/components/StaffDashboard/**'
+      - 'app/lib/staffAnalytics*'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/optimus-tasks-android.yml'
+  pull_request:
+    paths:
+      - 'android-staff/**'
+      - 'app/components/StaffDashboard/**'
+      - 'app/lib/staffAnalytics*'
+      - 'supabase/migrations/**'
+      - 'supabase/tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/optimus-tasks-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+  ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+  ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+  ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+
+jobs:
+  build-debug-apk:
+    name: Compile Android debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+
+      - name: Build debug APK
+        working-directory: android-staff
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Check for release signing key
+        id: signing
+        shell: bash
+        run: |
+          if [[ -n "$ANDROID_SIGNING_KEYSTORE_BASE64" && -n "$ANDROID_SIGNING_STORE_PASSWORD" && -n "$ANDROID_SIGNING_KEY_ALIAS" && -n "$ANDROID_SIGNING_KEY_PASSWORD" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare release signing key
+        if: steps.signing.outputs.available == 'true'
+        env:
+          ANDROID_SIGNING_KEYSTORE_BASE64: ${{ secrets.ANDROID_SIGNING_KEYSTORE_BASE64 }}
+          ANDROID_SIGNING_STORE_PASSWORD: ${{ secrets.ANDROID_SIGNING_STORE_PASSWORD }}
+          ANDROID_SIGNING_KEY_ALIAS: ${{ secrets.ANDROID_SIGNING_KEY_ALIAS }}
+          ANDROID_SIGNING_KEY_PASSWORD: ${{ secrets.ANDROID_SIGNING_KEY_PASSWORD }}
+        run: |
+          KEYSTORE_PATH="$RUNNER_TEMP/optimus-release-signing.jks"
+          printf '%s' "$ANDROID_SIGNING_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          echo "ANDROID_SIGNING_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        if: steps.signing.outputs.available == 'true'
+        working-directory: android-staff
+        run: ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Upload debug APK for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimus-tasks-debug-apk
+          path: android-staff/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload signed release APK
+        if: steps.signing.outputs.available == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimus-tasks-signed-release-apk
+          path: android-staff/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Remove temporary release key
+        if: always() && steps.signing.outputs.available == 'true'
+        run: rm -f "$RUNNER_TEMP/optimus-release-signing.jks"
+
+  web-check:
+    name: Verify staff dashboard and date calculations
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Run date and DST tests
+        run: npm run test:staff
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+      - name: Lint
+        run: npx eslint app/components/StaffDashboard/StaffDashboard.tsx app/staff/page.tsx app/lib/staffAnalytics.ts app/lib/staffAnalytics.test.ts
+      - name: Build dashboard
+        run: npm run build

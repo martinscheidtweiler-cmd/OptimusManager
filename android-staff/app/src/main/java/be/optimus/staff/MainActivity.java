@@ -362,8 +362,9 @@ public class MainActivity extends Activity {
 
         LinearLayout taskCard = panel();
         taskCard.addView(label(tr("HUIDIGE TAAK", "CURRENT TASK", "TÂCHE EN COURS"), 12, false), params(-1, dp(26)));
-        TextView taskTitle = label(entry == null ? taskName : taskLabel(taskName) + " · " + locationLabel(location), 21, true);
-        taskCard.addView(taskTitle, params(-1, dp(48)));
+        TextView taskTitle = label(entry == null ? taskName : taskLabel(taskName) + " · " + locationLabel(location), 20, true);
+        taskTitle.setMaxLines(2);
+        taskCard.addView(taskTitle, params(-1, dp(64)));
         TextView clock = label(entry == null ? "00:00:00" : elapsed(entry.optString("started_at")), 40, true);
         clock.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         timerView = clock;
@@ -381,9 +382,10 @@ public class MainActivity extends Activity {
         LinearLayout gpsCard = panel();
         gpsCard.addView(label(tr("📍  LOCATIE DELEN", "📍  LOCATION SHARING", "📍  PARTAGE DE POSITION"), 12, false), params(-1, dp(28)));
         TextView gps = label(currentGpsStatus(), 15, true);
+        gps.setMaxLines(3);
         gpsStatusView = gps;
         gps.setTextColor((gpsError != null && !gpsError.isEmpty()) ? 0xff9a2e2e : 0xff262626);
-        gpsCard.addView(gps, params(-1, dp(46)));
+        gpsCard.addView(gps, params(-1, dp(72)));
         gpsCard.addView(label(inLockTask()
                 ? tr("Blijft actief tijdens je werkdag.", "Stays on during your workday.", "Reste actif pendant votre journée.")
                 : tr("Voor appvergrendeling en automatische GPS is de beheerde kioskmodus nodig.", "Managed kiosk mode is required to lock the app and start GPS automatically.", "Le mode kiosque géré est nécessaire pour verrouiller l'app et démarrer le GPS automatiquement."),

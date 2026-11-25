@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '@/app/lib/supabaseClient'
+import { useLocale } from '@/app/components/LanguageProvider'
+import { staffLocationPresentation, staffTaskPresentation } from '@/app/lib/staffTaskLabels'
 import { brusselsDayRange, entryOverlapMs, entrySegment, nextBrusselsDay } from '@/app/lib/staffAnalytics'
 import StaffMap from './StaffMap'
 import './staff-dashboard.css'
@@ -30,6 +32,7 @@ const ago = (value: string | null, now: number) => {
 }
 
 export default function StaffDashboard() {
+  const locale = useLocale()
   const [workers, setWorkers] = useState<Item[]>([])
   const [locations, setLocations] = useState<Item[]>([])
   const [tasks, setTasks] = useState<Item[]>([])
@@ -95,7 +98,11 @@ export default function StaffDashboard() {
 
   const taskLabel = (id: number) => {
     const task = tasks.find(item => item.id === id)
-    return task ? `${task.name} · ${locations.find(item => item.id === task.location_id)?.name || ''}` : 'Onbekend'
+    if (!task) return 'Onbekend'
+    const shownTask = staffTaskPresentation(task.name, locale)
+    const place = locations.find(item => item.id === task.location_id)
+    const shownPlace = place ? staffLocationPresentation(place.name, locale) : null
+    return `${shownTask.icon} ${shownTask.label} · ${shownPlace ? `${shownPlace.icon} ${shownPlace.label}` : ''}`
   }
   const device = (id: string | null) => devices.find(item => item.id === id)
   const workerName = (id: number) => workers.find(item => item.id === id)?.name || 'Onbekend'
@@ -200,7 +207,11 @@ export default function StaffDashboard() {
           <button onClick={saveItem}>{edit ? 'Opslaan' : 'Toevoegen'}</button>
         </div>
         <table><tbody>{list.map(item => <tr key={item.id}>
-          <td>{item.name} {kind === 'staff_tasks' && locations.find(place => place.id === item.location_id)?.name} {item.phone}</td>
+          <td>{kind === 'staff_tasks'
+            ? (() => { const shownTask = staffTaskPresentation(item.name, locale); const place = locations.find(value => value.id === item.location_id); const shownPlace = place ? staffLocationPresentation(place.name, locale) : null; return `${shownTask.icon} ${shownTask.label} · ${shownPlace ? `${shownPlace.icon} ${shownPlace.label}` : ''}` })()
+            : kind === 'staff_locations'
+              ? (() => { const shownPlace = staffLocationPresentation(item.name, locale); return `${shownPlace.icon} ${shownPlace.label}` })()
+              : item.name} {item.phone}</td>
           <td>{item.active ? 'Actief' : 'Inactief'}</td>
           <td><button onClick={() => { setEdit(item); setName(item.name); setPhone(item.phone || ''); setLocation(item.location_id || 0) }}>Bewerken</button>{' '}
             <button onClick={() => void toggleItem(item)}>{item.active ? 'Deactiveren' : 'Activeren'}</button></td>

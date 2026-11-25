@@ -53,12 +53,14 @@ public class MainActivity extends Activity {
     private boolean pendingNotificationPermission;
     private String language = "nl";
     private TextView timerView;
+    private TextView gpsStatusView;
     private String timerStart;
     private volatile long lastServerSync;
 
     private final Runnable timerTick = new Runnable() {
         @Override public void run() {
             if (!isFinishing() && timerView != null && timerStart != null) timerView.setText(elapsed(timerStart));
+            updateGpsStatus();
             main.postDelayed(this, 1000);
         }
     };
@@ -375,23 +377,11 @@ public class MainActivity extends Activity {
         }
         root.addView(taskCard, params(-1, -2));
 
-        boolean sharing = StaffLocationService.running
-                && getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getBoolean("active", false);
-        long lastPosition = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getLong("last_position_at", 0);
         String gpsError = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("last_error", "");
-        String gpsStatus;
-        if (gpsError != null && !gpsError.isEmpty()) {
-            gpsStatus = tr("Probleem: ", "Problem: ", "Problème : ") + gpsError;
-        } else if (sharing && lastPosition > 0) {
-            gpsStatus = tr("Locatie actief · bijgewerkt ", "Location active · updated ", "Position active · mis à jour ") + syncAge(lastPosition);
-        } else if (sharing) {
-            gpsStatus = tr("GPS ingeschakeld · positie wordt gezocht", "GPS enabled · finding position", "GPS activé · recherche de la position");
-        } else {
-            gpsStatus = tr("GPS start automatisch tijdens de werkdag", "GPS starts automatically during the workday", "Le GPS démarre automatiquement pendant la journée");
-        }
         LinearLayout gpsCard = panel();
         gpsCard.addView(label(tr("📍  LOCATIE DELEN", "📍  LOCATION SHARING", "📍  PARTAGE DE POSITION"), 12, false), params(-1, dp(28)));
-        TextView gps = label(gpsStatus, 15, true);
+        TextView gps = label(currentGpsStatus(), 15, true);
+        gpsStatusView = gps;
         gps.setTextColor((gpsError != null && !gpsError.isEmpty()) ? 0xff9a2e2e : 0xff262626);
         gpsCard.addView(gps, params(-1, dp(46)));
         gpsCard.addView(label(inLockTask()
@@ -428,6 +418,26 @@ public class MainActivity extends Activity {
         end.setOnClickListener(v -> new AlertDialog.Builder(this).setMessage(tr("Werkdag beëindigen?", "End this workday?", "Terminer cette journée ?"))
                 .setNegativeButton(tr("Annuleren", "Cancel", "Annuler"), null).setPositiveButton(tr("Beëindigen", "End", "Terminer"), (d, w) -> change("end", null)).show());
         root.addView(end, params(-1, dp(54)));
+    }
+
+    private String currentGpsStatus() {
+        boolean sharing = StaffLocationService.running
+                && getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getBoolean("active", false);
+        long lastPosition = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getLong("last_position_at", 0);
+        String gpsError = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("last_error", "");
+        if (gpsError != null && !gpsError.isEmpty()) return tr("Probleem: ", "Problem: ", "Problème : ") + gpsError;
+        if (sharing && lastPosition > 0)
+            return tr("Locatie actief · bijgewerkt ", "Location active · updated ", "Position active · mis à jour ") + syncAge(lastPosition);
+        if (sharing)
+            return tr("GPS ingeschakeld · positie wordt gezocht", "GPS enabled · finding position", "GPS activé · recherche de la position");
+        return tr("GPS start automatisch tijdens de werkdag", "GPS starts automatically during the workday", "Le GPS démarre automatiquement pendant la journée");
+    }
+
+    private void updateGpsStatus() {
+        if (gpsStatusView == null) return;
+        String gpsError = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("last_error", "");
+        gpsStatusView.setText(currentGpsStatus());
+        gpsStatusView.setTextColor(gpsError != null && !gpsError.isEmpty() ? 0xff9a2e2e : 0xff262626);
     }
 
     private void renderTasksForLocation(long locationId) {

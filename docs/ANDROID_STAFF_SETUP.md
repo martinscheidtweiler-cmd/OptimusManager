@@ -41,7 +41,7 @@ Blocking a phone closes its active task and shift and removes its current locati
 
 ## Location behavior
 
-Location sharing is off by default and starts only after the employee starts a shift, taps the location control, grants Android location access, and allows the persistent notification. A foreground location service reports one latest position per active shift; the server does not keep a route history. Ending the shift stops location updates and clears the position. A workday with no GPS permission still works for time tracking.
+Outside kiosk mode, location sharing is off by default and starts after the employee starts a shift, taps the location control, grants Android location access, and allows the persistent notification. In device-owner kiosk mode, Android grants the app's location and notification permissions; location sharing starts automatically for an active shift and the user cannot stop it from the app. The visible ongoing notification and on-screen GPS status remain present. Sharing stops when the workday ends. A foreground location service reports one latest position per active shift; the server does not keep a route history. Ending the shift stops location updates and clears the position. A workday with no GPS permission still works for time tracking.
 
 On current Android versions, the service declares the `location` foreground-service type and its permission and starts while the app is visible. Android requires the visible, ongoing notification and limits starting a location service from the background. The service is designed to continue receiving location updates with the screen off while it remains active; OEM battery controls and device-specific behavior still require a physical-phone test. See [Android foreground-service requirements](https://developer.android.com/develop/background-work/services/fgs/service-types) and [location permissions](https://developer.android.com/develop/sensors-and-location/location/permissions).
 
@@ -49,7 +49,7 @@ The app currently provides active-shift tracking only. It does not silently loca
 
 ## Kiosk mode and device-owner provisioning
 
-Kiosk mode is deliberately opt-in. Before enabling it, set a device-local administrator code of at least 8 characters from **⋯ → Toestelbeheer**. The app stores only a salted PBKDF2 verifier; the code is not embedded in GitHub. Use the code to enable or exit kiosk mode. The app allowlists itself and the currently selected dialer and messaging apps so the Contact page can open those apps.
+Kiosk mode is opt-in and requires Device Owner provisioning. Before enabling it, set a device-local administrator code of at least 8 characters from **⋯ → Toestelbeheer**. The app stores only a salted PBKDF2 verifier; the code is not embedded in GitHub. The admin code is required to exit kiosk mode. While it is on, Android routes Home back to Optimus Tasks, blocks app switching and Quick Settings, and prevents changing the location setting. A visible notification remains available; calls and SMS use allowlisted apps. The app allowlists itself and the currently selected dialer and messaging apps so the Contact page can open those apps.
 
 For managed dedicated devices, Android's supported setup is Device Owner / Android Enterprise provisioning. A fully managed device is normally provisioned during initial setup; converting an already configured phone commonly requires a factory reset. Android's development-only ADB provisioning can work on eligible, unprovisioned test devices:
 

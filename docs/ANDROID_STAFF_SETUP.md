@@ -78,6 +78,6 @@ Offline time necessarily uses the company phone's clock until the server receive
 
 The build workflow can verify compilation and web-side date calculations. It cannot verify screen-off GPS, OEM battery behavior, Device Owner provisioning, kiosk recovery, or installation on the user's physical phones.
 
-## Security review blocker outside staff tables
+## Production database status
 
-The connected Supabase Security Advisor currently reports RLS disabled on `public.horses`, `public.farrier_visits`, `public.medicines`, `public.medicine_issuances`, `public.medicine_usage`, `public.vaccination_records`, `public.vaccination_passport_status`, `public.deworming_records`, `public.horse_xray_records`, and `public.riding_sessions`. This is a separate manager-database issue, but it is relevant before releasing an APK that contains the public Supabase key: an anonymous client may be able to access those tables directly. The staff migrations do not change those tables. Do not ship production phone credentials until these tables have a reviewed, tested RLS policy plan; simply enabling RLS without policies can break the existing manager screens.
+On 25 November 2026, production migrations enabled RLS and explicit role policies for horse, location, medical, and legacy staff records. Anonymous table and view grants were removed, the horse-move RPC now checks for active staff, and staff-phone actions use request receipts so retries do not create duplicate shifts or task entries. These permissions were verified against production after the migrations. The Supabase Security Advisor still reports other existing `SECURITY DEFINER` functions and RLS-enabled tables without policies; review those separately before changing unrelated manager features.

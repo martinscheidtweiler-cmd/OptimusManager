@@ -14,8 +14,28 @@ create unique index staff_one_task_shift on public.staff_entries(shift_id) where
 create table public.staff_positions(shift_id uuid primary key references public.staff_shifts(id),lat double precision not null check(lat between -90 and 90),lon double precision not null check(lon between -180 and 180),accuracy double precision,updated_at timestamptz not null default now());
 insert into public.staff_workers(name) values ('Dries'),('Veronique'),('Martin'),('George'),('Terry'),('Barat');
 insert into public.staff_contacts(name) select name from public.staff_workers;
-insert into public.staff_locations(name) values ('Serre'),('50'),('47b'),('Oostmal'),('Vremde'),('Bevel');
-insert into public.staff_tasks(location_id,name) select l.id,t.name from public.staff_locations l cross join (values ('Boxen'),('Hooi geven'),('Mest'),('Poetsen'),('Onderhoud'),('Andere')) t(name);
+insert into public.staff_locations(name) values ('Serre'),('50'),('47b'),('Oostmal'),('Vremde'),('Paddock Paradise');
+insert into public.staff_tasks(location_id,name)
+select l.id,t.name
+from (values
+  ('47b','Voer geven aan de boxen'),('47b','Boxen uitmesten'),('47b','Stro geven in de boxen'),
+  ('47b','Hooi geven in de boxen'),('47b','Mest uithalen uit 7 bigboxen'),
+  ('47b','Mest uithalen uit winterpaddock'),('47b','Paarden binnen zetten'),
+  ('47b','Paarden buiten zetten'),('47b','Andere'),
+  ('50','Voer geven'),('50','Paarden buiten zetten'),('50','Boxen uitmesten'),
+  ('50','Stro geven in de boxen'),('50','Hooi geven'),('50','Paarden binnen zetten'),
+  ('50','Mest weghalen uit shelter 6'),('50','Andere'),
+  ('Serre','Voer geven'),('Serre','Hooi geven'),('Serre','Mest weghalen'),
+  ('Serre','Mest weghalen uit shelter 7'),
+  ('Oostmal','Mest weghalen'),('Oostmal','Hooi geven'),
+  ('Oostmal','Mest weghalen uit shelter 1'),('Oostmal','Mest weghalen uit shelter 2'),
+  ('Oostmal','Mest weghalen uit shelter 3'),('Oostmal','Mest weghalen uit shelter 4'),
+  ('Oostmal','Mest weghalen uit shelter 5'),
+  ('Paddock Paradise','Mest weghalen'),('Paddock Paradise','Hooi geven'),
+  ('Paddock Paradise','Voer geven'),
+  ('Vremde','Mest weghalen'),('Vremde','Hooi geven'),('Vremde','Voer geven')
+) as t(location_name,name)
+join public.staff_locations l on l.name=t.location_name;
 create function staff_private.is_admin() returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.optimus_task_people where user_id=auth.uid() and active and role='admin') $$;
 create function staff_private.is_device() returns boolean language sql stable security definer set search_path='' as $$ select exists(select 1 from public.staff_devices where user_id=auth.uid() and active) $$;
 create function staff_private.owns_shift(s uuid) returns boolean language sql stable security definer set search_path='' as $$ select staff_private.is_device() and exists(select 1 from public.staff_shifts where id=s and device_id=auth.uid()) $$;

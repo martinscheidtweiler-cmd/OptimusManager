@@ -2,8 +2,12 @@ package be.optimus.staff;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.ActivityManager;
 import android.app.AlertDialog;
+import android.app.admin.DevicePolicyManager;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
@@ -26,6 +30,7 @@ import org.json.JSONObject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Locale;
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -44,8 +49,10 @@ public class MainActivity extends Activity {
     private long lockedUntil;
     private int failedAttempts;
     private boolean pendingNotificationPermission;
+    private String language = "nl";
     private TextView timerView;
     private String timerStart;
+    private volatile long lastServerSync;
 
     private final Runnable timerTick = new Runnable() {
         @Override public void run() {
@@ -59,6 +66,7 @@ public class MainActivity extends Activity {
         getWindow().setStatusBarColor(0xfff7f7f7);
         getWindow().setNavigationBarColor(0xfff7f7f7);
         getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        language = getSharedPreferences("optimus_preferences", MODE_PRIVATE).getString("language", "nl");
         loadSavedPairing();
         main.post(timerTick);
     }
@@ -70,8 +78,16 @@ public class MainActivity extends Activity {
                 String saved = DeviceSecretStore.read(this);
                 main.post(() -> {
                     pairingCode = saved;
+                    state = StaffOfflineStore.loadState(this);
+                    lastServerSync = StaffOfflineStore.lastSyncedAt(this);
                     if (saved == null || saved.isEmpty()) { setBusy(false); render(); }
-                    else requestState("load", null, saved, true);
+                    else {
+                        JSONArray pending = StaffOfflineStore.pending(this);
+                        state = optimisticState(state, pending);
+                        setBusy(false);
+                        render();
+                        requestState("load", null, saved, true);
+                    }
                 });
             } catch (Exception e) {
                 main.post(() -> { DeviceSecretStore.clear(this); pairingCode = null; setBusy(false); fail("Gekoppelde telefoon kon niet veilig worden gelezen. Koppel opnieuw."); });
@@ -84,23 +100,37 @@ public class MainActivity extends Activity {
         io.execute(() -> {
             try {
                 JSONObject response = StaffApi.action(this, code, action, target, null, null, null);
-                if ("clear_position".equals(action)) response = StaffApi.action(this, code, "load", null, null, null, null);
                 final JSONObject result = response;
                 main.post(() -> {
                     state = result;
+                    StaffOfflineStore.saveState(this, result);
+                    lastServerSync = System.currentTimeMillis();
                     error = "";
                     if ("end".equals(action)) { selectedLocation = null; showContacts = false; stopLocationService(); }
+                    if ("load".equals(action)) restoreLocationService(result);
                     setBusy(false);
                     render();
+                    if ("load".equals(action) && StaffOfflineStore.pending(this).length() > 0) flushPending();
                 });
             } catch (Exception e) {
                 main.post(() -> {
                     setBusy(false);
-                    if (initial && (e.getMessage() != null && (e.getMessage().contains("not authorized") || e.getMessage().contains("Device not authorized")))) {
+                    String message = e.getMessage() == null ? "" : e.getMessage();
+                    if (message.toLowerCase(Locale.ROOT).contains("device not authorized")) {
                         DeviceSecretStore.clear(this);
+                        StaffOfflineStore.clear(this);
                         pairingCode = null;
+                        state = null;
+                        fail("Deze werktelefoon is geblokkeerd. Vraag een beheerder om opnieuw te koppelen.");
+                        return;
                     }
-                    fail(e.getMessage() == null ? "Geen verbinding met Optimus Tasks." : e.getMessage());
+                    JSONObject cached = StaffOfflineStore.loadState(this);
+                    if (cached != null) {
+                        state = optimisticState(cached, StaffOfflineStore.pending(this));
+                        fail("Offline · laatste synchronisatie " + syncAge() + ". Nog niet gesynchroniseerd: " + StaffOfflineStore.pending(this).length());
+                    } else {
+                        fail(e.getMessage() == null ? "Geen verbinding met Optimus Tasks." : e.getMessage());
+                    }
                 });
             }
         });
@@ -114,7 +144,7 @@ public class MainActivity extends Activity {
             try {
                 JSONObject result = StaffApi.action(this, value, "load", null, null, null, null);
                 DeviceSecretStore.save(this, value);
-                main.post(() -> { pairingCode = value; state = result; error = ""; setBusy(false); render(); });
+                main.post(() -> { pairingCode = value; state = result; StaffOfflineStore.saveState(this, result); lastServerSync = System.currentTimeMillis(); error = ""; setBusy(false); render(); });
             } catch (Exception e) {
                 main.post(() -> { setBusy(false); fail("Koppelcode ongeldig of ingetrokken. Controleer internet en probeer opnieuw."); });
             }
@@ -123,7 +153,123 @@ public class MainActivity extends Activity {
 
     private void change(String action, Long target) {
         if (busy || pairingCode == null) return;
-        requestState(action, target, pairingCode, false);
+        if (state == null) { fail("Er is nog geen gesynchroniseerde takenlijst op dit toestel."); return; }
+        setBusy(true);
+        long eventTime = System.currentTimeMillis();
+        render();
+        io.execute(() -> {
+            try {
+                StaffOfflineStore.enqueue(this, action, target, eventTime);
+                main.post(() -> {
+                    state = optimisticState(StaffOfflineStore.loadState(this), StaffOfflineStore.pending(this));
+                    if ("end".equals(action)) { selectedLocation = null; showContacts = false; stopLocationService(); }
+                    render();
+                });
+                flushPendingOnIo();
+            } catch (Exception e) {
+                main.post(() -> { setBusy(false); fail(e.getMessage() == null ? "Actie kon niet veilig opgeslagen worden." : e.getMessage()); });
+            }
+        });
+    }
+
+    private void flushPending() {
+        if (busy || pairingCode == null || StaffOfflineStore.pending(this).length() == 0) return;
+        setBusy(true);
+        render();
+        io.execute(this::flushPendingOnIo);
+    }
+
+    private void flushPendingOnIo() {
+        try {
+            while (true) {
+                JSONArray queue = StaffOfflineStore.pending(this);
+                if (queue.length() == 0) break;
+                JSONObject event = queue.optJSONObject(0);
+                if (event == null) break;
+                String id = event.optString("id");
+                JSONObject result = StaffApi.action(this, pairingCode, event.optString("action"),
+                        event.has("target") ? event.optLong("target") : null,
+                        null, null, null, id, event.optString("occurred_at"));
+                StaffOfflineStore.remove(this, id);
+                StaffOfflineStore.saveState(this, result);
+                lastServerSync = System.currentTimeMillis();
+                main.post(() -> {
+                    state = optimisticState(result, StaffOfflineStore.pending(this));
+                    error = StaffOfflineStore.pending(this).length() == 0 ? "" : "Synchroniseren…";
+                    render();
+                });
+            }
+            main.post(() -> { setBusy(false); state = StaffOfflineStore.loadState(this); error = ""; render(); });
+        } catch (IOException networkError) {
+            main.post(() -> {
+                setBusy(false);
+                JSONObject cached = StaffOfflineStore.loadState(this);
+                if (cached != null) state = optimisticState(cached, StaffOfflineStore.pending(this));
+                error = "Offline · " + StaffOfflineStore.pending(this).length() + " actie(s) wachten op synchronisatie. Laat de app open of probeer later opnieuw.";
+                render();
+            });
+        } catch (Exception actionError) {
+            main.post(() -> {
+                setBusy(false);
+                String message = actionError.getMessage() == null ? "" : actionError.getMessage();
+                if (message.toLowerCase(Locale.ROOT).contains("device not authorized")) {
+                    DeviceSecretStore.clear(this);
+                    StaffOfflineStore.clear(this);
+                    pairingCode = null;
+                    state = null;
+                    fail("Deze werktelefoon is geblokkeerd. Vraag een beheerder om opnieuw te koppelen.");
+                    return;
+                }
+                JSONObject cached = StaffOfflineStore.loadState(this);
+                if (cached != null) state = optimisticState(cached, StaffOfflineStore.pending(this));
+                error = "Synchronisatie gepauzeerd: " + (actionError.getMessage() == null ? "actie geweigerd" : actionError.getMessage()) + ". Volgende taken blijven bewaard.";
+                render();
+            });
+        }
+    }
+
+    private JSONObject optimisticState(JSONObject base, JSONArray queue) {
+        if (base == null) return null;
+        JSONObject view;
+        try { view = new JSONObject(base.toString()); } catch (Exception e) { return base; }
+        for (int i = 0; i < queue.length(); i++) {
+            JSONObject event = queue.optJSONObject(i);
+            if (event == null) continue;
+            String action = event.optString("action");
+            String time = event.optString("occurred_at");
+            try {
+                JSONObject shift = view.optJSONObject("shift");
+                JSONObject entry = view.optJSONObject("entry");
+                if ("begin".equals(action) && shift == null) {
+                    JSONObject worker = null;
+                    JSONArray workers = view.optJSONArray("workers");
+                    for (int j = 0; workers != null && j < workers.length(); j++) if (workers.optJSONObject(j).optLong("id") == event.optLong("target")) worker = workers.optJSONObject(j);
+                    if (worker != null) {
+                        JSONObject localShift = new JSONObject(); localShift.put("id", "pending"); localShift.put("worker_id", worker.optLong("id")); localShift.put("started_at", time); view.put("shift", localShift);
+                    }
+                } else if (shift != null && "task".equals(action)) {
+                    if (entry != null) entry.put("ended_at", time);
+                    JSONObject newEntry = new JSONObject(); newEntry.put("id", "pending-" + event.optString("id")); newEntry.put("shift_id", shift.optString("id")); newEntry.put("task_id", event.optLong("target")); newEntry.put("started_at", time); view.put("entry", newEntry);
+                } else if (shift != null && "stop".equals(action)) {
+                    if (entry != null) entry.put("ended_at", time);
+                    view.put("entry", JSONObject.NULL);
+                } else if (shift != null && "end".equals(action)) {
+                    if (entry != null) entry.put("ended_at", time);
+                    view.put("entry", JSONObject.NULL); view.put("shift", JSONObject.NULL);
+                }
+            } catch (Exception ignored) {}
+        }
+        return view;
+    }
+
+    private String syncAge() {
+        return syncAge(lastServerSync);
+    }
+
+    private String syncAge(long syncedAt) {
+        if (syncedAt <= 0) return "onbekend";
+        long minutes = Math.max(0, (System.currentTimeMillis() - syncedAt) / 60000);
+        return minutes == 0 ? "minder dan een minuut geleden" : minutes + " min geleden";
     }
 
     private void render() {
@@ -137,9 +283,19 @@ public class MainActivity extends Activity {
         setContentView(scroll);
 
         JSONObject shift = state == null ? null : state.optJSONObject("shift");
-        TextView top = label(shift == null ? "OPTIMUS TASKS" : workerName(shift.optLong("worker_id")), 15, true);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        root.addView(top, params(-1, dp(38)));
+        LinearLayout topRow = new LinearLayout(this);
+        topRow.setGravity(Gravity.CENTER_VERTICAL);
+        TextView top = label(shift == null ? "Optimus Tasks" : workerName(shift.optLong("worker_id")), 15, true);
+        topRow.addView(top, new LinearLayout.LayoutParams(0, dp(38), 1f));
+        Button languageButton = button(language.toUpperCase(Locale.ROOT));
+        languageButton.setContentDescription(tr("Taal wijzigen", "Change language", "Changer la langue"));
+        languageButton.setOnClickListener(v -> cycleLanguage());
+        topRow.addView(languageButton, new LinearLayout.LayoutParams(dp(52), dp(42)));
+        Button admin = button("⋯");
+        admin.setContentDescription("Beheeropties");
+        admin.setOnClickListener(v -> showAdminMenu());
+        topRow.addView(admin, new LinearLayout.LayoutParams(dp(48), dp(42)));
+        root.addView(topRow, params(-1, dp(42)));
         if (!error.isEmpty()) {
             TextView message = label(error, 13, false);
             message.setTextColor(0xff9a2e2e);
@@ -151,29 +307,39 @@ public class MainActivity extends Activity {
             return;
         }
         if (pairingCode == null) { renderPairing(); return; }
+        TextView sync = label(tr("Verbinding · ", "Connection · ", "Connexion · ")
+                + (lastServerSync == 0 ? tr("status wordt gecontroleerd", "checking status", "vérification du statut") : tr("bijgewerkt ", "updated ", "mis à jour ") + syncAge())
+                + (StaffOfflineStore.pending(this).length() > 0 ? tr(" · wachtrij ", " · queued ", " · en attente ") + StaffOfflineStore.pending(this).length() : ""), 11, false);
+        sync.setTextColor(0xff666666);
+        root.addView(sync, params(-1, dp(25)));
+        if (StaffOfflineStore.pending(this).length() > 0) {
+            Button synchronize = button(tr("Wachtende acties synchroniseren", "Synchronize queued actions", "Synchroniser les actions en attente"));
+            synchronize.setOnClickListener(v -> requestState("load", null, pairingCode, false));
+            root.addView(synchronize, params(-1, dp(44)));
+        }
         if (shift == null) { renderWorkerSelection(); return; }
         renderWorkday(shift);
     }
 
     private void renderPairing() {
-        root.addView(label("Werktelefoon koppelen", 19, true), params(-1, dp(52)));
-        root.addView(label("Maak een eenmalige koppelcode in Optimus Manager → Personeel → Beheer.", 14, false));
+        root.addView(label(tr("Werktelefoon koppelen", "Pair work phone", "Associer le téléphone"), 19, true), params(-1, dp(52)));
+        root.addView(label(tr("Maak een eenmalige koppelcode in Optimus Manager → Personeel → Beheer.", "Create a one-time pairing code in Optimus Manager → Staff → Manage.", "Créez un code de jumelage unique dans Optimus Manager → Personnel → Gestion."), 14, false));
         EditText input = new EditText(this);
         input.setSingleLine(true);
-        input.setHint("Koppelcode");
+        input.setHint(tr("Koppelcode", "Pairing code", "Code de jumelage"));
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         input.setAutofillHints();
         root.addView(input, params(-1, dp(54)));
-        Button submit = button("Telefoon koppelen");
+        Button submit = button(tr("Telefoon koppelen", "Pair phone", "Associer le téléphone"));
         submit.setOnClickListener(v -> pair(input.getText().toString()));
         root.addView(submit, params(-1, dp(52)));
     }
 
     private void renderWorkerSelection() {
-        root.addView(label("Wie ben je vandaag?", 19, true), params(-1, dp(54)));
-        root.addView(label("Kies je naam om je werkdag te starten.", 14, false));
+        root.addView(label(tr("Wie ben je vandaag?", "Who are you today?", "Qui êtes-vous aujourd'hui ?"), 19, true), params(-1, dp(54)));
+        root.addView(label(tr("Kies je naam om je werkdag te starten.", "Choose your name to start your workday.", "Choisissez votre nom pour commencer votre journée."), 14, false));
         JSONArray workers = state == null ? new JSONArray() : state.optJSONArray("workers");
-        if (workers == null || workers.length() == 0) root.addView(label("Er zijn geen actieve medewerkers ingesteld.", 14, false));
+        if (workers == null || workers.length() == 0) root.addView(label(tr("Er zijn geen actieve medewerkers ingesteld.", "No active employees are configured.", "Aucun membre du personnel actif n'est configuré."), 14, false));
         for (int i = 0; workers != null && i < workers.length(); i++) {
             JSONObject worker = workers.optJSONObject(i);
             if (worker == null) continue;
@@ -188,30 +354,32 @@ public class MainActivity extends Activity {
         JSONObject entry = state.optJSONObject("entry");
         String location = entry == null ? "" : locationName(taskLocationId(entry.optLong("task_id")));
         String taskName = entry == null ? "Geen actieve taak" : taskName(entry.optLong("task_id"));
-        root.addView(label("HUIDIGE TAAK", 11, false), params(-1, dp(28)));
-        root.addView(label(entry == null ? taskName : taskName + " · " + location, 18, true), params(-1, dp(44)));
+        root.addView(label(tr("HUIDIGE TAAK", "CURRENT TASK", "TÂCHE EN COURS"), 11, false), params(-1, dp(28)));
+        root.addView(label(entry == null ? tr("Geen actieve taak", "No active task", "Aucune tâche active") : taskName + " · " + location, 18, true), params(-1, dp(44)));
         TextView clock = label(entry == null ? "00:00:00" : elapsed(entry.optString("started_at")), 40, true);
         clock.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         timerView = clock;
         timerStart = entry == null ? null : entry.optString("started_at", null);
         root.addView(clock, params(-1, dp(64)));
         if (entry != null) {
-            Button stop = button("Stop taak");
+            Button stop = button(tr("Stop taak", "Stop task", "Arrêter la tâche"));
             stop.setOnClickListener(v -> change("stop", null));
             root.addView(stop, params(-1, dp(50)));
         }
 
         boolean sharing = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getBoolean("active", false);
-        TextView gps = label("GPS · " + (sharing ? "actief" : "uit"), 12, false);
+        long lastPosition = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getLong("last_position_at", 0);
+        String gpsStatus = sharing ? (lastPosition > 0 ? tr("actief · bijgewerkt ", "active · updated ", "actif · mis à jour ") + syncAge(lastPosition) : tr("actief · positie zoeken", "active · finding position", "actif · recherche de position")) : tr("uit", "off", "désactivé");
+        TextView gps = label("GPS · " + gpsStatus, 12, false);
         gps.setTextColor(0xff666666);
         root.addView(gps, params(-1, dp(36)));
-        Button gpsToggle = button(sharing ? "Locatie delen stoppen" : "Locatie delen inschakelen");
+        Button gpsToggle = button(sharing ? tr("Locatie delen stoppen", "Stop location sharing", "Arrêter le partage de position") : tr("Locatie delen inschakelen", "Enable location sharing", "Activer le partage de position"));
         gpsToggle.setOnClickListener(v -> { if (sharing) disableGps(); else requestGpsPermissions(); });
         root.addView(gpsToggle, params(-1, dp(46)));
 
         if (showContacts) { renderContacts(); return; }
         if (selectedLocation != null) { renderTasksForLocation(selectedLocation); return; }
-        root.addView(label("Taken per locatie", 17, true), params(-1, dp(48)));
+        root.addView(label(tr("Taken per locatie", "Tasks by location", "Tâches par lieu"), 17, true), params(-1, dp(48)));
         JSONArray locations = state.optJSONArray("locations");
         GridLayout grid = new GridLayout(this);
         grid.setColumnCount(2);
@@ -229,17 +397,17 @@ public class MainActivity extends Activity {
             grid.addView(b, lp);
         }
         root.addView(grid, params(-1, -2));
-        Button contacts = button("Contact");
+        Button contacts = button(tr("Contact", "Contacts", "Contacts"));
         contacts.setOnClickListener(v -> { showContacts = true; render(); });
         root.addView(contacts, params(-1, dp(50)));
-        Button end = button("Werkdag beëindigen");
-        end.setOnClickListener(v -> new AlertDialog.Builder(this).setMessage("Werkdag beëindigen?")
-                .setNegativeButton("Annuleren", null).setPositiveButton("Beëindigen", (d, w) -> change("end", null)).show());
+        Button end = button(tr("Werkdag beëindigen", "End workday", "Terminer la journée"));
+        end.setOnClickListener(v -> new AlertDialog.Builder(this).setMessage(tr("Werkdag beëindigen?", "End this workday?", "Terminer cette journée ?"))
+                .setNegativeButton(tr("Annuleren", "Cancel", "Annuler"), null).setPositiveButton(tr("Beëindigen", "End", "Terminer"), (d, w) -> change("end", null)).show());
         root.addView(end, params(-1, dp(50)));
     }
 
     private void renderTasksForLocation(long locationId) {
-        Button back = button("← Locaties");
+        Button back = button(tr("← Locaties", "← Locations", "← Lieux"));
         back.setOnClickListener(v -> { selectedLocation = null; render(); });
         root.addView(back, params(-1, dp(46)));
         root.addView(label(locationName(locationId), 18, true), params(-1, dp(48)));
@@ -255,10 +423,10 @@ public class MainActivity extends Activity {
     }
 
     private void renderContacts() {
-        Button back = button("← Terug");
+        Button back = button(tr("← Terug", "← Back", "← Retour"));
         back.setOnClickListener(v -> { showContacts = false; render(); });
         root.addView(back, params(-1, dp(46)));
-        root.addView(label("Contact", 18, true), params(-1, dp(48)));
+        root.addView(label(tr("Contact", "Contacts", "Contacts"), 18, true), params(-1, dp(48)));
         JSONArray contacts = state.optJSONArray("contacts");
         for (int i = 0; contacts != null && i < contacts.length(); i++) {
             JSONObject item = contacts.optJSONObject(i);
@@ -267,13 +435,13 @@ public class MainActivity extends Activity {
             String phone = item.optString("phone", "").trim();
             root.addView(label(name, 16, true), params(-1, dp(38)));
             if (phone.isEmpty() || "null".equals(phone)) {
-                root.addView(label("Telefoonnummer nog niet ingesteld", 13, false));
+                root.addView(label(tr("Telefoonnummer nog niet ingesteld", "Phone number not set", "Numéro de téléphone non défini"), 13, false));
             } else {
                 LinearLayout row = new LinearLayout(this);
                 row.setOrientation(LinearLayout.HORIZONTAL);
-                Button call = button("Bellen");
+                Button call = button(tr("Bellen", "Call", "Appeler"));
                 call.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + Uri.encode(phone)))));
-                Button sms = button("Bericht");
+                Button sms = button(tr("Bericht", "Message", "Message"));
                 sms.setOnClickListener(v -> startActivity(new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + Uri.encode(phone)))));
                 row.addView(call, new LinearLayout.LayoutParams(0, dp(48), 1f));
                 row.addView(sms, new LinearLayout.LayoutParams(0, dp(48), 1f));
@@ -316,6 +484,18 @@ public class MainActivity extends Activity {
             if (item != null && item.optLong("id") == workerId) return item.optString("name", "Medewerker");
         }
         return "Werkdag actief";
+    }
+
+    private String tr(String dutch, String english, String french) {
+        if ("fr".equals(language)) return french;
+        if ("en".equals(language)) return english;
+        return dutch;
+    }
+
+    private void cycleLanguage() {
+        language = "nl".equals(language) ? "en" : "en".equals(language) ? "fr" : "nl";
+        getSharedPreferences("optimus_preferences", MODE_PRIVATE).edit().putString("language", language).apply();
+        render();
     }
 
     private String elapsed(String timestamp) {
@@ -367,9 +547,125 @@ public class MainActivity extends Activity {
         stopService(new Intent(this, StaffLocationService.class));
     }
 
+    private void restoreLocationService(JSONObject serverState) {
+        JSONObject device = serverState == null ? null : serverState.optJSONObject("device");
+        boolean enabled = device != null && device.optBoolean("gps_enabled", false)
+                && serverState.optJSONObject("shift") != null;
+        if (!enabled) {
+            stopLocationService();
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", false).apply();
+            return;
+        }
+        boolean locationAllowed = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+                || checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean notificationAllowed = android.os.Build.VERSION.SDK_INT < 33
+                || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED;
+        boolean canRun = locationAllowed && notificationAllowed;
+        getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", canRun).apply();
+        if (!StaffLocationService.running && canRun) startLocationService();
+        if (!canRun) error = "GPS-deling wacht op toegestane locatie en zichtbare melding op dit toestel.";
+    }
+
+    private void startLocationService() {
+        if (pairingCode == null) return;
+        Intent intent = new Intent(this, StaffLocationService.class);
+        intent.putExtra("pairing_code", pairingCode);
+        if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
+    }
+
+    private boolean isDeviceOwner() {
+        DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
+        return dpm != null && dpm.isDeviceOwnerApp(getPackageName());
+    }
+
+    private boolean inLockTask() {
+        ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+        return manager != null && manager.getLockTaskModeState() != ActivityManager.LOCK_TASK_MODE_NONE;
+    }
+
+    private void showAdminMenu() {
+        String kioskAction = inLockTask() ? tr("Kioskmodus verlaten", "Exit kiosk mode", "Quitter le mode kiosque") : tr("Kioskmodus inschakelen", "Enable kiosk mode", "Activer le mode kiosque");
+        String codeAction = AdminCodeStore.isConfigured(this) ? tr("Beheerderscode wijzigen", "Change admin code", "Modifier le code admin") : tr("Beheerderscode instellen", "Set admin code", "Définir le code admin");
+        new AlertDialog.Builder(this)
+                .setTitle(tr("Toestelbeheer", "Device management", "Gestion de l'appareil"))
+                .setItems(new String[]{kioskAction, codeAction}, (dialog, which) -> {
+                    if (which == 0) requestAdminCode(inLockTask() ? tr("Kioskmodus verlaten", "Exit kiosk mode", "Quitter le mode kiosque") : tr("Kioskmodus inschakelen", "Enable kiosk mode", "Activer le mode kiosque"), () -> toggleKiosk());
+                    else changeAdminCode();
+                }).setNegativeButton(tr("Sluiten", "Close", "Fermer"), null).show();
+    }
+
+    private void requestAdminCode(String title, Runnable success) {
+        if (!AdminCodeStore.isConfigured(this)) {
+            fail(tr("Stel eerst een beheerderscode van minstens 8 tekens in.", "Set an admin code with at least 8 characters first.", "Définissez d'abord un code admin d'au moins 8 caractères."));
+            changeAdminCode();
+            return;
+        }
+        EditText input = new EditText(this);
+        input.setSingleLine(true);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        new AlertDialog.Builder(this).setTitle(title).setMessage(tr("Beheerderscode", "Admin code", "Code admin"))
+                .setView(input).setNegativeButton(tr("Annuleren", "Cancel", "Annuler"), null)
+                .setPositiveButton(tr("Doorgaan", "Continue", "Continuer"), (d, w) -> {
+                    if (AdminCodeStore.verify(this, input.getText().toString().toCharArray())) success.run();
+                    else Toast.makeText(this, tr("Code onjuist of tijdelijk geblokkeerd.", "Code incorrect or temporarily locked.", "Code incorrect ou temporairement bloqué."), Toast.LENGTH_LONG).show();
+                }).show();
+    }
+
+    private void changeAdminCode() {
+        Runnable enterNewCode = () -> {
+            EditText input = new EditText(this);
+            input.setSingleLine(true);
+            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            input.setHint(tr("Minstens 8 tekens", "At least 8 characters", "Au moins 8 caractères"));
+            new AlertDialog.Builder(this).setTitle(tr("Nieuwe beheerderscode", "New admin code", "Nouveau code admin")).setMessage(tr("Kies een code die alleen beheerders kennen.", "Choose a code known only to administrators.", "Choisissez un code connu uniquement des administrateurs."))
+                    .setView(input).setNegativeButton(tr("Annuleren", "Cancel", "Annuler"), null)
+                    .setPositiveButton(tr("Opslaan", "Save", "Enregistrer"), (d, w) -> {
+                        char[] value = input.getText().toString().toCharArray();
+                        if (AdminCodeStore.save(this, value)) Toast.makeText(this, tr("Beheerderscode ingesteld op dit toestel.", "Admin code set on this device.", "Code admin défini sur cet appareil."), Toast.LENGTH_LONG).show();
+                        else Toast.makeText(this, tr("Gebruik minstens 8 tekens en probeer opnieuw.", "Use at least 8 characters and try again.", "Utilisez au moins 8 caractères et réessayez."), Toast.LENGTH_LONG).show();
+                    }).show();
+        };
+        if (AdminCodeStore.isConfigured(this)) requestAdminCode(tr("Beheerderscode wijzigen", "Change admin code", "Modifier le code admin"), enterNewCode);
+        else enterNewCode.run();
+    }
+
+    private void toggleKiosk() {
+        if (!isDeviceOwner()) {
+            fail(tr("Kioskmodus vereist eenmalige Android Device Owner-provisioning. Raadpleeg de installatiehandleiding.", "Kiosk mode requires Android Device Owner provisioning. See the setup guide.", "Le mode kiosque nécessite le provisionnement Android Device Owner. Consultez le guide."));
+            return;
+        }
+        DevicePolicyManager dpm = (DevicePolicyManager) getSystemService(DEVICE_POLICY_SERVICE);
+        ComponentName admin = new ComponentName(this, WorkDeviceAdmin.class);
+        if (inLockTask()) {
+            dpm.clearPackagePersistentPreferredActivities(admin, getPackageName());
+            stopLockTask();
+            Toast.makeText(this, tr("Kioskmodus verlaten.", "Kiosk mode exited.", "Mode kiosque désactivé."), Toast.LENGTH_SHORT).show();
+            return;
+        }
+        java.util.ArrayList<String> packages = new java.util.ArrayList<>();
+        packages.add(getPackageName());
+        addResolvedPackage(packages, new Intent(Intent.ACTION_DIAL, Uri.parse("tel:")));
+        addResolvedPackage(packages, new Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:")));
+        dpm.setLockTaskPackages(admin, packages.toArray(new String[0]));
+        IntentFilter home = new IntentFilter(Intent.ACTION_MAIN);
+        home.addCategory(Intent.CATEGORY_HOME);
+        home.addCategory(Intent.CATEGORY_DEFAULT);
+        dpm.addPersistentPreferredActivity(admin, home, new ComponentName(this, MainActivity.class));
+        startLockTask();
+        Toast.makeText(this, tr("Kioskmodus ingeschakeld.", "Kiosk mode enabled.", "Mode kiosque activé."), Toast.LENGTH_SHORT).show();
+    }
+
+    private void addResolvedPackage(java.util.List<String> packages, Intent intent) {
+        android.content.pm.ResolveInfo info = getPackageManager().resolveActivity(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        if (info != null && info.activityInfo != null && !packages.contains(info.activityInfo.packageName)) packages.add(info.activityInfo.packageName);
+    }
+
     private void requestGpsPermissions() {
+        if (StaffOfflineStore.pending(this).length() > 0) { fail("Synchroniseer eerst de wachtende werkdagacties voordat GPS kan starten."); return; }
         if (state == null || state.optJSONObject("shift") == null) { fail("Start eerst je werkdag."); return; }
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+        boolean hasFine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        boolean hasCoarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        if (!hasFine && !hasCoarse) {
             requestPermissions(new String[]{Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION}, LOCATION_PERMISSION);
             return;
         }
@@ -387,21 +683,33 @@ public class MainActivity extends Activity {
 
     private void enableGpsService() {
         if (pairingCode == null) return;
-        Intent intent = new Intent(this, StaffLocationService.class);
-        intent.putExtra("pairing_code", pairingCode);
-        if (android.os.Build.VERSION.SDK_INT >= 26) startForegroundService(intent); else startService(intent);
-        Toast.makeText(this, "Locatie delen is gestart. De melding bovenaan blijft zichtbaar.", Toast.LENGTH_LONG).show();
-        main.postDelayed(this::render, 700);
+        setBusy(true);
+        render();
+        io.execute(() -> {
+            try {
+                JSONObject updated = StaffApi.action(this, pairingCode, "gps_start", null, null, null, null);
+                main.post(() -> {
+                    state = updated;
+                    StaffOfflineStore.saveState(this, updated);
+                    setBusy(false);
+                    startLocationService();
+                    Toast.makeText(this, "Locatie delen is gestart. De melding bovenaan blijft zichtbaar.", Toast.LENGTH_LONG).show();
+                    render();
+                });
+            } catch (Exception e) {
+                main.post(() -> { setBusy(false); fail("GPS kon niet starten. Controleer verbinding en werkdag."); });
+            }
+        });
     }
 
     private void disableGps() {
+        getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", false).apply();
         stopLocationService();
         if (pairingCode == null) return;
         setBusy(true);
         io.execute(() -> {
             try {
-                StaffApi.action(this, pairingCode, "clear_position", null, null, null, null);
-                JSONObject loaded = StaffApi.action(this, pairingCode, "load", null, null, null, null);
+                JSONObject loaded = StaffApi.action(this, pairingCode, "gps_stop", null, null, null, null);
                 main.post(() -> { state = loaded; setBusy(false); render(); });
             } catch (Exception e) {
                 main.post(() -> { setBusy(false); fail("GPS is gestopt, maar de laatste positie kon niet worden gewist. Controleer de verbinding."); });
@@ -413,7 +721,8 @@ public class MainActivity extends Activity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == LOCATION_PERMISSION) {
             boolean fine = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
-            if (!fine) { Toast.makeText(this, "GPS delen vereist precieze locatietoegang.", Toast.LENGTH_LONG).show(); return; }
+            boolean coarse = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+            if (!fine && !coarse) { Toast.makeText(this, "Locatietoegang werd niet toegestaan.", Toast.LENGTH_LONG).show(); return; }
             requestNotificationPermissionOrStart();
         } else if (requestCode == LOCATION_PERMISSION + 1 && pendingNotificationPermission) {
             pendingNotificationPermission = false;

@@ -27,10 +27,11 @@ final class DeviceSecretStore {
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey());
         byte[] encrypted = cipher.doFinal(code.getBytes(StandardCharsets.UTF_8));
         SharedPreferences prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
-        prefs.edit()
+        boolean saved = prefs.edit()
                 .putString(IV, Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
                 .putString(DATA, Base64.encodeToString(encrypted, Base64.NO_WRAP))
-                .apply();
+                .commit();
+        if (!saved) throw new Exception("Gekoppelde telefoon kon niet veilig opgeslagen worden.");
     }
 
     static String read(Context context) throws Exception {
@@ -45,7 +46,7 @@ final class DeviceSecretStore {
     }
 
     static void clear(Context context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().apply();
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().clear().commit();
     }
 
     private static SecretKey getOrCreateKey() throws Exception {

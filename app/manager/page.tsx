@@ -12,9 +12,10 @@ import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
 import StockTab from '@/app/components/StockTab/StockTab'
 import HorseIdTab from '@/app/components/HorseIdTab/HorseIdTab'
 
+import StaffDashboard from '@/app/components/StaffDashboard/StaffDashboard'
 import './desktop.css'
 
-type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Stock'|'HorseID'
+type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Stock'|'HorseID'|'Staff'
 type VetQuickRequest={menu:'Vaccinations'|'Deworming'|'Visits';horseId:string;vaccineType?:'flu_tetanus'|'rhino'}
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
@@ -25,6 +26,7 @@ const modules:NavItem[]=[
  {key:'Farrier',label:'Hoefsmid',symbol:'∷'},
  {key:'Stock',label:'Medicatie',symbol:'▤'},
  {key:'HorseID',label:'HorseID',symbol:'✉'},
+ {key:'Staff',label:'Personeel',symbol:'▥'},
 ]
 const validModules=new Set<Module>(modules.map(m=>m.key))
 
@@ -100,7 +102,7 @@ export default function ManagerModules(){
  const activeLabel=modules.find(m=>m.key===active)?.label||active
  const mobileMoreActive=!(['Today','Horses','Vet'] as Module[]).includes(active)
  const mobilePrimary=modules.filter(m=>['Today','Horses','Vet'].includes(m.key))
- const mobileSecondary=modules.filter(m=>['Place','Farrier','Stock','HorseID'].includes(m.key))
+ const mobileSecondary=modules.filter(m=>['Place','Farrier','Stock','HorseID','Staff'].includes(m.key))
 
  function renderModule(){
   switch(active){
@@ -111,6 +113,7 @@ export default function ManagerModules(){
    case 'Farrier':return <FarrierTab key={farrierKey} initialHorseId={farrierInitialHorseId || undefined}/>
    case 'Stock':return <StockTab/>
    case 'HorseID':return <HorseIdTab/>
+   case 'Staff':return <StaffDashboard/>
   }
  }
  if(!ready)return <main className="td-loading">Optimus wordt geladen…</main>

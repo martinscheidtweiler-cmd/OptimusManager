@@ -690,6 +690,7 @@ public class MainActivity extends Activity {
         if (!fine && !coarse) {
             if (shiftId.equals(promptedShift)) {
                 error = tr("Geef locatietoegang om GPS tijdens de werkdag te gebruiken.", "Allow location access to use GPS during the workday.", "Autorisez la localisation pour utiliser le GPS pendant la journée.");
+                render();
                 return;
             }
             getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putString("permission_prompted_shift", shiftId).apply();
@@ -702,6 +703,7 @@ public class MainActivity extends Activity {
             String notificationPrompt = getSharedPreferences("optimus_gps_state", MODE_PRIVATE).getString("notification_prompted_shift", "");
             if (shiftId.equals(notificationPrompt)) {
                 error = tr("Sta meldingen toe om te zien dat GPS actief is.", "Allow notifications to see that GPS is active.", "Autorisez les notifications pour voir que le GPS est actif.");
+                render();
                 return;
             }
             getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putString("notification_prompted_shift", shiftId).apply();

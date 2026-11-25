@@ -4,12 +4,12 @@
   max-width: none;
   margin: 0 auto;
   padding: clamp(20px, 3vw, 40px) clamp(16px, 3vw, 40px) 56px;
-  color: #25352b;
+  color: #313131;
 }
 
 .vet-subpage h1,
 .vet-subpage h2 {
-  color: #203128;
+  color: #2d2d2d;
   letter-spacing: -0.035em;
 }
 
@@ -20,7 +20,7 @@
 
 .vet-subpage [class*="Kicker"],
 .vet-subpage [class*="kicker"] {
-  color: #78857b;
+  color: #828282;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -32,11 +32,11 @@
 .vet-subpage textarea {
   box-sizing: border-box;
   min-height: 44px;
-  border: 1px solid #d9e1d9;
+  border: 1px solid #dfdfdf;
   border-radius: 10px;
   padding: 10px 12px;
-  background: #fff;
-  color: #26362b;
+  background: #ffffff;
+  color: #323232;
   font: inherit;
   font-size: 14px;
 }
@@ -48,12 +48,12 @@
 .vet-subpage input:focus,
 .vet-subpage select:focus,
 .vet-subpage textarea:focus {
-  border-color: #66806a;
-  outline: 3px solid #66806a22;
+  border-color: #7a7a7a;
+  outline: 3px solid #7a7a7a22;
 }
 
 .vet-subpage label {
-  color: #536258;
+  color: #5e5e5e;
   font-size: 13px;
   font-weight: 600;
 }
@@ -70,13 +70,13 @@
   gap: 16px;
   border-radius: 12px;
   padding: 14px 18px;
-  color: #536258;
+  color: #5e5e5e;
   font-size: 14px;
   font-weight: 600;
 }
 
 .vet-subpage .vet-lab-stats strong {
-  color: #26372c;
+  color: #333333;
   font-size: 26px;
   line-height: 1;
 }
@@ -89,10 +89,10 @@
 .vet-subpage .vet-sample-card {
   min-width: 0;
   overflow: hidden;
-  border: 1px solid #e0e7e0;
+  border: 1px solid #e5e5e5;
   border-radius: 13px;
-  background: #fff;
-  box-shadow: 0 4px 14px #20302008;
+  background: #ffffff;
+  box-shadow: 0 4px 14px #2c2c2c08;
 }
 
 .vet-subpage .vet-sample-summary {
@@ -105,13 +105,13 @@
   border-radius: 0;
   padding: 16px;
   background: transparent;
-  color: #26362b;
+  color: #323232;
   text-align: left;
   cursor: pointer;
 }
 
 .vet-subpage .vet-sample-summary:hover {
-  background: #f8faf7;
+  background: #f9f9f9;
 }
 
 .vet-subpage .vet-sample-summary .sampleMainInfo,
@@ -125,7 +125,7 @@
 
 .vet-subpage .vet-sample-summary strong {
   overflow: hidden;
-  color: #26372c;
+  color: #333333;
   font-size: 15px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -133,14 +133,14 @@
 
 .vet-subpage .vet-sample-summary small,
 .vet-subpage .vet-sample-summary [class*="sampleDate"] {
-  color: #738076;
+  color: #7d7d7d;
   font-size: 12px;
 }
 
 .vet-subpage .vet-sample-summary p {
   grid-column: 1 / -1;
   margin: 0;
-  color: #59675d;
+  color: #646464;
   font-size: 13px;
 }
 
@@ -149,9 +149,9 @@
 }
 
 .vet-subpage .vet-sample-card [class*="sampleDetail"] {
-  border-top: 1px solid #e8ede7;
+  border-top: 1px solid #ececec;
   padding: 16px;
-  background: #fbfcfa;
+  background: #fcfcfc;
 }
 
 .vet-subpage .vet-sample-card [class*="fileUploadGrid"] {
@@ -164,16 +164,16 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border: 1px solid #e0e7e0;
+  border: 1px solid #e5e5e5;
   border-radius: 11px;
   padding: 13px;
-  background: #fff;
+  background: #ffffff;
 }
 
 .vet-subpage .vet-sample-card [class*="fileBox"] strong {
   display: block;
   margin-top: 6px;
-  color: #334238;
+  color: #3e3e3e;
   font-size: 13px;
 }
 

@@ -64,7 +64,7 @@
   padding: 0 16px;
   border-radius: 999px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgb(255, 255, 255, 0.78);
   color: var(--om-text);
   font-size: 13px;
   font-weight: 700;
@@ -73,14 +73,14 @@
 }
 
 .farrier-category-btn-om:hover {
-  background: rgba(255, 255, 255, 0.95);
+  background: rgb(255, 255, 255, 0.95);
   transform: translateY(-1px);
 }
 
 .farrier-category-btn-om.active {
-  border-color: rgba(185, 146, 90, 0.32);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 242, 233, 0.96));
-  color: #7f6033;
+  border-color: rgb(152, 152, 152, 0.32);
+  background: linear-gradient(180deg, rgb(255, 255, 255, 0.96), rgb(243, 243, 243, 0.96));
+  color: #656565;
 }
 
 .farrier-search-om,
@@ -88,12 +88,12 @@
 .farrier-modal-input-om,
 .farrier-modal-textarea-om {
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgb(255, 255, 255, 0.72);
   color: var(--om-text);
   font-size: 14px;
   font-weight: 500;
   outline: none;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  box-shadow: 0 2px 10px rgb(0, 0, 0, 0.02);
   transition: all 0.22s ease;
   box-sizing: border-box;
 }
@@ -130,19 +130,19 @@
 .farrier-modal-select-om:focus,
 .farrier-modal-input-om:focus,
 .farrier-modal-textarea-om:focus {
-  border-color: rgba(185, 146, 90, 0.45);
+  border-color: rgb(152, 152, 152, 0.45);
   box-shadow:
-    0 0 0 4px rgba(185, 146, 90, 0.08),
-    0 8px 20px rgba(0, 0, 0, 0.04);
+    0 0 0 4px rgb(152, 152, 152, 0.08),
+    0 8px 20px rgb(0, 0, 0, 0.04);
 }
 
 .farrier-top-action-om {
   height: 42px;
   padding: 0 16px;
   border-radius: 999px;
-  border: 1px solid rgba(198, 86, 86, 0.18);
-  background: rgba(255, 255, 255, 0.9);
-  color: #9f4747;
+  border: 1px solid rgb(122, 122, 122, 0.18);
+  background: rgb(255, 255, 255, 0.9);
+  color: #626262;
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
@@ -151,7 +151,7 @@
 }
 
 .farrier-top-action-om:hover {
-  background: #fff;
+  background: #ffffff;
   transform: translateY(-1px);
 }
 
@@ -159,9 +159,9 @@
   margin-bottom: 18px;
   padding: 14px 16px;
   border-radius: 16px;
-  border: 1px solid rgba(198, 86, 86, 0.18);
-  background: rgba(198, 86, 86, 0.08);
-  color: #9f4747;
+  border: 1px solid rgb(122, 122, 122, 0.18);
+  background: rgb(122, 122, 122, 0.08);
+  color: #626262;
   font-size: 14px;
   font-weight: 600;
 }
@@ -170,7 +170,7 @@
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(17, 17, 17, 0.18);
+  background: rgb(17, 17, 17, 0.18);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -183,10 +183,10 @@
   max-width: 560px;
   border-radius: 26px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.95);
+  background: rgb(255, 255, 255, 0.95);
   box-shadow:
-    0 30px 80px rgba(0, 0, 0, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.06);
+    0 30px 80px rgb(0, 0, 0, 0.12),
+    0 8px 24px rgb(0, 0, 0, 0.06);
   padding: 24px;
   box-sizing: border-box;
 }
@@ -205,7 +205,7 @@
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgb(255, 255, 255, 0.92);
   color: var(--om-text);
   font-size: 12px;
   font-weight: 700;
@@ -215,7 +215,7 @@
 }
 
 .farrier-delay-corner-om:hover {
-  background: #fff;
+  background: #ffffff;
   transform: translateY(-1px);
 }
 
@@ -296,14 +296,14 @@
 
 .farrier-modal-secondary-om {
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.8);
+  background: rgb(255, 255, 255, 0.8);
   color: var(--om-text);
 }
 
 .farrier-modal-primary-om {
-  border: 1px solid #111;
+  border: 1px solid #111111;
   background: linear-gradient(135deg, #111111 0%, #2b2b2b 100%);
-  color: #fff;
+  color: #ffffff;
 }
 
 .farrier-modal-primary-om:disabled,
@@ -316,9 +316,9 @@
   margin-bottom: 24px;
   padding: 20px;
   border-radius: 24px;
-  border: 1px solid rgba(198, 86, 86, 0.16);
-  background: linear-gradient(180deg, rgba(255, 248, 248, 0.92), rgba(255, 255, 255, 0.82));
-  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgb(122, 122, 122, 0.16);
+  background: linear-gradient(180deg, rgb(250, 250, 250, 0.92), rgb(255, 255, 255, 0.82));
+  box-shadow: 0 14px 30px rgb(0, 0, 0, 0.04);
 }
 
 .farrier-urgent-head-om {
@@ -332,7 +332,7 @@
   font-weight: 700;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: #a14b4b;
+  color: #656565;
 }
 
 .farrier-urgent-title-om {
@@ -357,8 +357,8 @@
   gap: 14px;
   padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(198, 86, 86, 0.12);
-  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgb(122, 122, 122, 0.12);
+  background: rgb(255, 255, 255, 0.86);
 }
 
 .farrier-urgent-card-main-om {
@@ -382,7 +382,7 @@
   padding: 0 14px;
   border-radius: 12px;
   border: 1px solid var(--om-border);
-  background: #fff;
+  background: #ffffff;
   color: var(--om-text);
   font-size: 13px;
   font-weight: 700;
@@ -401,7 +401,7 @@
   padding: 18px;
   border-radius: 22px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgb(255, 255, 255, 0.72);
   backdrop-filter: blur(16px);
   text-align: left;
   cursor: pointer;
@@ -412,13 +412,13 @@
 
 .farrier-summary-card-om:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgb(255, 255, 255, 0.92);
   border-color: var(--om-border-strong);
 }
 
 .farrier-summary-card-om.active {
-  border-color: rgba(185, 146, 90, 0.32);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 242, 233, 0.96));
+  border-color: rgb(152, 152, 152, 0.32);
+  background: linear-gradient(180deg, rgb(255, 255, 255, 0.96), rgb(243, 243, 243, 0.96));
 }
 
 .farrier-summary-top-om {
@@ -457,21 +457,21 @@
 }
 
 .farrier-badge-red-strong-om {
-  background: rgba(198, 86, 86, 0.14);
-  color: #963d3d;
-  border: 1px solid rgba(198, 86, 86, 0.18);
+  background: rgb(122, 122, 122, 0.14);
+  color: #5a5a5a;
+  border: 1px solid rgb(122, 122, 122, 0.18);
 }
 
 .farrier-badge-red-om {
-  background: rgba(198, 86, 86, 0.1);
-  color: #a14b4b;
-  border: 1px solid rgba(198, 86, 86, 0.12);
+  background: rgb(122, 122, 122, 0.1);
+  color: #656565;
+  border: 1px solid rgb(122, 122, 122, 0.12);
 }
 
 .farrier-badge-yellow-om {
-  background: rgba(185, 146, 90, 0.12);
-  color: #8b6b3e;
-  border: 1px solid rgba(185, 146, 90, 0.14);
+  background: rgb(152, 152, 152, 0.12);
+  color: #707070;
+  border: 1px solid rgb(152, 152, 152, 0.14);
 }
 
 .farrier-mobile-list-om {
@@ -489,7 +489,7 @@
   padding: 14px;
   border-radius: 18px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgb(255, 255, 255, 0.78);
   box-shadow: var(--om-shadow);
   backdrop-filter: blur(12px);
   cursor: pointer;
@@ -543,8 +543,8 @@
   gap: 4px;
   padding: 10px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.66);
-  border: 1px solid rgba(18, 18, 18, 0.06);
+  background: rgb(255, 255, 255, 0.66);
+  border: 1px solid rgb(18, 18, 18, 0.06);
   min-width: 0;
   box-sizing: border-box;
 }
@@ -597,7 +597,7 @@
   overflow-x: auto;
   border-radius: 24px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgb(255, 255, 255, 0.72);
   backdrop-filter: blur(18px);
   box-shadow: var(--om-shadow);
 }
@@ -617,19 +617,19 @@
   text-transform: uppercase;
   color: var(--om-muted);
   border-bottom: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.56);
+  background: rgb(255, 255, 255, 0.56);
 }
 
 .farrier-table-om tbody td {
   padding: 16px 20px;
   font-size: 14px;
   color: var(--om-text);
-  border-bottom: 1px solid rgba(18, 18, 18, 0.06);
+  border-bottom: 1px solid rgb(18, 18, 18, 0.06);
   vertical-align: middle;
 }
 
 .farrier-table-om tbody tr:hover {
-  background: rgba(255, 255, 255, 0.42);
+  background: rgb(255, 255, 255, 0.42);
 }
 
 .farrier-horse-name-om {
@@ -667,27 +667,27 @@
 }
 
 .farrier-status-urgent-om {
-  background: #ffe5e5;
-  color: #c0392b;
-  border: 1px solid rgba(198, 86, 86, 0.18);
+  background: #ebebeb;
+  color: #6a6a6a;
+  border: 1px solid rgb(122, 122, 122, 0.18);
 }
 
 .farrier-status-overdue-om {
-  background: #fff0f0;
-  color: #d35400;
-  border: 1px solid rgba(198, 86, 86, 0.12);
+  background: #f3f3f3;
+  color: #7c7c7c;
+  border: 1px solid rgb(122, 122, 122, 0.12);
 }
 
 .farrier-status-soon-om {
-  background: #fff7e6;
-  color: #b7791f;
-  border: 1px solid rgba(185, 146, 90, 0.14);
+  background: #f8f8f8;
+  color: #868686;
+  border: 1px solid rgb(152, 152, 152, 0.14);
 }
 
 .farrier-status-ok-om {
-  background: #e8f5e9;
-  color: #2e7d32;
-  border: 1px solid rgba(103, 149, 119, 0.14);
+  background: #f1f1f1;
+  color: #6e6e6e;
+  border: 1px solid rgb(139, 139, 139, 0.14);
 }
 
 .farrier-table-btn-om {
@@ -695,7 +695,7 @@
   padding: 0 12px;
   border-radius: 11px;
   border: 1px solid var(--om-border);
-  background: #fff;
+  background: #ffffff;
   color: var(--om-text);
   font-size: 12px;
   font-weight: 700;
@@ -714,7 +714,7 @@
 }
 
 .farrier-click-row-om:focus-visible {
-  outline: 2px solid rgba(185, 146, 90, 0.4);
+  outline: 2px solid rgb(152, 152, 152, 0.4);
   outline-offset: -2px;
 }
 
@@ -733,8 +733,8 @@
   align-items: start;
   padding: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(18, 18, 18, 0.06);
-  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgb(18, 18, 18, 0.06);
+  background: rgb(255, 255, 255, 0.66);
   min-width: 0;
   box-sizing: border-box;
 }

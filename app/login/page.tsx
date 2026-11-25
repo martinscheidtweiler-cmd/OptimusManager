@@ -1,6 +1,7 @@
 'use client'
 
 import {useEffect,useState} from 'react'
+import Image from 'next/image'
 import {supabase} from '@/app/lib/supabaseClient'
 import './login.css'
 
@@ -37,7 +38,7 @@ export default function Login(){
  }
  return <main className="opt-login">
    <section className="opt-login-card">
-     <div className="opt-login-brand"><span className="opt-login-emblem">O</span><div><strong>OPTIMUS</strong><small>STALMANAGER</small></div></div>
+     <div className="opt-login-brand"><Image src="/optimus-logo-black.png" alt="Optimus" width={300} height={153} className="opt-login-logo" priority/></div>
      <h1>Welkom terug.</h1><p>Meld je aan om paarden en locaties te beheren.</p>
      <form onSubmit={e=>void submit(e)}>
        <label htmlFor="opt-email">E-mailadres</label><input id="opt-email" autoComplete="username" type="email" required value={email} onChange={e=>setEmail(e.target.value)}/>

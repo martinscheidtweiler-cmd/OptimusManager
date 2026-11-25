@@ -35,7 +35,7 @@ function makeIcon(n,maskable=false){
    const insideOuter=xx*xx+yy*yy<=1;
    const ix=(x-n/2)/(n*(maskable?.095:.12)),iy=(y-n/2)/(n*(maskable?.15:.182));
    const letter=insideOuter&&(ix*ix+iy*iy>=1);
-   const color=letter?[216,190,133,255]:border?[191,158,100,255]:[30,37,32,255];
+   const color=letter?[255,255,255,255]:border?[255,255,255,255]:[0,0,0,255];
    const offset=row+1+x*4;
    data[offset]=color[0];data[offset+1]=color[1];data[offset+2]=color[2];data[offset+3]=255;
   }

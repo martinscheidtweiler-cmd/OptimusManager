@@ -98,11 +98,11 @@
 }
 
 .deworm-stat-card.urgent {
-  border-color: rgba(191, 92, 92, 0.18);
+  border-color: rgb(122, 122, 122, 0.18);
 }
 
 .deworm-stat-card.warning {
-  border-color: rgba(185, 146, 90, 0.24);
+  border-color: rgb(152, 152, 152, 0.24);
 }
 
 .deworm-toolbar {
@@ -124,7 +124,7 @@
   padding: 0 14px;
   border-radius: 999px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.72);
+  background: rgb(255, 255, 255, 0.72);
   color: var(--om-text);
   font-size: 12px;
   font-weight: 600;
@@ -148,7 +148,7 @@
   height: 40px;
   border-radius: 12px;
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.76);
+  background: rgb(255, 255, 255, 0.76);
   color: var(--om-text);
   padding: 0 13px;
   outline: none;
@@ -162,8 +162,8 @@
 
 .deworm-search:focus {
   background: #ffffff;
-  border-color: rgba(185, 146, 90, 0.34);
-  box-shadow: 0 0 0 4px rgba(185, 146, 90, 0.08);
+  border-color: rgb(152, 152, 152, 0.34);
+  box-shadow: 0 0 0 4px rgb(152, 152, 152, 0.08);
 }
 
 .deworm-table-wrap {
@@ -247,8 +247,8 @@
   gap: 8px;
   padding: 12px 13px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(18, 18, 18, 0.06);
+  background: rgb(255, 255, 255, 0.72);
+  border: 1px solid rgb(18, 18, 18, 0.06);
 }
 
 .deworm-cell-top {
@@ -289,27 +289,27 @@
 }
 
 .deworm-badge.ok {
-  background: rgba(118, 164, 118, 0.14);
-  border: 1px solid rgba(118, 164, 118, 0.22);
-  color: #4f7750;
+  background: rgb(153, 153, 153, 0.14);
+  border: 1px solid rgb(153, 153, 153, 0.22);
+  color: #6d6d6d;
 }
 
 .deworm-badge.overdue {
-  background: rgba(191, 92, 92, 0.12);
-  border: 1px solid rgba(191, 92, 92, 0.18);
-  color: #a85656;
+  background: rgb(122, 122, 122, 0.12);
+  border: 1px solid rgb(122, 122, 122, 0.18);
+  color: #6e6e6e;
 }
 
 .deworm-badge.due-soon {
-  background: rgba(185, 146, 90, 0.14);
-  border: 1px solid rgba(185, 146, 90, 0.2);
-  color: #8d6b3e;
+  background: rgb(152, 152, 152, 0.14);
+  border: 1px solid rgb(152, 152, 152, 0.2);
+  color: #717171;
 }
 
 .deworm-badge.missing {
-  background: rgba(120, 110, 100, 0.1);
-  border: 1px solid rgba(120, 110, 100, 0.14);
-  color: #73695f;
+  background: rgb(112, 112, 112, 0.1);
+  border: 1px solid rgb(112, 112, 112, 0.14);
+  color: #6b6b6b;
 }
 
 .deworm-actions-col {
@@ -336,7 +336,7 @@
 
 .deworm-action-btn:hover {
   border-color: var(--om-border-strong);
-  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 6px 14px rgb(0, 0, 0, 0.05);
 }
 
 .deworm-action-btn:disabled {
@@ -434,8 +434,8 @@
   align-items: center;
   padding: 10px 12px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
-  border: 1px solid rgba(18, 18, 18, 0.06);
+  background: rgb(255, 255, 255, 0.72);
+  border: 1px solid rgb(18, 18, 18, 0.06);
 }
 
 .deworm-history-col {
@@ -471,9 +471,9 @@
   width: 28px;
   height: 28px;
   border-radius: 9px;
-  border: 1px solid rgba(191, 92, 92, 0.16);
-  background: rgba(191, 92, 92, 0.06);
-  color: #a85656;
+  border: 1px solid rgb(122, 122, 122, 0.16);
+  background: rgb(122, 122, 122, 0.06);
+  color: #6e6e6e;
   font-size: 18px;
   line-height: 1;
   cursor: pointer;
@@ -481,8 +481,8 @@
 }
 
 .deworm-delete-icon-btn:hover {
-  background: rgba(191, 92, 92, 0.12);
-  border-color: rgba(191, 92, 92, 0.24);
+  background: rgb(122, 122, 122, 0.12);
+  border-color: rgb(122, 122, 122, 0.24);
 }
 
 .deworm-inline-history-row,
@@ -562,7 +562,7 @@
 
 .deworm-secondary-btn {
   border: 1px solid var(--om-border);
-  background: rgba(255, 255, 255, 0.78);
+  background: rgb(255, 255, 255, 0.78);
   color: var(--om-text);
 }
 

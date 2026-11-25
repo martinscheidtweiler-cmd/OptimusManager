@@ -1,6 +1,6 @@
 'use client'
 
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabaseClient'
 import styles from './HorsesTab.module.css'
@@ -42,6 +42,8 @@ type Horse = {
   pregnancy_notes: string | null
   notes: string | null
 }
+
+type HorseEditValues = Pick<Horse, 'name' | 'registered_name' | 'horse_number' | 'horse_type' | 'notes' | 'ueln' | 'microchip' | 'registered_sex' | 'birth_date'>
 
 type Vaccination = {
   id: string
@@ -90,11 +92,14 @@ export default function HorsesTab({
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<'All' | 'Active' | 'Inactive'>('Active')
   const [selectedHorseId, setSelectedHorseId] = useState<string | null>(null)
+  const [editingHorse, setEditingHorse] = useState<Horse | null>(null)
   const [noteDraft, setNoteDraft] = useState('')
   const [noteEditing, setNoteEditing] = useState(false)
   const [noteSaving, setNoteSaving] = useState(false)
   const [noteFeedback, setNoteFeedback] = useState('')
   const [showAllActivity, setShowAllActivity] = useState(false)
+  const [archivingHorseId, setArchivingHorseId] = useState<string | null>(null)
+  const [listFeedback, setListFeedback] = useState('')
 
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([])
   const [vaccinationsLoading, setVaccinationsLoading] = useState(false)
@@ -301,6 +306,21 @@ export default function HorsesTab({
     return horses.find((horse) => horse.id === selectedHorseId) || null
   }, [horses, selectedHorseId])
 
+  const openHorseEdit = (horse: Horse) => setEditingHorse(horse)
+
+  const saveHorseEdits = async (horse: Horse, values: HorseEditValues) => {
+    const { error } = await supabase.from('horses').update(values).eq('id', horse.id)
+    if (error) {
+      console.error('Error updating horse:', error)
+      return 'Could not save the horse. Please try again.'
+    }
+
+    setHorses((current) => current.map((item) => item.id === horse.id ? { ...item, ...values } : item))
+    setListFeedback(`${values.registered_name || values.name} was updated.`)
+    setEditingHorse(null)
+    return null
+  }
+
   const fluVaccinations = useMemo(() => {
     return vaccinations.filter((v) => v.vaccine_type === 'flu_tetanus')
   }, [vaccinations])
@@ -434,6 +454,47 @@ export default function HorsesTab({
     setNoteSaving(false)
   }
 
+  const archiveHorse = async (horse: Horse) => {
+    const name = getHorseDisplayName(horse)
+    const confirmed = window.confirm(
+      `Remove ${name} from the active horse list? Its care and medical history will be kept. You can find it again by selecting “Inactive only”.`
+    )
+    if (!confirmed) return
+
+    setArchivingHorseId(horse.id)
+    setListFeedback('')
+    const { error } = await supabase
+      .from('horses')
+      .update({ active: false, stable_status: 'inactive' })
+      .eq('id', horse.id)
+
+    if (error) {
+      console.error('Error archiving horse:', error)
+      setListFeedback(`Could not remove ${name}. Please try again.`)
+    } else {
+      setHorses((current) => current.map((item) => item.id === horse.id
+        ? { ...item, active: false, stable_status: 'inactive' }
+        : item))
+      if (selectedHorseId === horse.id) closeHorse()
+      setListFeedback(`${name} was removed from the active list. Its history is preserved.`)
+    }
+    setArchivingHorseId(null)
+  }
+
+  const restoreHorse = async (horse: Horse) => {
+    setArchivingHorseId(horse.id)
+    setListFeedback('')
+    const { error } = await supabase.from('horses').update({ active: true, stable_status: 'active' }).eq('id', horse.id)
+    if (error) {
+      console.error('Error restoring horse:', error)
+      setListFeedback(`Could not restore ${getHorseDisplayName(horse)}. Please try again.`)
+    } else {
+      setHorses((current) => current.map((item) => item.id === horse.id ? { ...item, active: true, stable_status: 'active' } : item))
+      setListFeedback(`${getHorseDisplayName(horse)} is active again.`)
+    }
+    setArchivingHorseId(null)
+  }
+
   const yesNo = (value: boolean | null) => {
     if (value === true) return 'Yes'
     if (value === false) return 'No'
@@ -499,10 +560,13 @@ export default function HorsesTab({
 
           <div className={styles.profileActions}>
             <button className={styles.profileAddButton} onClick={() => onVetQuickAction?.('Visits', selectedHorse.id)}>+ Add record</button>
-            <button className={styles.printButton} onClick={() => router.push('/move')}>↔ Move horse</button>
-            <button className={styles.primaryButton} onClick={() => router.push(`/horses/${selectedHorse.id}/edit`)}>Edit profile</button>
+            <button className={styles.printButton} onClick={() => router.push(`/move?horse=${encodeURIComponent(selectedHorse.id)}`)}>↔ Move horse</button>
+            <button className={styles.primaryButton} onClick={() => openHorseEdit(selectedHorse)}>Edit horse</button>
+            {selectedHorse.active === false ? <button type="button" className={styles.archiveButton} onClick={() => void restoreHorse(selectedHorse)} disabled={archivingHorseId === selectedHorse.id}>{archivingHorseId === selectedHorse.id ? 'Restoring…' : 'Restore horse'}</button> : <button type="button" className={styles.archiveButton} onClick={() => void archiveHorse(selectedHorse)} disabled={archivingHorseId === selectedHorse.id}>{archivingHorseId === selectedHorse.id ? 'Removing…' : 'Remove horse'}</button>}
           </div>
         </div>
+
+        {listFeedback ? <div className={styles.listFeedback} role="status" aria-live="polite">{listFeedback}</div> : null}
 
         <div className={styles.printSheet}>
           <div className={styles.printSheetHeader}>
@@ -550,7 +614,7 @@ export default function HorsesTab({
         <div className={`${styles.quickActions} ${styles.noPrint}`}>
           <strong>Quick actions</strong>
           <button type="button" className={styles.quickPrimary} onClick={() => onVetQuickAction?.('Visits', selectedHorse.id)}>+ Log care</button>
-          <button type="button" onClick={() => router.push('/move')}>↔ Move horse</button>
+          <button type="button" onClick={() => router.push(`/move?horse=${encodeURIComponent(selectedHorse.id)}`)}>↔ Move horse</button>
           <button type="button" onClick={() => { setNoteEditing(true); setNoteFeedback('') }}>＋ Add note</button>
         </div>
 
@@ -561,7 +625,7 @@ export default function HorsesTab({
           </section>
 
           <section className={styles.profilePanel}>
-            <div className={styles.profilePanelHeading}><div><span className={styles.panelIcon}>♘</span><h3>Horse details</h3></div><button type="button" className={styles.textAction} onClick={() => router.push(`/horses/${selectedHorse.id}/edit`)}>Edit profile</button></div>
+            <div className={styles.profilePanelHeading}><div><span className={styles.panelIcon}>♘</span><h3>Horse details</h3></div><button type="button" className={styles.textAction} onClick={() => openHorseEdit(selectedHorse)}>Edit horse</button></div>
             <dl className={styles.detailFacts}>
               <div><dt>Type</dt><dd>{selectedHorse.horse_type || '—'}</dd></div>
               <div><dt>Stable number</dt><dd>{selectedHorse.horse_number || '—'}</dd></div>
@@ -579,6 +643,7 @@ export default function HorsesTab({
             </dl>
           </section>
         </div>
+        {editingHorse ? <HorseEditDialog horse={editingHorse} onClose={() => setEditingHorse(null)} onSave={saveHorseEdits} /> : null}
       </section>
     )
   }
@@ -597,6 +662,8 @@ export default function HorsesTab({
           <strong>{filteredHorses.length}</strong>
         </div>
       </div>
+
+      {listFeedback ? <div className={styles.listFeedback} role="status" aria-live="polite">{listFeedback}</div> : null}
 
       <div className={styles.toolbar}>
         <div className={styles.searchWrap}>
@@ -629,7 +696,7 @@ export default function HorsesTab({
           <div>Type</div>
           <div>Status</div>
           <div>Location</div>
-          <div></div>
+          <div>Actions</div>
         </div>
 
         <div className={styles.tableBody}>
@@ -640,19 +707,9 @@ export default function HorsesTab({
               <div
                 key={horse.id}
                 className={styles.row}
-                onClick={() => openHorse(horse)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault()
-                    openHorse(horse)
-                  }
-                }}
-                aria-label={`Open details for ${getHorseDisplayName(horse)}`}
               >
                 <div className={styles.nameCell}>
-                  <div className={styles.name}>{getHorseDisplayName(horse)}</div>
+                  <button type="button" className={styles.nameOpenButton} onClick={() => void openHorse(horse)} aria-label={`Open details for ${getHorseDisplayName(horse)}`}>{getHorseDisplayName(horse)}</button>
                   <div className={styles.nameMetadata}>
                     {horse.horse_number ? <span className={styles.numberBadge}>No. {horse.horse_number}</span> : null}
                   </div>
@@ -668,8 +725,10 @@ export default function HorsesTab({
 
                 <div className={styles.tableMuted}>{getStableLocationLabel(horse)}</div>
 
-                <div className={styles.openCell}>
-                  <span className={styles.rowActionArrow}>→</span>
+                <div className={styles.rowActions}>
+                  <button type="button" className={styles.rowActionButton} onClick={() => openHorseEdit(horse)}>Edit</button>
+                  <button type="button" className={styles.rowActionButton} onClick={() => router.push(`/move?horse=${encodeURIComponent(horse.id)}`)}>Move</button>
+                  {horse.active === false ? <button type="button" className={styles.rowActionButton} onClick={() => void restoreHorse(horse)} disabled={archivingHorseId === horse.id}>{archivingHorseId === horse.id ? 'Restoring…' : 'Restore'}</button> : <button type="button" className={styles.rowRemoveButton} onClick={() => void archiveHorse(horse)} disabled={archivingHorseId === horse.id}>{archivingHorseId === horse.id ? 'Removing…' : 'Remove'}</button>}
                 </div>
               </div>
             ))}
@@ -679,6 +738,82 @@ export default function HorsesTab({
           )}
         </div>
       </div>
+      {editingHorse ? <HorseEditDialog horse={editingHorse} onClose={() => setEditingHorse(null)} onSave={saveHorseEdits} /> : null}
     </section>
+  )
+}
+
+function HorseEditDialog({
+  horse,
+  onClose,
+  onSave,
+}: {
+  horse: Horse
+  onClose: () => void
+  onSave: (horse: Horse, values: HorseEditValues) => Promise<string | null>
+}) {
+  const initialName = horse.registered_name?.trim() || (/^\d+$/.test(horse.name.trim()) ? '' : horse.name)
+  const [name, setName] = useState(initialName)
+  const [number, setNumber] = useState(horse.horse_number || '')
+  const [type, setType] = useState<HorseType | ''>(horse.horse_type || '')
+  const [notes, setNotes] = useState(horse.notes || '')
+  const [ueln, setUeln] = useState(horse.ueln || '')
+  const [microchip, setMicrochip] = useState(horse.microchip || '')
+  const [registeredSex, setRegisteredSex] = useState(horse.registered_sex || '')
+  const [birthDate, setBirthDate] = useState(horse.birth_date?.slice(0, 10) || '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !saving) onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose, saving])
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!name.trim()) {
+      setError('Enter the horse’s official name.')
+      return
+    }
+    setSaving(true)
+    setError('')
+    const result = await onSave(horse, {
+      name: name.trim(),
+      registered_name: name.trim(),
+      horse_number: number.trim() || null,
+      horse_type: type || null,
+      notes: notes.trim() || null,
+      ueln: ueln.trim() || null,
+      microchip: microchip.trim() || null,
+      registered_sex: registeredSex.trim() || null,
+      birth_date: birthDate || null,
+    })
+    if (result) setError(result)
+    setSaving(false)
+  }
+
+  return (
+    <div className={styles.editOverlay} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose() }}>
+      <section className={styles.editDialog} role="dialog" aria-modal="true" aria-labelledby="horse-edit-title">
+        <div className={styles.editDialogHeader}>
+          <div><span className={styles.kicker}>Horse details</span><h2 id="horse-edit-title">Edit horse</h2><p>Change the main details here. Use Move to record a new location.</p></div>
+          <button type="button" className={styles.editCloseButton} aria-label="Close" onClick={onClose} disabled={saving}>×</button>
+        </div>
+        <form onSubmit={(event) => void submit(event)}>
+          <div className={styles.editFormGrid}>
+            <label className={styles.editField}>Official horse name<input autoFocus value={name} onChange={(event) => setName(event.target.value)} maxLength={160} required /></label>
+            <label className={styles.editField}>Horse number<input value={number} onChange={(event) => setNumber(event.target.value)} maxLength={32} /></label>
+            <label className={styles.editField}>Type<select value={type} onChange={(event) => setType(event.target.value as HorseType | '')}><option value="">Choose type</option>{(['Sport horse', 'Young horse', 'Foal', 'Mare', 'Mare with foal'] as HorseType[]).map((item) => <option value={item} key={item}>{item}</option>)}</select></label>
+            <label className={`${styles.editField} ${styles.editNotes}`}>Notes<textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} maxLength={5000} /></label>
+          </div>
+          <details className={styles.editExtra}><summary>Identification details</summary><div className={styles.editFormGrid}><label className={styles.editField}>UELN<input value={ueln} onChange={(event) => setUeln(event.target.value)} maxLength={64} /></label><label className={styles.editField}>Microchip<input value={microchip} onChange={(event) => setMicrochip(event.target.value)} maxLength={64} /></label><label className={styles.editField}>Registered sex<input value={registeredSex} onChange={(event) => setRegisteredSex(event.target.value)} maxLength={40} /></label><label className={styles.editField}>Date of birth<input type="date" value={birthDate} onChange={(event) => setBirthDate(event.target.value)} /></label></div></details>
+          {error ? <p className={styles.editError} role="alert">{error}</p> : null}
+          <div className={styles.editDialogActions}><button type="button" className={styles.rowActionButton} onClick={onClose} disabled={saving}>Cancel</button><button type="submit" className={styles.quickPrimary} disabled={saving}>{saving ? 'Saving…' : 'Save changes'}</button></div>
+        </form>
+      </section>
+    </div>
   )
 }

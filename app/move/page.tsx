@@ -1,6 +1,7 @@
 'use client'
 
 import {useEffect,useMemo,useState} from 'react'
+import Image from 'next/image'
 import {supabase} from '@/app/lib/supabaseClient'
 import './move.css'
 
@@ -41,10 +42,12 @@ export default function MoveHorses(){
   const assigned=((horseResult.data||[]) as CurrentHorse[]).filter(h=>h.horse_active!==false)
   setHorses(assigned)
   const assignedIds=new Set(assigned.map(h=>h.horse_id))
-  setUnassigned((allHorsesResult.data||[]).filter(h=>!assignedIds.has(h.id)).map(h=>({
+  const unassignedHorses=(allHorsesResult.data||[]).filter(h=>!assignedIds.has(h.id)).map(h=>({
    horse_id:h.id,horse_name:h.name,horse_active:true,site_id:'',unit_id:null,site_name:'',unit_name:null,
    assigned_at:'',moved_by:null,legacy_location:h.stable_location
   })))
+  setUnassigned(unassignedHorses)
+  return {assigned,unassigned:unassignedHorses}
  }
  useEffect(()=>{
   let live=true
@@ -57,7 +60,18 @@ export default function MoveHorses(){
     if(!live)return
     setProfile(account as Profile)
     setAuthorized(true)
-    await refresh()
+    const places=await refresh()
+    const focusHorseId=new URLSearchParams(window.location.search).get('horse')
+    if(focusHorseId){
+     const currentPlace=places.assigned.find(h=>h.horse_id===focusHorseId)
+     if(currentPlace?.unit_id){
+      setSource(currentPlace.unit_id)
+      setExcluded(places.assigned.filter(h=>h.unit_id===currentPlace.unit_id&&h.horse_id!==focusHorseId).map(h=>h.horse_id))
+     }else if(places.unassigned.some(h=>h.horse_id===focusHorseId)){
+      setSource('__unassigned__')
+      setIncluded([focusHorseId])
+     }
+    }
    }catch(e){if(live)setError(e instanceof Error?e.message:'Kon gegevens niet laden.')}
    finally{if(live)setReady(true)}
   }
@@ -100,7 +114,7 @@ export default function MoveHorses(){
  if(!ready)return <main className="quick-move-page"><p>Locaties laden…</p></main>
  if(!authorized)return <main className="quick-move-page"><div className="quick-move-alert"><h1>Geen toegang</h1><p>{error}</p><a href="/login">Aanmelden</a></div></main>
  return <main className="quick-move-page">
-   <header className="quick-move-header"><div className="quick-move-brand"><span>O</span><div><strong>OPTIMUS</strong><small>PAARDEN VERPLAATSEN</small></div></div><div className="quick-move-user"><span>{profile?.name}</span>{profile?.role==='admin'?<a href="/manager?tab=Place">Beheer</a>:null}<button type="button" onClick={()=>void signOut()}>Uitloggen</button></div></header>
+   <header className="quick-move-header"><div className="quick-move-brand"><Image src="/optimus-logo-black.png" alt="Optimus" width={220} height={112} className="quick-move-brand-logo" priority/></div><div className="quick-move-user"><span>{profile?.name}</span>{profile?.role==='admin'?<a href="/manager?tab=Place">Beheer</a>:null}<button type="button" onClick={()=>void signOut()}>Uitloggen</button></div></header>
    <section className="quick-move-intro"><span>SNELLE REGISTRATIE</span><h1>Verplaats een groep.</h1><p>Kies waar de paarden nu staan en waar ze naartoe gaan. Alle paarden van de huidige weide worden automatisch geselecteerd.</p></section>
    {error?<p role="alert" className="quick-move-error">{error}</p>:null}
    {message?<p role="status" aria-live="polite" className="quick-move-success">{message}</p>:null}

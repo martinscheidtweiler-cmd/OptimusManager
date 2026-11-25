@@ -12,6 +12,8 @@ const destination = resolve(root, 'public/tasks')
 await rm(destination, { recursive: true, force: true })
 await mkdir(destination, { recursive: true })
 await cp(resolve(source, 'dist'), destination, { recursive: true })
+await cp(resolve(root, 'public/optimus-logo-black.png'), resolve(destination, 'optimus-logo-black.png'))
+await cp(resolve(root, 'public/optimus-logo-white.png'), resolve(destination, 'optimus-logo-white.png'))
 
 const indexPath = resolve(destination, 'index.html')
 let html = await readFile(indexPath, 'utf8')

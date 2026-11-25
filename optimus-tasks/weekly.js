@@ -29,7 +29,7 @@ function timeline(p,d){
  if(!cap)return '<td><span class="chip">Vrij</span></td>';
  const used=ctx.tasks.filter(t=>t.person_id===p.id&&t.due_date===d).reduce((n,t)=>n+(t.planned_minutes||30),0)+riders.filter(t=>t.person_id===p.id&&t.date===d&&!ctx.tasks.some(x=>x.source_key===t.key)).reduce((n,t)=>n+(t.minutes||40),0)+proposal.filter(t=>t.person_id===p.id&&t.date===d).reduce((n,t)=>n+t.minutes,0);
  const rest=cap-used;
- return '<td><strong style="color:'+(rest<0?'#b63e3e':rest<100?'#a7803d':'#337d50')+'">'+(rest<0?'-':'')+hr(rest)+'</strong><small style="display:block;color:#989f97">'+hr(used)+' taken</small></td>';
+ return '<td><strong style="color:'+(rest<0?'#686868':rest<100?'#868686':'#6f6f6f')+'">'+(rest<0?'-':'')+hr(rest)+'</strong><small style="display:block;color:#9d9d9d">'+hr(used)+' taken</small></td>';
 }
 function show(){
  const dates=days.map((_,i)=>add(week,i));

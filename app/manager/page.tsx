@@ -1,6 +1,7 @@
 'use client'
 
 import {useEffect,useState} from 'react'
+import Image from 'next/image'
 import {supabase} from '@/app/lib/supabaseClient'
 
 import TodayTab from '@/app/components/TodayTab/TodayTab'
@@ -113,11 +114,11 @@ export default function ManagerModules(){
   }
  }
  if(!ready)return <main className="td-loading">Optimus wordt geladen…</main>
- if(authError)return <main className="td-auth"><div><div className="td-auth-logo">O</div><h1>Optimus Manager</h1><p>{authError}</p><a href="/login">Aanmelden</a></div></main>
+ if(authError)return <main className="td-auth"><div><Image src="/optimus-logo-black.png" alt="Optimus" width={300} height={153} className="td-auth-logo" priority/><h1>Optimus Manager</h1><p>{authError}</p><a href="/login">Aanmelden</a></div></main>
 
  return <div className={`td-app${mobileMoreOpen?' td-mobile-more-open':''}`}>
    <aside className="td-sidebar">
-     <div className="td-brandline"><div className="td-logo">O</div><div><div className="td-brand">OPTIMUS</div><small>STALMANAGER</small></div></div>
+     <div className="td-brandline"><Image src="/optimus-logo-white.png" alt="Optimus" width={220} height={112} className="td-brandmark" priority/></div>
      <nav className="td-nav" aria-label="Optimus modules">
        {modules.map(m=><button type="button" key={m.key} className={active===m.key?'active':''} onClick={()=>selectTab(m.key)}><span>{m.symbol}</span>{m.label}</button>)}
      </nav>
@@ -133,7 +134,7 @@ export default function ManagerModules(){
        <button className="td-mobile-more-backdrop" type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)} />
        <section className="td-mobile-more-sheet" role="dialog" aria-modal="true" aria-labelledby="td-mobile-more-title">
          <div className="td-mobile-sheet-handle" />
-         <header className="td-mobile-sheet-header"><div><span>OPTIMUS STABLE</span><h2 id="td-mobile-more-title">Menu</h2></div><button type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)}>×</button></header>
+         <header className="td-mobile-sheet-header"><div><Image src="/optimus-logo-black.png" alt="Optimus" width={132} height={68} className="td-mobile-logo"/><h2 id="td-mobile-more-title">Menu</h2></div><button type="button" aria-label="Close menu" onClick={()=>setMobileMoreOpen(false)}>×</button></header>
          <div className="td-mobile-profile"><div className="td-avatar">{name.slice(0,2).toUpperCase()}</div><div><strong>{name}</strong><small>Beheerder</small></div></div>
          <nav className="td-mobile-more-links" aria-label="More sections">
            {mobileSecondary.map(m=><button key={m.key} type="button" className={active===m.key?'active':''} onClick={()=>selectTab(m.key)}><span>{m.symbol}</span><strong>{m.label}</strong><span className="td-mobile-link-arrow">›</span></button>)}

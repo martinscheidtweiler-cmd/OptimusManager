@@ -44,6 +44,7 @@ public class StaffLocationService extends Service implements LocationListener {
         boolean precise = checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         boolean approximate = checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
         if (!precise && !approximate) {
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", false).putString("last_error", "Locatietoegang ontbreekt").apply();
             stopSelf(); return START_NOT_STICKY;
         }
         try {
@@ -69,6 +70,8 @@ public class StaffLocationService extends Service implements LocationListener {
             }
             if (last != null && System.currentTimeMillis() - last.getTime() < 300000L) onLocationChanged(last);
         } catch (Exception e) {
+            String detail = e.getMessage() == null ? "Geen locatiebron beschikbaar" : e.getMessage();
+            getSharedPreferences("optimus_gps_state", MODE_PRIVATE).edit().putBoolean("active", false).putString("last_error", detail).apply();
             stopSelf();
             return START_NOT_STICKY;
         }

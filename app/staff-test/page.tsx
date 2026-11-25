@@ -1,0 +1,22 @@
+'use client'
+import {useEffect,useState} from 'react'
+const people=['Dries','Veronique','Martin','George','Terry','Barat']
+const places=['Serre','50','47b','Oostmal','Vremde','Bevel']
+const tasks=['Boxen','Hooi geven','Mest','Poetsen','Onderhoud','Andere']
+type Entry={person:string;place:string;task:string;start:number;end?:number}
+export default function StaffTest(){
+ const [person,P]=useState(''),[place,L]=useState(''),[contact,C]=useState(false),[entries,E]=useState<Entry[]>([]),[now,N]=useState(0),[dashboard,D]=useState(false)
+ useEffect(()=>{N(Date.now());try{E(JSON.parse(localStorage.getItem('optimus-staff-test')||'[]'))}catch{} const t=setInterval(()=>N(Date.now()),1000);return()=>clearInterval(t)},[])
+ const active=entries.find(e=>e.person===person&&!e.end)
+ function save(next:Entry[]){E(next);localStorage.setItem('optimus-staff-test',JSON.stringify(next))}
+ function stop(){save(entries.map(e=>e.person===person&&!e.end?{...e,end:Date.now()}:e))}
+ function start(task:string){const t=Date.now();save([...entries.map(e=>e.person===person&&!e.end?{...e,end:t}:e),{person,place,task,start:t}]);L('')}
+ function duration(e:Entry){return Math.max(0,Math.floor(((e.end||now)-e.start)/1000))}
+ function fmt(s:number){return [Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(n=>String(n).padStart(2,'0')).join(':')}
+ const today=entries.filter(e=>new Date(e.start).toDateString()===new Date(now).toDateString())
+ return <main style={{minHeight:'100vh',background:'#f4f5f3',color:'#17231d',fontFamily:'system-ui',padding:20}}><div style={{maxWidth:dashboard?1200:520,margin:'auto'}}>
+ <header style={{background:'#123e30',color:'white',padding:24,borderRadius:14,marginBottom:18}}><small>STAL OPTIMUS</small><h1 style={{fontSize:26,margin:'8px 0'}}>{dashboard?'Personeelsdashboard':'Optimus Tasks'}</h1><small>Testversie · gegevens alleen op dit toestel</small></header>
+ <style>{'.staffbtn{background:white;border:1px solid #cbd5cf;border-radius:10px;padding:17px;text-align:left;font-size:17px;font-weight:600;cursor:pointer;color:#173b30;width:100%;margin-bottom:8px}.staffprimary{background:#123e30;color:white}.staffcard{background:white;border:1px solid #dce3dd;padding:18px;border-radius:12px;margin-bottom:14px}'}</style>
+ {dashboard?<><button className="staffbtn" onClick={()=>D(false)}>Terug naar telefoonapp</button><div className="staffcard"><h2>Live overzicht op dit toestel</h2>{people.map(p=>{const e=entries.find(x=>x.person===p&&!x.end);return <p key={p}>{p} — {e?e.place+' · '+e.task+' · '+fmt(duration(e)):'Geen actieve taak'}</p>})}</div><div className="staffcard"><h2>Dagoverzicht</h2>{people.map(p=><div key={p}><strong>{p}</strong>{today.filter(e=>e.person===p).map((e,i)=><div key={i} style={{margin:'5px 0',background:'#e1eee6',padding:8,borderRadius:6}}>{new Date(e.start).toLocaleTimeString('nl-BE')} · {e.place} · {e.task} · {fmt(duration(e))}</div>)}</div>)}</div><div className="staffcard"><h2>Taakduur vandaag</h2>{tasks.map(t=>{const list=today.filter(e=>e.task===t&&e.end);const avg=list.length?list.reduce((s,e)=>s+duration(e),0)/list.length:0;return <p key={t}>{t} — {list.length} afgerond · gemiddeld {fmt(Math.floor(avg))}</p>})}</div></>:!person?<><h2>Wie ben je vandaag?</h2>{people.map(p=><button key={p} className="staffbtn" onClick={()=>P(p)}>{p} →</button>)}</>:<><div className="staffcard"><strong>{person}</strong><p>{active?active.task+' · '+active.place:'Geen actieve taak'}</p><h2>{active?fmt(duration(active)):'00:00:00'}</h2>{active&&<button className="staffbtn" onClick={stop}>Taak stoppen</button>}</div>{contact?<><button className="staffbtn" onClick={()=>C(false)}>← Terug</button><h2>Contact</h2>{people.map(p=><div className="staffcard" key={p}>{p} · nummer nog niet ingesteld</div>)}</>:place?<><button className="staffbtn" onClick={()=>L('')}>← Locaties</button><h2>{place}</h2>{tasks.map(t=><button key={t} className="staffbtn" onClick={()=>start(t)}>{t} →</button>)}</>:<><h2>Kies een locatie</h2><div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:8}}>{places.map(l=><button className="staffbtn" key={l} onClick={()=>L(l)}>{l} →</button>)}</div><button className="staffbtn staffprimary" onClick={()=>C(true)}>Contact</button><button className="staffbtn" onClick={()=>{stop();P('')}}>Werkdag beëindigen</button></>}</>}
+ {!dashboard&&<button className="staffbtn" onClick={()=>D(true)}>Testdashboard openen</button>}</div></main>
+}

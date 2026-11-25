@@ -39,7 +39,7 @@ export default function StaffDashboard() {
   const [entries, setEntries] = useState<Entry[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [error, setError] = useState('')
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(0)
   const [date, setDate] = useState(day(new Date()))
   const [tab, setTab] = useState('Overzicht')
   const [kind, setKind] = useState('staff_workers')
@@ -87,10 +87,10 @@ export default function StaffDashboard() {
   }, [date])
 
   useEffect(() => {
-    void load()
+    const initialLoad = window.setTimeout(() => void load(), 0)
     const refresh = window.setInterval(() => void load(), 15000)
     const tick = window.setInterval(() => setNow(Date.now()), 1000)
-    return () => { window.clearInterval(refresh); window.clearInterval(tick) }
+    return () => { window.clearTimeout(initialLoad); window.clearInterval(refresh); window.clearInterval(tick) }
   }, [load])
 
   const taskLabel = (id: number) => {

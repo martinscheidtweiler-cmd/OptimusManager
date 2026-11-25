@@ -355,9 +355,9 @@ public class MainActivity extends Activity {
     private void renderWorkday(JSONObject shift) {
         JSONObject entry = state.optJSONObject("entry");
         String location = entry == null ? "" : locationName(taskLocationId(entry.optLong("task_id")));
-        String taskName = entry == null ? "Geen actieve taak" : taskName(entry.optLong("task_id"));
+        String taskName = entry == null ? tr("Geen actieve taak", "No active task", "Aucune tâche active") : taskName(entry.optLong("task_id"));
         root.addView(label(tr("HUIDIGE TAAK", "CURRENT TASK", "TÂCHE EN COURS"), 11, false), params(-1, dp(28)));
-        root.addView(label(entry == null ? tr("Geen actieve taak", "No active task", "Aucune tâche active") : taskName + " · " + location, 18, true), params(-1, dp(44)));
+        root.addView(label(entry == null ? taskName : taskLabel(taskName) + " · " + locationLabel(location), 18, true), params(-1, dp(44)));
         TextView clock = label(entry == null ? "00:00:00" : elapsed(entry.optString("started_at")), 40, true);
         clock.setTypeface(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD);
         timerView = clock;
@@ -393,7 +393,7 @@ public class MainActivity extends Activity {
             JSONObject item = locations.optJSONObject(i);
             if (item == null) continue;
             long id = item.optLong("id");
-            Button b = button(item.optString("name", "Locatie"));
+            Button b = button(locationLabel(item.optString("name", "Locatie")));
             b.setOnClickListener(v -> { selectedLocation = id; render(); });
             GridLayout.LayoutParams lp = new GridLayout.LayoutParams();
             lp.width = 0;
@@ -416,13 +416,13 @@ public class MainActivity extends Activity {
         Button back = button(tr("← Locaties", "← Locations", "← Lieux"));
         back.setOnClickListener(v -> { selectedLocation = null; render(); });
         root.addView(back, params(-1, dp(46)));
-        root.addView(label(locationName(locationId), 18, true), params(-1, dp(48)));
+        root.addView(label(locationLabel(locationName(locationId)), 18, true), params(-1, dp(48)));
         JSONArray tasks = state.optJSONArray("tasks");
         for (int i = 0; tasks != null && i < tasks.length(); i++) {
             JSONObject item = tasks.optJSONObject(i);
             if (item == null || item.optLong("location_id") != locationId) continue;
             long id = item.optLong("id");
-            Button b = button(item.optString("name", "Taak") + "   ›");
+            Button b = button(taskLabel(item.optString("name", "Taak")) + "   ›");
             b.setOnClickListener(v -> change("task", id));
             root.addView(b, params(-1, dp(58)));
         }
@@ -481,6 +481,37 @@ public class MainActivity extends Activity {
             if (item != null && item.optLong("id") == locationId) return item.optString("name", "Locatie");
         }
         return "";
+    }
+
+    private String taskLabel(String name) {
+        String icon = name.startsWith("Voer geven") ? "🥣" : name.startsWith("Hooi geven") ? "🌾"
+                : name.startsWith("Stro geven") ? "🪵" : name.equals("Boxen uitmesten") ? "🧹"
+                : name.startsWith("Mest ") ? "💩" : name.equals("Paarden binnen zetten") ? "🏠"
+                : name.equals("Paarden buiten zetten") ? "🌳" : name.equals("Andere") ? "➕" : "📋";
+        String text;
+        if (name.equals("Voer geven")) text = tr("Voer geven", "Give feed", "Donner la ration");
+        else if (name.equals("Voer geven aan de boxen")) text = tr("Voer geven aan de boxen", "Feed horses in the boxes", "Nourrir les chevaux dans les boxes");
+        else if (name.equals("Boxen uitmesten")) text = tr("Boxen uitmesten", "Clean the boxes", "Nettoyer les boxes");
+        else if (name.equals("Stro geven in de boxen")) text = tr("Stro geven in de boxen", "Put straw in the boxes", "Mettre de la paille dans les boxes");
+        else if (name.equals("Hooi geven in de boxen")) text = tr("Hooi geven in de boxen", "Give hay in the boxes", "Donner du foin dans les boxes");
+        else if (name.equals("Hooi geven")) text = tr("Hooi geven", "Give hay", "Donner du foin");
+        else if (name.equals("Mest weghalen")) text = tr("Mest weghalen", "Remove manure", "Enlever le fumier");
+        else if (name.equals("Mest uithalen uit 7 bigboxen")) text = tr("Mest uithalen uit 7 bigboxen", "Remove manure from 7 large boxes", "Retirer le fumier des 7 grandes boxes");
+        else if (name.equals("Mest uithalen uit winterpaddock")) text = tr("Mest uithalen uit winterpaddock", "Remove manure from the winter paddock", "Retirer le fumier du paddock d’hiver");
+        else if (name.startsWith("Mest weghalen uit shelter ")) {
+            String shelter = name.substring("Mest weghalen uit shelter ".length());
+            text = tr("Mest weghalen uit shelter " + shelter, "Remove manure from shelter " + shelter, "Enlever le fumier de l’abri " + shelter);
+        } else if (name.equals("Paarden binnen zetten")) text = tr("Paarden binnen zetten", "Bring the horses inside", "Rentrer les chevaux");
+        else if (name.equals("Paarden buiten zetten")) text = tr("Paarden buiten zetten", "Turn the horses out", "Sortir les chevaux");
+        else if (name.equals("Andere")) text = tr("Andere", "Other", "Autre");
+        else text = name;
+        return icon + " " + text;
+    }
+
+    private String locationLabel(String name) {
+        if ("Serre".equals(name)) return "🌱 " + tr("Serre", "Greenhouse", "Serre");
+        if ("Paddock Paradise".equals(name)) return "🌿 " + name;
+        return "📍 " + name;
     }
 
     private String workerName(long workerId) {

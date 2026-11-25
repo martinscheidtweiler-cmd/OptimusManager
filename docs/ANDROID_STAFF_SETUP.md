@@ -39,6 +39,10 @@ The direct APK installation path is **Settings → Security/Privacy → Install 
 
 Blocking a phone closes its active task and shift and removes its current location. The app clears its local pairing data when it next reaches the server and learns that the code was revoked. A phone that is offline cannot learn about a revocation until it reconnects.
 
+## Staff tasks
+
+The six staff locations are **47b**, **50**, **Serre**, **Oostmal**, **Paddock Paradise** and **Vremde**. The phone app shows clear action names with task icons. The web staff page translates them in all seven supported languages (Dutch, English, Portuguese, Romanian, French, Dari and Pashto); the native Android app translates task names in Dutch, English and French.
+
 ## Location behavior
 
 Outside kiosk mode, location sharing is off by default and starts after the employee starts a shift, taps the location control, grants Android location access, and allows the persistent notification. In device-owner kiosk mode, Android grants the app's location and notification permissions; location sharing starts automatically for an active shift and the user cannot stop it from the app. The visible ongoing notification and on-screen GPS status remain present. Sharing stops when the workday ends. A foreground location service reports one latest position per active shift; the server does not keep a route history. Ending the shift stops location updates and clears the position. A workday with no GPS permission still works for time tracking.

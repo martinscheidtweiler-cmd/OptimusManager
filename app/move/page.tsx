@@ -45,7 +45,7 @@ export default function MoveHorses(){
   const unassignedHorses=(allHorsesResult.data||[]).filter(h=>!assignedIds.has(h.id)).map(h=>({
    horse_id:h.id,horse_name:h.name,horse_active:true,site_id:'',unit_id:null,site_name:'',unit_name:null,
    assigned_at:'',moved_by:null,legacy_location:h.stable_location
-  })))
+  }))
   setUnassigned(unassignedHorses)
   return {assigned,unassigned:unassignedHorses}
  }

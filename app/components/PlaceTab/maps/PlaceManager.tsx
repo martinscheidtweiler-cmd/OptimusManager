@@ -118,14 +118,13 @@ const SKW_ZONES: Zone[] = [
 
 const SERRE_ZONES: Zone[] = Array.from({length:28}, (_, i) => {
   const n = i + 1
-  const x = n <= 5 ? 15 : n <= 15 ? 252 : 489
-  const y = 18 + (n <= 5 ? n - 1 : n <= 15 ? n - 5 : n - 15) * 34
-  return { id: 'serre-' + n, name: 'Box ' + n, unitType: 'stable', points: `${x},${y} ${x+210},${y} ${x+210},${y+34} ${x},${y+34}` }
+  const x = n <= 5 ? 445 : n <= 15 ? 615 : 790
+  const y = 143 + (n <= 5 ? n - 1 : n <= 15 ? n - 5 : n - 15) * 32
+  return { id: 'serre-' + n, name: 'Box ' + n, unitType: 'stable', points: `${x},${y} ${x+150},${y} ${x+150},${y+32} ${x},${y+32}` }
 })
-const SERRE_BACKGROUND = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="714" height="508" viewBox="0 0 714 508"><rect width="714" height="508" fill="#e7e7e7"/><path d="M5 5H709V503H242V195H5Z" fill="#f8f8f8" stroke="#444" stroke-width="2"/><path d="M5 195H242V503H5Z" fill="#d4d4d4"/><text x="120" y="218" text-anchor="middle" font-size="12" fill="#555">Bijgebouwen</text></svg>')
 
 const SITE_MAPS: Record<string, { image: string; viewBox: string; zones: Zone[] }> = {
-  serre: { image: SERRE_BACKGROUND, viewBox: '0 0 714 508', zones: SERRE_ZONES },
+  serre: { image: '/maps/serre-map.jpg', viewBox: '0 0 1400 940', zones: SERRE_ZONES },
   vremde: { image: '/maps/vremde-map.png', viewBox: '0 0 629 628', zones: VREMDE_ZONES },
   bevel: { image: '/maps/bevel-map.png', viewBox: '0 0 629 628', zones: BEVEL_ZONES },
   skw: { image: '/maps/skw-map.png', viewBox: '0 0 629 628', zones: SKW_ZONES },
@@ -804,8 +803,8 @@ export default function PlaceManager({
                     const [x,y] = zone.points.split(' ')[0].split(',').map(Number)
                     const names = zone.horses.map(h => h.horse_name).join(' + ') || 'Leeg'
                     return <g key={'label-'+zone.id} pointerEvents="none">
-                      <text x={x+105} y={y+11} textAnchor="middle" fontSize="9" fontWeight="700" fill="#111" stroke="#fff" strokeWidth="2" paintOrder="stroke">{zone.name}</text>
-                      <text x={x+105} y={y+25} textAnchor="middle" fontSize={names.length>30?8:11} fontWeight="600" fill="#111" stroke="#fff" strokeWidth="2" paintOrder="stroke">{names}</text>
+                      <text x={x+75} y={y+11} textAnchor="middle" fontSize="9" fontWeight="700" fill="#111" stroke="#fff" strokeWidth="2" paintOrder="stroke">{zone.name}</text>
+                      <text x={x+75} y={y+25} textAnchor="middle" fontSize={names.length>24?8:11} fontWeight="600" fill="#111" stroke="#fff" strokeWidth="2" paintOrder="stroke">{names}</text>
                     </g>
                   })}
                 </svg>

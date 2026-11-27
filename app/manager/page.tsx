@@ -7,6 +7,7 @@ import {supabase} from '@/app/lib/supabaseClient'
 import TodayTab from '@/app/components/TodayTab/TodayTab'
 import HorsesTab from '@/app/components/HorsesTab/HorsesTab'
 import VetTab from '@/app/components/VetTab/VetTab'
+import EarthTab from '@/app/components/EarthTab/EarthTab'
 import PlaceTab from '@/app/components/PlaceTab/PlaceTab'
 import FarrierTab from '@/app/components/FarrierTab/FarrierTab'
 import StockTab from '@/app/components/StockTab/StockTab'
@@ -15,7 +16,7 @@ import HorseIdTab from '@/app/components/HorseIdTab/HorseIdTab'
 import StaffDashboard from '@/app/components/StaffDashboard/StaffDashboard'
 import './desktop.css'
 
-type Module = 'Today'|'Horses'|'Vet'|'Place'|'Farrier'|'Stock'|'HorseID'|'Staff'
+type Module = 'Today'|'Horses'|'Vet'|'Place'|'Earth'|'Farrier'|'Stock'|'HorseID'|'Staff'
 type VetQuickRequest={menu:'Vaccinations'|'Deworming'|'Visits';horseId:string;vaccineType?:'flu_tetanus'|'rhino'}
 type NavItem = {key:Module;label:string;symbol:string}
 const modules:NavItem[]=[
@@ -23,6 +24,7 @@ const modules:NavItem[]=[
  {key:'Horses',label:'Paarden',symbol:'♞'},
  {key:'Vet',label:'Dierenarts',symbol:'✚'},
  {key:'Place',label:'Locaties',symbol:'⌖'},
+ {key:'Earth',label:'Optimus Earth',symbol:'◎'},
  {key:'Farrier',label:'Hoefsmid',symbol:'∷'},
  {key:'Stock',label:'Medicatie',symbol:'▤'},
  {key:'HorseID',label:'HorseID',symbol:'✉'},
@@ -102,7 +104,7 @@ export default function ManagerModules(){
  const activeLabel=modules.find(m=>m.key===active)?.label||active
  const mobileMoreActive=!(['Today','Horses','Vet'] as Module[]).includes(active)
  const mobilePrimary=modules.filter(m=>['Today','Horses','Vet'].includes(m.key))
- const mobileSecondary=modules.filter(m=>['Place','Farrier','Stock','HorseID','Staff'].includes(m.key))
+ const mobileSecondary=modules.filter(m=>['Place','Earth','Farrier','Stock','HorseID','Staff'].includes(m.key))
 
  function renderModule(){
   switch(active){
@@ -110,6 +112,7 @@ export default function ManagerModules(){
    case 'Horses':return <HorsesTab onVetQuickAction={openHorseCare}/>
    case 'Vet':return <VetTab key={vetKey} initialRequest={vetRequest}/>
    case 'Place':return <PlaceTab/>
+   case 'Earth':return <EarthTab/>
    case 'Farrier':return <FarrierTab key={farrierKey} initialHorseId={farrierInitialHorseId || undefined}/>
    case 'Stock':return <StockTab/>
    case 'HorseID':return <HorseIdTab/>

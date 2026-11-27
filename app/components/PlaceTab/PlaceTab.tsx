@@ -8,7 +8,7 @@ import './PlaceTab.css'
 
 type Site = { id:string; slug:string; name:string }
 type DragPayload = { horseIds:string[] }
-const mappedSites = new Set(['vremde','sint-katelijne-waver','bevel'])
+const mappedSites = new Set(['vremde','sint-katelijne-waver','bevel','serre'])
 function getDraggedHorseIds(e:DragEvent):string[]{
  try{
   const raw=e.dataTransfer.getData('application/json')

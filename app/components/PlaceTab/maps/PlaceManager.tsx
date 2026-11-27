@@ -196,7 +196,7 @@ export default function PlaceManager({
 
   const [showAllSiteHorses, setShowAllSiteHorses] = useState(false)
 
-  const currentMap = SITE_MAPS[siteSlug] ?? null
+  const currentMap = SITE_MAPS[siteSlug.trim().toLowerCase()] ?? (siteLabel.trim().toLowerCase() === 'serre' ? SITE_MAPS.serre : null)
   const hasMap = !!currentMap
 
   async function loadData() {
